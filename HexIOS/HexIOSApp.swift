@@ -12,7 +12,9 @@ import SwiftUI
 struct HexIOSApp: App {
     private let modelContainer: ModelContainer
     @State private var model: DictationModel
-    @State private var selectedTab: AppTab = .home
+    @State private var coachPreferences: CoachPreferences
+    @State private var coach: CoachService
+    @State private var selectedTab: AppTab = .review
     @Environment(\.scenePhase) private var scenePhase
 
     @MainActor
@@ -20,11 +22,14 @@ struct HexIOSApp: App {
         let container = TranscriptStore.makeContainer()
         modelContainer = container
         _model = State(initialValue: DictationModel(modelContext: container.mainContext))
+        let prefs = CoachPreferences()
+        _coachPreferences = State(initialValue: prefs)
+        _coach = State(initialValue: CoachService(modelContext: container.mainContext, preferences: prefs))
     }
 
     var body: some Scene {
         WindowGroup {
-            ContentView(model: model, selectedTab: $selectedTab)
+            ContentView(model: model, coach: coach, coachPreferences: coachPreferences, selectedTab: $selectedTab)
                 .modelContainer(modelContainer)
                 .onOpenURL { url in
                     guard url.scheme == "hexkb" else { return }
