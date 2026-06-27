@@ -37,6 +37,11 @@ struct ReviewView: View {
             .navigationTitle("Review")
             .toolbar {
                 if preferences.isReady {
+                    ToolbarItem(placement: .topBarLeading) {
+                        NavigationLink { PhrasebookView() } label: {
+                            Image(systemName: "bookmark")
+                        }
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         if coach.isAnalyzing {
                             ProgressView()
