@@ -12,33 +12,39 @@ import SwiftUI
 struct WaveformView: View {
     /// When false the bars rest at a calm baseline (no animation churn).
     var isActive: Bool
+    /// Bar color. Defaults to the accent; pass `.white` on a colored pill so the
+    /// bars don't clash with the fill.
+    var tint: Color = .accentColor
+    /// Bar width/height scale. The toolbar uses a compact variant.
+    var barWidth: CGFloat = 4
+    var maxHeight: CGFloat = 34
 
     private let barCount = 13
-    @State private var phase: CGFloat = 0
 
     var body: some View {
         TimelineView(.animation(minimumInterval: isActive ? 1.0 / 30.0 : nil, paused: !isActive)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
-            HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 ForEach(0 ..< barCount, id: \.self) { index in
                     Capsule()
-                        .fill(isActive ? Color.accentColor : Color.secondary.opacity(0.4))
-                        .frame(width: 4, height: barHeight(index: index, time: t))
+                        .fill(isActive ? tint : tint.opacity(0.4))
+                        .frame(width: barWidth, height: barHeight(index: index, time: t))
                 }
             }
-            .frame(height: 34)
+            .frame(height: maxHeight)
             .animation(.easeInOut(duration: 0.08), value: t)
         }
         .accessibilityHidden(true)
     }
 
     private func barHeight(index: Int, time: TimeInterval) -> CGFloat {
-        guard isActive else { return 6 }
+        let minBar = maxHeight * 0.22
+        guard isActive else { return minBar }
         // Each bar gets its own phase + speed so the wave looks organic.
         let speed = 4.0 + Double(index % 4)
         let offset = Double(index) * 0.6
         let wave = sin(time * speed + offset)
         let normalized = (wave + 1) / 2 // 0...1
-        return 8 + CGFloat(normalized) * 26
+        return minBar + CGFloat(normalized) * (maxHeight - minBar)
     }
 }

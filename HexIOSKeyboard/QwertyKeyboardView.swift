@@ -124,15 +124,13 @@ struct QwertyKeyboardView: View {
             banner(text: "Enable Full Access in Settings ▸ Keyboards",
                    systemImage: "exclamationmark.lock.fill",
                    tint: .orange)
-        case .inserting:
-            banner(text: "Inserted",
-                   systemImage: "checkmark.circle.fill",
-                   tint: .green)
         case .error(let message):
             banner(text: message,
                    systemImage: "exclamationmark.triangle.fill",
                    tint: .red)
-        case .idle, .recording, .needsBounce:
+        // `.inserting` deliberately shows nothing — the dictated text appearing in
+        // the host app is its own confirmation; a toast on top is noise.
+        case .idle, .recording, .inserting, .needsBounce:
             EmptyView()
         }
     }
@@ -253,8 +251,6 @@ private struct HexToolbar: View {
     let actions: KeyboardActions
     let colorScheme: ColorScheme
 
-    private let height: CGFloat = 50
-
     var body: some View {
         HStack(spacing: 8) {
             if state.isCapturing {
@@ -263,7 +259,7 @@ private struct HexToolbar: View {
                 idleControls
             }
         }
-        .frame(height: height)
+        .frame(height: toolbarHeight)
         .padding(.horizontal, 3)
     }
 
@@ -292,9 +288,12 @@ private struct HexToolbar: View {
 
         ToolbarPill(
             title: "Tap to stop",
-            fill: .red,
+            fill: KeyStyle.recordRed,
             enabled: true,
-            leading: { AnyView(WaveformView(isActive: true).frame(width: 30)) },
+            leading: { AnyView(
+                WaveformView(isActive: true, tint: .white, barWidth: 2.5, maxHeight: 18)
+                    .fixedSize()
+            ) },
             action: actions.onMic
         )
     }
@@ -334,16 +333,16 @@ private struct ToolbarPill: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 if let systemImage {
-                    Image(systemName: systemImage).font(.system(size: 17, weight: .semibold))
+                    Image(systemName: systemImage).font(.system(size: 15, weight: .semibold))
                 }
                 leading()
-                Text(title).font(.system(size: 17, weight: .semibold))
+                Text(title).font(.system(size: 16, weight: .semibold))
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 50)
+            .frame(height: toolbarHeight)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(fill)
+                RoundedRectangle(cornerRadius: 10, style: .continuous).fill(fill)
             )
             .scaleEffect(isPressed ? 0.98 : 1)
         }
@@ -368,11 +367,11 @@ private struct ToolbarIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .regular))
+                .font(.system(size: 17, weight: .regular))
                 .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
-                .frame(width: 46, height: 50)
+                .frame(width: 44, height: toolbarHeight)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(KeyStyle.specialFill(colorScheme))
                 )
         }
@@ -389,12 +388,12 @@ private struct ToolbarTextButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 16, weight: .regular))
                 .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
-                .padding(.horizontal, 20)
-                .frame(height: 50)
+                .padding(.horizontal, 18)
+                .frame(height: toolbarHeight)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(KeyStyle.specialFill(colorScheme))
                 )
         }
@@ -503,6 +502,9 @@ private struct KeyRow: View {
 
 private let keyHeight: CGFloat = 46
 private let keyCornerRadius: CGFloat = 7
+/// Height of the Hex toolbar strip and its controls — slim, so the strip reads
+/// as a refined accessory rather than a giant slab over the keys.
+private let toolbarHeight: CGFloat = 40
 
 private struct LetterKey: View {
     let label: String
@@ -635,4 +637,7 @@ private enum KeyStyle {
             ? Color(red: 0.55, green: 0.55, blue: 0.58)
             : Color.white
     }
+
+    /// Recording pill — a softened red, not the alarming system candy red.
+    static let recordRed = Color(red: 0.83, green: 0.31, blue: 0.29)
 }
