@@ -314,6 +314,23 @@ extension CoachPipeline {
     - Respect the learner profile: prioritize their recurring patterns and L1
       interference; don't re-flag mastered patterns.
 
+    Pronunciation & prosody candidates (needsAudio=true) must be SPECIFIC and
+    grounded in what you actually hear — vague notes like "work on your accent"
+    are useless. For each:
+    - span: the exact word or short phrase where you hear the issue.
+    - summary: name the precise problem — the segment, syllable, or pattern, e.g.
+      "'th' in 'think' said as 's'", "stress on wrong syllable: com-FOR-table",
+      "short 'i' in 'ship' sounds like 'sheep'", "final cluster dropped in 'asked'",
+      "flat intonation on the question".
+    - nativeRewrite: the TARGET as a phonetic respelling a learner can READ —
+      stress syllable in CAPS, with optional IPA in brackets, e.g.
+      "THINK [θɪŋk]", "com-fort-uh-bul → COMF-tuh-bul".
+    - rule: one concrete fix — articulator placement or a stress/rhythm cue, e.g.
+      "put your tongue tip between your teeth for /θ/, not behind them",
+      "stress the first syllable and reduce the others to 'uh'".
+    Flag a sound/stress issue ONLY if you can actually hear it in the audio; never
+    infer it from spelling. Prefer the 2–3 most impactful habits over many tiny ones.
+
     Respond with ONLY a JSON object, no prose, no code fences:
     {"candidates":[{"lens":"...","key":"...","summary":"...","span":"...","rule":"...","nativeRewrite":"...","severity":3,"needsAudio":false}]}
     If there is nothing worth flagging, return {"candidates":[]}.
@@ -332,9 +349,11 @@ extension CoachPipeline {
 
     For each candidate decide, independently and skeptically:
     - isRealError: is this genuinely non-native / worth correcting (not pedantic,
-      not already correct)?
+      not already correct)? For pronunciation/prosody, read this as "I can
+      actually hear this mispronunciation or pattern in the audio."
     - rewriteIsBetter: is the proposed rewrite meaning-preserving AND genuinely
-      more natural than the original?
+      more natural than the original? For pronunciation/prosody, read this as
+      "the target respelling and the fix are accurate."
     - confidence: 0–1.
     Default to rejecting when unsure — false positives destroy trust.
 

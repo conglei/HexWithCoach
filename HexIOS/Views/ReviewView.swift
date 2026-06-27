@@ -227,8 +227,8 @@ private struct CoachCardView: View {
                 }
                 if let better = card.nativeRewrite {
                     HStack(spacing: 4) {
-                        Image(systemName: "arrow.down")
-                        Text("MORE NATURAL").tracking(0.5)
+                        Image(systemName: rewriteIsPhonetic ? "waveform" : "arrow.down")
+                        Text(rewriteIsPhonetic ? "SAY IT LIKE" : "MORE NATURAL").tracking(0.5)
                     }
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(HexTheme.gradientColors[0])
@@ -330,5 +330,11 @@ private struct CoachCardView: View {
         case .pronunciation: "Pronunciation"
         case .prosody: "Fluency"
         }
+    }
+
+    /// Pronunciation/prosody rewrites are a phonetic target ("THINK [θɪŋk]"), not
+    /// a reworded sentence — label them so the learner reads them as a sound cue.
+    private var rewriteIsPhonetic: Bool {
+        card.lens == .pronunciation || card.lens == .prosody
     }
 }
