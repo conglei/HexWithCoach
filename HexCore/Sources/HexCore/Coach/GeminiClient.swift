@@ -1,27 +1,26 @@
 //
 //  GeminiClient.swift
-//  HexEngine (shared: macOS Hex + iOS HexIOS)
+//  HexCore (Coach)
 //
 //  A content-agnostic transport for the Gemini Developer API (BYOK). Foundation-
-//  only, so it compiles for every Hex target through the shared HexEngine folder
-//  without pulling in a third-party SDK. (The official google-gemini/
-//  generative-ai-swift SDK is deprecated; Google now points to the Firebase AI
-//  Logic SDK, which needs a Firebase project + GoogleService-Info.plist and is
-//  awkward for a clean "user pastes their own key" BYOK flow. Our own transport
-//  hits the REST endpoint directly with the user's key.)
+//  only, no third-party SDK. (The official google-gemini/generative-ai-swift SDK
+//  is deprecated; Google now points to the Firebase AI Logic SDK, which needs a
+//  Firebase project + GoogleService-Info.plist and is awkward for a clean "user
+//  pastes their own key" BYOK flow. Our own transport hits the REST endpoint
+//  directly with the user's key.)
 //
-//  This layer knows only how to send a list of parts (text + inline audio/image)
-//  to a model and get text back — streaming or not. The Coach builds the prompts
-//  and parses the responses on top of it (CE-2/CE-3).
+//  Lives in HexCore (rather than the HexEngine app-shared folder) so it is
+//  directly covered by `swift test`: inject a stub `URLSession` to exercise
+//  request building + response parsing with no network. The Coach builds the
+//  prompts and parses the responses on top of it (CE-2/CE-3).
 //
 
 import Foundation
-import HexCore
 import os
 
 /// One piece of a Gemini request: prose, or inline binary (audio/image) the model
 /// should perceive directly.
-enum GeminiPart: Sendable {
+public enum GeminiPart: Sendable {
     case text(String)
     case inlineData(mimeType: String, data: Data)
 
@@ -37,24 +36,35 @@ enum GeminiPart: Sendable {
 
 /// Token accounting returned by the API, so callers can surface running cost
 /// (CE-5) without guessing.
-struct GeminiUsage: Sendable, Equatable {
-    var promptTokens: Int
-    var outputTokens: Int
-    var totalTokens: Int
+public struct GeminiUsage: Sendable, Equatable {
+    public var promptTokens: Int
+    public var outputTokens: Int
+    public var totalTokens: Int
+
+    public init(promptTokens: Int, outputTokens: Int, totalTokens: Int) {
+        self.promptTokens = promptTokens
+        self.outputTokens = outputTokens
+        self.totalTokens = totalTokens
+    }
 }
 
-struct GeminiResult: Sendable {
-    var text: String
-    var usage: GeminiUsage?
+public struct GeminiResult: Sendable {
+    public var text: String
+    public var usage: GeminiUsage?
+
+    public init(text: String, usage: GeminiUsage?) {
+        self.text = text
+        self.usage = usage
+    }
 }
 
-enum GeminiError: Error, LocalizedError {
+public enum GeminiError: Error, LocalizedError, Equatable {
     case missingAPIKey
     case requestFailed(statusCode: Int, body: String)
     case invalidResponse(raw: String)
     case emptyResponse
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .missingAPIKey:
             return "No Gemini API key. Add one in Settings to enable the Coach."
@@ -70,20 +80,20 @@ enum GeminiError: Error, LocalizedError {
 
 /// Stateless transport. Construct once (cheap) and call per request; the BYOK key
 /// is passed in rather than stored here.
-struct GeminiClient: Sendable {
+public struct GeminiClient: Sendable {
     /// Curated default models. The Coach picks a tier per call (CE-1 model tiering).
-    enum Model {
+    public enum Model {
         /// Cheap, fast — bulk extraction / objective passes.
-        static let flashLite = "gemini-3.1-flash-lite"
+        public static let flashLite = "gemini-3.1-flash-lite"
         /// Stronger — verification/critic passes where quality matters.
-        static let flash = "gemini-3.1-flash"
+        public static let flash = "gemini-3.1-flash"
     }
 
     private static let host = "generativelanguage.googleapis.com"
     private let log = HexLog.coach
     private let session: URLSession
 
-    init(session: URLSession = .shared) {
+    public init(session: URLSession = .shared) {
         self.session = session
     }
 
@@ -94,7 +104,7 @@ struct GeminiClient: Sendable {
     ///   - systemInstruction: optional system prompt (role/voice/constraints).
     ///   - jsonResponse: when true, asks the model for `application/json` so the
     ///     reply is a parseable object rather than prose/markdown.
-    func generate(
+    public func generate(
         model: String,
         apiKey: String,
         parts: [GeminiPart],
@@ -127,7 +137,7 @@ struct GeminiClient: Sendable {
 
     /// Stream text deltas as the model responds (SSE). The terminal value is the
     /// concatenation of every yielded delta.
-    func stream(
+    public func stream(
         model: String,
         apiKey: String,
         parts: [GeminiPart],
