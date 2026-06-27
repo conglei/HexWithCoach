@@ -7,6 +7,7 @@
 //  stage 3, session length, sync = P4, Full Access status, etc.).
 //
 
+import HexCore
 import SwiftUI
 import UIKit
 
@@ -100,7 +101,19 @@ struct SettingsView: View {
                             .foregroundStyle(.green)
                             .labelStyle(.titleAndIcon)
                     }
-                    LabeledContent("Estimated spend", value: spendText)
+                    LabeledContent("This month", value: monthSpendText)
+                    Picker("Monthly cap", selection: monthlyCapSelection) {
+                        Text("Off").tag(Double?.none)
+                        Text("$1").tag(Double?.some(1))
+                        Text("$5").tag(Double?.some(5))
+                        Text("$10").tag(Double?.some(10))
+                        Text("$20").tag(Double?.some(20))
+                    }
+                    if coach.budgetReached {
+                        Text("Monthly cap reached — raise it to keep coaching.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                     Button("Remove key", role: .destructive) {
                         coachPreferences.clearAPIKey()
                         apiKeyDraft = ""
@@ -127,6 +140,18 @@ struct SettingsView: View {
 
     private var spendText: String {
         coach.totalCostUSD < 0.01 ? "< $0.01" : String(format: "$%.2f", coach.totalCostUSD)
+    }
+
+    private var monthSpendText: String {
+        coach.spentThisMonthUSD < 0.01 ? "< $0.01" : String(format: "$%.2f", coach.spentThisMonthUSD)
+    }
+
+    /// Binds the cap Picker to the service's budget, persisting through the setter.
+    private var monthlyCapSelection: Binding<Double?> {
+        Binding(
+            get: { coach.budget.monthlyCapUSD },
+            set: { coach.budget.monthlyCapUSD = $0 }
+        )
     }
 
     @ViewBuilder

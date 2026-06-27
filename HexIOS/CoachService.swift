@@ -29,6 +29,22 @@ final class CoachService {
     /// user can see it in Settings and isn't surprised.
     private(set) var totalCostUSD: Double
 
+    /// The monthly cost cap (CE-5). Persisted in the App Group; setting it writes
+    /// through so the next run honors it immediately.
+    var budget: CoachBudget {
+        didSet {
+            if let cap = budget.monthlyCapUSD {
+                defaults.set(cap, forKey: Self.capKey)
+            } else {
+                defaults.removeObject(forKey: Self.capKey)
+            }
+        }
+    }
+
+    /// Set when a run stopped because this month's spend hit the cap — surfaced
+    /// in Settings so the user knows why coaching paused.
+    private(set) var budgetReached = false
+
     /// Cost/volume bounds per run (the part that diverges from the macOS
     /// per-recording coach).
     var perRunTranscriptLimit = 20
@@ -36,11 +52,36 @@ final class CoachService {
 
     private let defaults = UserDefaults(suiteName: HexAppGroup.identifier) ?? .standard
     @ObservationIgnored private static let costKey = "hex.coach.totalCostUSD"
+    @ObservationIgnored private static let capKey = "hex.coach.monthlyCapUSD"
+    @ObservationIgnored private static let spendKeyPrefix = "hex.coach.spend."
 
     init(modelContext: ModelContext, preferences: CoachPreferences) {
         self.modelContext = modelContext
         self.preferences = preferences
         totalCostUSD = defaults.double(forKey: Self.costKey)
+        // A stored value of 0 (the UserDefaults default for a missing key) means
+        // "uncapped"; only treat a positive stored value as a real cap.
+        let storedCap = defaults.double(forKey: Self.capKey)
+        budget = CoachBudget(monthlyCapUSD: storedCap > 0 ? storedCap : nil)
+    }
+
+    /// This month's estimated spend (USD), read from the per-month bucket.
+    var spentThisMonthUSD: Double {
+        defaults.double(forKey: Self.spendKey(for: Date()))
+    }
+
+    private static func spendKey(for date: Date) -> String {
+        spendKeyPrefix + CoachBudget.monthKey(for: date)
+    }
+
+    /// Add an increment of cost to the current month's bucket and the lifetime
+    /// total, persisting both so the cap takes effect within a run.
+    private func recordSpend(_ amount: Double) {
+        guard amount > 0 else { return }
+        let key = Self.spendKey(for: Date())
+        defaults.set(defaults.double(forKey: key) + amount, forKey: key)
+        totalCostUSD += amount
+        defaults.set(totalCostUSD, forKey: Self.costKey)
     }
 
     private var profileStore: LearnerProfileStore {
@@ -62,6 +103,14 @@ final class CoachService {
     func analyzeBacklog() async {
         guard preferences.isReady, !isAnalyzing else { return }
         guard let apiKey = CoachKeychain.read(CoachKeychain.geminiAPIKeyAccount), !apiKey.isEmpty else { return }
+
+        // Don't even start a run once this month's spend has hit the cap (CE-5).
+        guard budget.canAnalyze(spentThisMonth: spentThisMonthUSD) else {
+            budgetReached = true
+            return
+        }
+        budgetReached = false
+
         isAnalyzing = true
         defer { isAnalyzing = false }
 
@@ -78,7 +127,6 @@ final class CoachService {
         let masteredBefore = Set(profile.patterns.filter { $0.status == .mastered }.map(\.key))
 
         var allInsights: [CoachInsight] = []
-        var runCost = 0.0
 
         for entry in batch {
             let words = entry.text.split { $0.isWhitespace }.count
@@ -100,12 +148,20 @@ final class CoachService {
             do {
                 let analysis = try await pipeline.analyze(input, profile: &profile, at: now)
                 allInsights.append(contentsOf: analysis.insights)
-                runCost += Self.estimatedCost(chars: entry.text.count, audioSec: audioClip == nil ? 0 : durationSec)
+                let cost = Self.estimatedCost(chars: entry.text.count, audioSec: audioClip == nil ? 0 : durationSec)
+                recordSpend(cost)
                 entry.coachAnalyzedAt = now
             } catch {
                 // Stop on the first hard error (e.g. a bad key) so we don't keep
                 // spending; surface it to the feed.
                 errorMessage = error.localizedDescription
+                break
+            }
+
+            // Enforce the monthly cap mid-run: once this month's spend reaches it,
+            // stop so the cap is a real ceiling, not just a per-run hint.
+            if !budget.canAnalyze(spentThisMonth: spentThisMonthUSD) {
+                budgetReached = true
                 break
             }
         }
@@ -117,8 +173,6 @@ final class CoachService {
 
         try? profileStore.save(profile)
         try? modelContext.save()
-        totalCostUSD += runCost
-        defaults.set(totalCostUSD, forKey: Self.costKey)
     }
 
     // MARK: - Helpers
