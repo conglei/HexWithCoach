@@ -97,9 +97,9 @@ public struct GeminiClient: Sendable {
     /// Curated default models. The Coach picks a tier per call (CE-1 model tiering).
     public enum Model {
         /// Cheap, fast — bulk extraction / objective passes.
-        public static let flashLite = "gemini-3.1-flash-lite"
+        public static let flashLite = "gemini-2.5-flash-lite"
         /// Stronger — verification/critic passes where quality matters.
-        public static let flash = "gemini-3.1-flash"
+        public static let flash = "gemini-2.5-flash"
     }
 
     private static let host = "generativelanguage.googleapis.com"

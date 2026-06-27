@@ -166,4 +166,23 @@ enum TranscriptStore {
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
     }
+
+    /// One-time repair: when `TranscriptEntry.id` was added, SwiftData's
+    /// lightweight migration filled every pre-existing row with the *same*
+    /// default UUID, which collides in `ForEach` and breaks card↔transcript
+    /// links. Reassign duplicates a fresh id. Cheap, idempotent.
+    @MainActor
+    static func ensureUniqueIDs(in context: ModelContext) {
+        guard let all = try? context.fetch(FetchDescriptor<TranscriptEntry>()) else { return }
+        var seen = Set<UUID>()
+        var changed = false
+        for entry in all {
+            if seen.contains(entry.id) {
+                entry.id = UUID()
+                changed = true
+            }
+            seen.insert(entry.id)
+        }
+        if changed { try? context.save() }
+    }
 }
