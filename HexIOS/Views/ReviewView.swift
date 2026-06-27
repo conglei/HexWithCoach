@@ -19,6 +19,7 @@ struct ReviewView: View {
 
     @Query(sort: \CoachCardEntity.createdAt, order: .reverse) private var allCards: [CoachCardEntity]
     @Query private var transcripts: [TranscriptEntry]
+    @State private var progress = CoachProgress()
 
     private var cards: [CoachCardEntity] { allCards.filter { $0.status == .new } }
     private var backlogCount: Int { transcripts.filter { $0.coachAnalyzedAt == nil }.count }
@@ -28,10 +29,11 @@ struct ReviewView: View {
             Group {
                 if !preferences.isReady {
                     activationShell
-                } else if cards.isEmpty {
-                    caughtUp
                 } else {
-                    feed
+                    VStack(spacing: 0) {
+                        progressHeader
+                        if cards.isEmpty { caughtUp } else { feed }
+                    }
                 }
             }
             .navigationTitle("Review")
@@ -63,13 +65,41 @@ struct ReviewView: View {
         }
     }
 
+    // MARK: - Progress header (RC-6)
+
+    private var progressHeader: some View {
+        NavigationLink {
+            ProgressDigestView(progress: progress)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "flame.fill").foregroundStyle(.orange)
+                Text(streakText).font(.subheadline.weight(.medium))
+                if progress.streak.best > progress.streak.current {
+                    Text("· best \(progress.streak.best)").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color(.secondarySystemGroupedBackground))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
+    }
+
+    private var streakText: String {
+        let n = progress.streak.current
+        return n == 0 ? "Start your streak" : "\(n)-day streak"
+    }
+
     // MARK: - Feed
 
     private var feed: some View {
         ScrollView {
             LazyVStack(spacing: 14) {
                 ForEach(cards) { card in
-                    CoachCardView(card: card, transcript: transcript(for: card))
+                    CoachCardView(card: card, transcript: transcript(for: card), progress: progress)
                 }
             }
             .padding(16)
@@ -136,6 +166,7 @@ struct ReviewView: View {
 private struct CoachCardView: View {
     let card: CoachCardEntity
     let transcript: TranscriptEntry?
+    let progress: CoachProgress
 
     @Environment(\.modelContext) private var modelContext
 
@@ -216,6 +247,8 @@ private struct CoachCardView: View {
     private func setStatus(_ status: CoachCardStatus) {
         card.status = status
         try? modelContext.save()
+        // Acting on a card counts toward today's streak (RC-6).
+        progress.recordReview()
     }
 
     private var lensLabel: String {
