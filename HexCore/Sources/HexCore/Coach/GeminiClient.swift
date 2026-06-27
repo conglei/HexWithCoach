@@ -19,13 +19,14 @@ import Foundation
 import os
 
 public extension CoachModelTier {
-    /// The default Gemini model for this tier (deep-design §6 model tiering):
-    /// a cheap, audio-capable model for bulk extraction; a stronger model for
-    /// verification/synthesis. Kept here (and unit-tested) rather than buried in
+    /// The default Gemini model for this tier. Both tiers now use the stronger
+    /// `flash` model: quality (not cost) is the binding constraint at our tiny
+    /// per-user volume, and extraction is the audio-grounded pass where the
+    /// weaker model hurt most. Kept here (and unit-tested) rather than buried in
     /// the HexEngine adapter, whose app-shared module a test bundle can't link.
     var defaultGeminiModel: String {
         switch self {
-        case .extract: return GeminiClient.Model.flashLite
+        case .extract: return GeminiClient.Model.flash
         case .critic: return GeminiClient.Model.flash
         }
     }

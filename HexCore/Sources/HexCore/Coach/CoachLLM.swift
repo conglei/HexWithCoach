@@ -4,8 +4,8 @@ import Foundation
 /// concrete models (deep-design §6: cheap model for extraction, stronger for the
 /// critic). Kept provider-agnostic so the pipeline never names a vendor model.
 public enum CoachModelTier: String, Sendable {
-    case extract   // bulk per-lens candidate extraction (cheaper, audio-capable)
-    case critic    // verification / synthesis (stronger)
+    case extract   // per-lens candidate extraction (audio-grounded)
+    case critic    // verification / synthesis (audio when a verdict needs it)
 }
 
 /// Inline audio for the multimodal lens (CE-4 §4: feed transcript **and** audio;

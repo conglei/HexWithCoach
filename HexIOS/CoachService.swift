@@ -195,15 +195,18 @@ final class CoachService {
         return CoachAudio(data: data, mimeType: "audio/wav")
     }
 
-    /// Rough per-transcript cost: cheap extract (with audio, ~32 tok/s) + stronger
-    /// text-only critic. Precise token accounting is CE-5; this keeps the running
-    /// estimate honest enough to not surprise.
+    /// Rough per-transcript cost: audio-grounded extract + critic, both on `flash`.
+    /// The critic only carries audio when a candidate needs it; we can't know that
+    /// here pre-analysis, so we price the audio into extract only (the critic's
+    /// audio, when present, is the conservative-but-uncommon case). Precise token
+    /// accounting is CE-5; this keeps the running estimate honest enough to not
+    /// surprise.
     private static func estimatedCost(chars: Int, audioSec: Double) -> Double {
         let audioTokens = Int(audioSec * 32)
         let extractPrompt = max(200, chars / 4 + 400 + audioTokens)
         let criticPrompt = max(200, chars / 4 + 400)
         let output = 250
-        return CoachCostEstimator.usd(promptTokens: extractPrompt, outputTokens: output, model: GeminiClient.Model.flashLite)
+        return CoachCostEstimator.usd(promptTokens: extractPrompt, outputTokens: output, model: GeminiClient.Model.flash)
             + CoachCostEstimator.usd(promptTokens: criticPrompt, outputTokens: output, model: GeminiClient.Model.flash)
     }
 }

@@ -2,15 +2,16 @@ import Testing
 @testable import HexCore
 
 struct CoachModelTierTests {
+    // Both tiers run on the stronger `flash` model: quality is the binding
+    // constraint at our volume, and extraction is the audio-grounded pass where
+    // the cheaper model hurt most.
     @Test
-    func extractUsesCheapAudioModel() {
-        #expect(CoachModelTier.extract.defaultGeminiModel == "gemini-3.1-flash-lite")
+    func extractUsesStrongerModel() {
+        #expect(CoachModelTier.extract.defaultGeminiModel == "gemini-3.5-flash")
     }
 
     @Test
     func criticUsesStrongerModel() {
         #expect(CoachModelTier.critic.defaultGeminiModel == "gemini-3.5-flash")
-        // Guard against the flash / flash-lite substring trap.
-        #expect(CoachModelTier.critic.defaultGeminiModel != CoachModelTier.extract.defaultGeminiModel)
     }
 }
