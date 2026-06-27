@@ -167,15 +167,19 @@ public struct CoachPipeline: Sendable {
             tier: .extract
         )
         let candidates = (try? Self.decodeJSON(ExtractionResponse.self, from: extractRaw))?.candidates ?? []
+        HexLog.coach.info("Coach extract: hasAudio=\(input.audio != nil, privacy: .public) candidates=\(candidates.count, privacy: .public)")
         guard !candidates.isEmpty else {
             return CoachAnalysis(insights: [], focuses: [], signals: signals)
         }
 
         // Tier 2 — critic verifies each candidate; drop the low-confidence/false ones.
+        // It only needs the audio when a verdict actually depends on hearing the
+        // utterance (pronunciation/prosody). Text-only candidates verify cheaply.
+        let criticNeedsAudio = candidates.contains { $0.needsAudio }
         let criticRaw = try await llm.generateJSON(
             systemPrompt: Self.criticSystemPrompt,
             userPrompt: Self.criticUserPrompt(input: input, candidates: candidates),
-            audio: nil,
+            audio: criticNeedsAudio ? input.audio : nil,
             tier: .critic
         )
         let verdicts = (try? Self.decodeJSON(CriticResponse.self, from: criticRaw))?.verdicts ?? []
@@ -202,6 +206,7 @@ public struct CoachPipeline: Sendable {
             ))
         }
 
+        HexLog.coach.info("Coach critic: candidates=\(candidates.count, privacy: .public) survived=\(insights.count, privacy: .public)")
         profile.integrate(observations, at: date)
         let focuses = Self.prioritize(profile: profile, insights: insights, max: maxFocuses)
         return CoachAnalysis(insights: insights, focuses: focuses, signals: signals)
@@ -281,6 +286,18 @@ extension CoachPipeline {
     non-native speaker (often a software engineer). Your job is naturalness and
     polish, NOT basic grammar drilling. Find the genuinely learnable moments.
 
+    You are given an automatic transcript, and SOMETIMES the audio too — the
+    prompt tells you which. The transcript comes from a different speech model and
+    may be wrong; crucially it HIDES pronunciation mistakes, because it prints the
+    word the speaker meant, not the sounds they made.
+    - When audio is provided: trust it for what was actually said — especially for
+      pronunciation and prosody — and use the transcript only to anchor word
+      spans. When the audio and transcript disagree, the audio wins; quote the
+      span as you actually heard it.
+    - When no audio is provided: analyze the transcript as the best available
+      evidence. Still flag grammar, lexis, and discourse issues. Do NOT raise
+      pronunciation or prosody issues you cannot verify from text alone.
+
     Analyze across these lenses: \(lensList).
 
     Rules:
@@ -303,8 +320,17 @@ extension CoachPipeline {
     """
 
     static let criticSystemPrompt = """
-    You are a strict verification critic for an English coach. For each candidate
-    decide, independently and skeptically:
+    You are a verification critic for an English coach. Keep the candidates that a
+    competent non-native speaker would accept as genuine, useful corrections; drop
+    the pedantic or wrong ones.
+
+    You may be given the AUDIO of the utterance and an automatic transcript that
+    can be wrong. For pronunciation/prosody candidates, judge from the audio, not
+    the transcript; if you were given no audio, treat such candidates as
+    unverifiable and reject them. Judge grammar/lexis/discourse candidates on the
+    transcript as usual.
+
+    For each candidate decide, independently and skeptically:
     - isRealError: is this genuinely non-native / worth correcting (not pedantic,
       not already correct)?
     - rewriteIsBetter: is the proposed rewrite meaning-preserving AND genuinely
@@ -319,13 +345,15 @@ extension CoachPipeline {
 
     static func extractUserPrompt(input: CoachTranscriptInput, profile: LearnerProfile, signals: FluencySignals) -> String {
         """
+        AUDIO: \(input.audio == nil ? "none for this utterance — analyze the transcript only" : "attached (authoritative — trust it over the transcript)")
+
         LEARNER PROFILE
         \(profileSummary(profile))
 
         OBJECTIVE FLUENCY SIGNALS (computed locally)
         \(signalsSummary(signals))
 
-        TRANSCRIPT
+        REFERENCE TRANSCRIPT (from a different ASR model; may be wrong)
         \(input.text)
         """
     }
@@ -335,7 +363,9 @@ extension CoachPipeline {
             "[\(index)] lens=\(c.lens.rawValue) span=\"\(c.span)\" rewrite=\"\(c.nativeRewrite)\" rule=\"\(c.rule)\""
         }.joined(separator: "\n")
         return """
-        TRANSCRIPT
+        AUDIO: \(input.audio == nil ? "none — reject pronunciation/prosody candidates you cannot verify from text" : "attached (authoritative for pronunciation/prosody)")
+
+        REFERENCE TRANSCRIPT (from a different ASR model; may be wrong)
         \(input.text)
 
         CANDIDATES

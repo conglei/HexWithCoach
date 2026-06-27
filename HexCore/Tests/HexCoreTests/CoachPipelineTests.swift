@@ -10,6 +10,7 @@ private final class MockCoachLLM: CoachLLM, @unchecked Sendable {
     var lastExtractUserPrompt: String?
     var lastCriticUserPrompt: String?
     var sawAudioOnExtract = false
+    var sawAudioOnCritic = false
 
     init(extractJSON: String, criticJSON: String) {
         self.extractJSON = extractJSON
@@ -24,6 +25,7 @@ private final class MockCoachLLM: CoachLLM, @unchecked Sendable {
             return extractJSON
         case .critic:
             lastCriticUserPrompt = userPrompt
+            sawAudioOnCritic = (audio != nil)
             return criticJSON
         }
     }
@@ -156,5 +158,33 @@ struct CoachPipelineTests {
         inp.audio = CoachAudio(data: Data([0x01, 0x02]), mimeType: "audio/wav")
         _ = try await pipeline.analyze(inp, profile: &profile, at: t0)
         #expect(mock.sawAudioOnExtract)
+    }
+
+    @Test
+    func criticHearsAudioOnlyWhenACandidateNeedsIt() async throws {
+        let critic = """
+        {"verdicts":[{"index":0,"isRealError":false,"rewriteIsBetter":false,"confidence":0.1}]}
+        """
+        // Text-only candidate: the critic should be called without audio.
+        let textOnly = """
+        {"candidates":[{"lens":"grammar","key":"missing-article","summary":"s","span":"went to store","rule":"r","nativeRewrite":"went to the store","severity":3,"needsAudio":false}]}
+        """
+        let mockText = MockCoachLLM(extractJSON: textOnly, criticJSON: critic)
+        var profileText = LearnerProfile()
+        var inpText = input()
+        inpText.audio = CoachAudio(data: Data([0x01]), mimeType: "audio/wav")
+        _ = try await CoachPipeline(llm: mockText).analyze(inpText, profile: &profileText, at: t0)
+        #expect(mockText.sawAudioOnCritic == false)
+
+        // Audio-dependent candidate (pronunciation): the critic should hear it.
+        let needsAudio = """
+        {"candidates":[{"lens":"pronunciation","key":"th-stopping","summary":"s","span":"think","rule":"r","nativeRewrite":"think","severity":3,"needsAudio":true}]}
+        """
+        let mockAudio = MockCoachLLM(extractJSON: needsAudio, criticJSON: critic)
+        var profileAudio = LearnerProfile()
+        var inpAudio = input()
+        inpAudio.audio = CoachAudio(data: Data([0x01]), mimeType: "audio/wav")
+        _ = try await CoachPipeline(llm: mockAudio).analyze(inpAudio, profile: &profileAudio, at: t0)
+        #expect(mockAudio.sawAudioOnCritic)
     }
 }
