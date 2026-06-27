@@ -21,6 +21,9 @@ struct SettingsView: View {
     @State private var syncAudio = SyncPreferences.syncAudio
     @State private var syncChangedThisLaunch = false
 
+    @State private var coach = CoachPreferences()
+    @State private var apiKeyDraft = ""
+
     // Placeholder (formatter seam #199).
     @State private var cleanUpFiller = false
 
@@ -53,6 +56,8 @@ struct SettingsView: View {
                 }
                 .task { await account.refresh() }
 
+                coachSection
+
                 Section {
                     Toggle("Clean up filler words", isOn: $cleanUpFiller).disabled(true)
                 } footer: {
@@ -77,6 +82,55 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+        }
+    }
+
+    // MARK: - Coach (BYOK, opt-in) — CE-1
+
+    @ViewBuilder
+    private var coachSection: some View {
+        Section {
+            Toggle("Enable Coach", isOn: $coach.enabled)
+
+            if coach.enabled {
+                if coach.hasAPIKey {
+                    LabeledContent("Gemini API key") {
+                        Label("Saved", systemImage: "checkmark.seal.fill")
+                            .foregroundStyle(.green)
+                            .labelStyle(.titleAndIcon)
+                    }
+                    Button("Remove key", role: .destructive) {
+                        coach.clearAPIKey()
+                        apiKeyDraft = ""
+                    }
+                } else {
+                    SecureField("Paste your Gemini API key", text: $apiKeyDraft)
+                        .textContentType(.password)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                    Button("Save key") {
+                        coach.saveAPIKey(apiKeyDraft)
+                        apiKeyDraft = ""
+                    }
+                    .disabled(apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Link("Get a Gemini API key", destination: URL(string: "https://aistudio.google.com/apikey")!)
+                }
+            }
+        } header: {
+            Text("Coach")
+        } footer: {
+            coachFooter
+        }
+    }
+
+    @ViewBuilder
+    private var coachFooter: some View {
+        if !coach.enabled {
+            Text("The Coach reviews your real speech and suggests more natural phrasing. It’s off by default.")
+        } else if !coach.hasAPIKey {
+            Text("Add your own Gemini API key to turn it on. When the Coach is on, your dictations (text and audio) are sent to Google’s Gemini API using your key for analysis. Your key is stored in this device’s Keychain and never synced.")
+        } else {
+            Text("Coach is on. Your dictations (text and audio) are sent to Google’s Gemini API using your key for analysis. Capture stays on this device until then; remove the key anytime to stop.")
         }
     }
 
