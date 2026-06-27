@@ -27,12 +27,10 @@ struct GeminiCoachLLM: CoachLLM {
         tier: CoachModelTier
     ) async throws -> String {
         // Tier the models (deep-design §6): cheap, audio-capable model for bulk
-        // extraction; the stronger model for verification/synthesis.
-        let model: String
-        switch tier {
-        case .extract: model = GeminiClient.Model.flashLite
-        case .critic: model = GeminiClient.Model.flash
-        }
+        // extraction; the stronger model for verification/synthesis. The mapping
+        // is a unit-tested HexCore function so it doesn't rely on this adapter
+        // being reachable from a test bundle.
+        let model = tier.defaultGeminiModel
 
         var parts: [GeminiPart] = [.text(userPrompt)]
         if let audio {
