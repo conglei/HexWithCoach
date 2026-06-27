@@ -7,11 +7,18 @@
 //  Speaker labels / timecodes / editing are out of scope for now.
 //
 
+import HexCore
+import SwiftData
 import SwiftUI
 
 struct TranscriptDetailView: View {
     let entry: TranscriptEntry
     @State private var audio = AudioPlayer()
+
+    /// Coach cards whose example is this transcript — the backlink from a note to
+    /// the issues the Coach found in it.
+    @Query private var allCards: [CoachCardEntity]
+    private var cards: [CoachCardEntity] { allCards.filter { $0.transcriptID == entry.id } }
 
     private var audioURL: URL? { AudioStore.url(for: entry.audioFilename) }
 
@@ -32,6 +39,8 @@ struct TranscriptDetailView: View {
                     Text(entry.text)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
+
+                    coachingSection
                 }
                 .padding()
             }
@@ -46,6 +55,35 @@ struct TranscriptDetailView: View {
         }
         .navigationTitle("Transcript")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - Coaching backlink
+
+    @ViewBuilder
+    private var coachingSection: some View {
+        Divider().padding(.vertical, 4)
+        if entry.coachAnalyzedAt == nil {
+            Label("Not reviewed by the Coach yet", systemImage: "hourglass")
+                .font(.footnote).foregroundStyle(.secondary)
+        } else if cards.isEmpty {
+            Label("No coaching notes for this one", systemImage: "checkmark.circle")
+                .font(.footnote).foregroundStyle(.secondary)
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Coaching").font(.subheadline.weight(.semibold))
+                ForEach(cards) { card in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(card.kind == .win ? card.title : (card.nativeRewrite ?? card.title))
+                            .font(.callout)
+                            .foregroundStyle(Color.accentColor)
+                        if !card.detail.isEmpty {
+                            Text(card.detail).font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
     }
 }
 
