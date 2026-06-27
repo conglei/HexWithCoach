@@ -169,6 +169,7 @@ private struct CoachCardView: View {
     let progress: CoachProgress
 
     @Environment(\.modelContext) private var modelContext
+    @State private var showShadow = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -192,10 +193,22 @@ private struct CoachCardView: View {
                 }
             }
 
+            if card.kind == .improvement, let rewrite = card.nativeRewrite, !rewrite.isEmpty {
+                Button { showShadow = true } label: {
+                    Label("Say it better", systemImage: "waveform.badge.mic")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+
             actions
         }
         .padding(16)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .fullScreenCover(isPresented: $showShadow) {
+            ShadowingView(target: card.nativeRewrite ?? "") { progress.recordReview() }
+        }
     }
 
     private var header: some View {
