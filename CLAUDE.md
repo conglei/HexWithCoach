@@ -12,15 +12,34 @@ Hex is a macOS menu bar application for on‑device voice‑to‑text. It suppor
 # Build the app
 xcodebuild -scheme Hex -configuration Release
 
-# Run tests (must be run from HexCore directory for unit tests)
-cd HexCore && swift test
-
-# Or run all tests via Xcode
-xcodebuild test -scheme Hex
-
 # Open in Xcode (recommended for development)
 open Hex.xcodeproj
 ```
+
+### Testing — what runs where
+
+There are three test runners; pick by what the code under test belongs to.
+
+```bash
+# 1. HexCore (SwiftPM) — pure, cross-platform logic. Fast, no simulator.
+cd HexCore && swift test
+
+# 2. Hex (macOS app) target — HexTests/ bundle. Covers macOS app code AND the
+#    shared HexEngine/ folder (compiled into the Hex module; reach it with
+#    `@testable import Hex`).
+xcodebuild test -scheme Hex -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+
+# 3. HexIOS app target — HexIOSTests/ bundle. Covers iOS app code AND the shared
+#    HexEngine/ folder as compiled into the iOS module (`@testable import HexIOS`).
+xcodebuild test -scheme HexIOS -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO
+```
+
+**Where to put a test:**
+- Pure, platform-agnostic logic → **HexCore** (`HexCore/Tests/HexCoreTests`). Prefer this — `swift test` is fastest and runs everywhere. The Coach engine (LearnerProfile, FluencySignals, CoachPipeline, GeminiClient) lives here for exactly this reason; inject a stub `URLSession`/`CoachLLM` instead of hitting the network.
+- macOS-app-only or shared HexEngine behavior best exercised on macOS → **HexTests/**.
+- iOS-app-only behavior (DictationModel, CoachPreferences, keyboard IPC wiring) → **HexIOSTests/**.
+
+**Important:** `swift test` only ever covers the HexCore package. Code in `HexEngine/`, `HexIOS/`, `Hex/`, and the extensions is **not** covered by `swift test` — it must be tested through the `HexTests` / `HexIOSTests` Xcode bundles. When adding a feature, add tests in the appropriate target; keep extracting pure logic into HexCore so it stays fast-testable.
 
 ## Architecture
 
