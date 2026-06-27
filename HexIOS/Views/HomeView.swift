@@ -12,11 +12,13 @@ import SwiftUI
 struct HomeView: View {
     let model: DictationModel
     @Binding var selectedTab: AppTab
+    let onShowAllHistory: () -> Void
     @Query(sort: \TranscriptEntry.date, order: .reverse) private var entries: [TranscriptEntry]
     @State private var incognito = CapturePreferences.incognito
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     header.padding(.top, 8)
@@ -30,8 +32,8 @@ struct HomeView: View {
                     }
 
                     hero
-                        .padding(.top, 40)
-                        .padding(.bottom, 44)
+                        .padding(.top, 96)
+                        .padding(.bottom, 56)
 
                     if !entries.isEmpty { recentSection }
                 }
@@ -39,6 +41,7 @@ struct HomeView: View {
             }
             .background(Color(.systemGroupedBackground))
             .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: TranscriptEntry.self) { TranscriptDetailView(entry: $0) }
             .fullScreenCover(isPresented: Binding(
                 get: { model.phase != .idle },
                 set: { presented in
@@ -48,6 +51,13 @@ struct HomeView: View {
                 RecordingView(model: model)
             }
             .onAppear { incognito = CapturePreferences.incognito }
+            // After an in-app note finishes recording, open it automatically.
+            .onChange(of: model.lastSavedNote) { _, note in
+                if let note {
+                    path.append(note)
+                    model.lastSavedNote = nil
+                }
+            }
         }
     }
 
@@ -170,13 +180,14 @@ struct HomeView: View {
             HStack {
                 Text("Recent").font(.headline)
                 Spacer()
-                Button("See all") { selectedTab = .history }
+                Button("See all") { onShowAllHistory() }
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(HexTheme.gradientColors[0])
             }
 
             ForEach(recentEntries, id: \.persistentModelID) { entry in
-                recentCard(entry)
+                NavigationLink(value: entry) { recentCard(entry) }
+                    .buttonStyle(.plain)
             }
         }
         .padding(.bottom, 24)

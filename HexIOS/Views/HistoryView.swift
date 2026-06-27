@@ -13,6 +13,8 @@ import SwiftData
 import SwiftUI
 
 struct HistoryView: View {
+    /// Owned by ContentView so "See all" from Home can reset it to the list root.
+    @Binding var path: NavigationPath
     @Query(sort: \TranscriptEntry.date, order: .reverse) private var entries: [TranscriptEntry]
     @Query private var allCards: [CoachCardEntity]
     @State private var query = ""
@@ -33,7 +35,7 @@ struct HistoryView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if entries.isEmpty {
                     ContentUnavailableView(
@@ -56,6 +58,7 @@ struct HistoryView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("History")
             .searchable(text: $query, prompt: "Search transcripts")
+            .navigationDestination(for: TranscriptEntry.self) { TranscriptDetailView(entry: $0) }
         }
     }
 
@@ -69,9 +72,7 @@ struct HistoryView: View {
                 .padding(.leading, 4)
 
             ForEach(group.entries, id: \.persistentModelID) { entry in
-                NavigationLink {
-                    TranscriptDetailView(entry: entry)
-                } label: {
+                NavigationLink(value: entry) {
                     card(entry)
                 }
                 .buttonStyle(.plain)
