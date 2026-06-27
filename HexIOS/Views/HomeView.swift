@@ -15,6 +15,7 @@ import SwiftUI
 struct HomeView: View {
     let model: DictationModel
     @Query(sort: \TranscriptEntry.date, order: .reverse) private var entries: [TranscriptEntry]
+    @State private var incognito = CapturePreferences.incognito
 
     var body: some View {
         NavigationStack {
@@ -54,16 +55,33 @@ struct HomeView: View {
     // MARK: Header — brand + compact dictation toggle
 
     private var header: some View {
-        HStack {
+        HStack(spacing: 10) {
             Text("Hex")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
             Spacer()
+            Button {
+                incognito.toggle()
+                CapturePreferences.incognito = incognito
+            } label: {
+                Image(systemName: "eyeglasses")
+                    .font(.subheadline)
+                    .foregroundStyle(incognito ? Color.accentColor : .secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(
+                        incognito ? AnyShapeStyle(Color.accentColor.opacity(0.15)) : AnyShapeStyle(Color(.secondarySystemBackground)),
+                        in: .capsule
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(incognito ? "Incognito on" : "Incognito off")
             Toggle("Dictation", isOn: dictationBinding)
                 .toggleStyle(DictationPillToggleStyle())
                 .disabled(model.modelState != .ready)
                 .opacity(model.modelState == .ready ? 1 : 0.5)
         }
+        .onAppear { incognito = CapturePreferences.incognito }
     }
 
     /// The dictation toggle is the whole Flow Session in one bit: turning it on
@@ -82,9 +100,12 @@ struct HomeView: View {
         )
     }
 
-    /// One quiet line under the header, by priority: model progress, then the
-    /// swipe-back hint while dictation is live, otherwise nothing.
+    /// One quiet line under the header, by priority: incognito, model progress,
+    /// then the swipe-back hint while dictation is live, otherwise nothing.
     private var statusLine: (text: String, accent: Bool)? {
+        if incognito {
+            return ("Incognito — dictation won’t be saved", true)
+        }
         switch model.modelState {
         case .loading:
             return (model.modelProgress > 0

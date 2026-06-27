@@ -25,6 +25,7 @@ struct SettingsView: View {
     @State private var syncChangedThisLaunch = false
 
     @State private var apiKeyDraft = ""
+    @State private var incognito = CapturePreferences.incognito
 
     // Placeholder (formatter seam #199).
     @State private var cleanUpFiller = false
@@ -60,6 +61,8 @@ struct SettingsView: View {
 
                 coachSection
 
+                privacySection
+
                 Section {
                     Toggle("Clean up filler words", isOn: $cleanUpFiller).disabled(true)
                 } footer: {
@@ -84,6 +87,23 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .onAppear { incognito = CapturePreferences.incognito }
+        }
+    }
+
+    // MARK: - Privacy / capture controls (RC-8)
+
+    @ViewBuilder
+    private var privacySection: some View {
+        Section {
+            Toggle(isOn: $incognito) {
+                Label("Incognito", systemImage: "eyeglasses")
+            }
+            .onChange(of: incognito) { _, value in CapturePreferences.incognito = value }
+        } header: {
+            Text("Privacy")
+        } footer: {
+            Text("Capture stays on this device by default — your dictations (text and audio) are kept locally, and the Coach only uploads when you connect a key. Incognito keeps nothing from new dictations. Password and other secure fields use the system keyboard, so they're never captured.")
         }
     }
 

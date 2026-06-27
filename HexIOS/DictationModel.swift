@@ -91,6 +91,12 @@ final class DictationModel {
     /// Persist a transcript, retaining its audio (moved into the App Group) so the
     /// Coach corpus has both text and audio.
     private func save(text: String, kind: TranscriptKind, audioURL: URL?) {
+        // Incognito (RC-8): dictation still inserts text, but we keep nothing —
+        // no transcript, no audio.
+        guard !CapturePreferences.incognito else {
+            if let audioURL { try? FileManager.default.removeItem(at: audioURL) }
+            return
+        }
         let filename = audioURL.flatMap { AudioStore.persist($0) }
         modelContext.insert(TranscriptEntry(text: text, date: Date(), kind: kind, audioFilename: filename))
         try? modelContext.save()
