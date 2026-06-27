@@ -38,6 +38,16 @@
                ReferencedContainer = "container:Hex.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "C8032FE288C965FD8B99B58E"
+               BuildableName = "HexIOSKeyboardTests.xctest"
+               BlueprintName = "HexIOSKeyboardTests"
+               ReferencedContainer = "container:Hex.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
