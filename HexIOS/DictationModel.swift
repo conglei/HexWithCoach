@@ -109,6 +109,11 @@ final class DictationModel {
     /// their app where the keyboard will insert dictated text.
     private(set) var awaitingSwipeBack = false
 
+    /// True while a session is being started — notably during the one-time
+    /// ~18s cold load of the Parakeet model after a keyboard bounce. Drives the
+    /// "Preparing dictation…" state so the bounce isn't a blank wait.
+    private(set) var isStartingSession = false
+
     /// Whether a continuous Flow Session is active (mic stays hot; keyboard can
     /// dictate without re-bouncing).
     private(set) var sessionActive = false
@@ -254,6 +259,8 @@ final class DictationModel {
     /// dictates in place — no further bounces until the session ends.
     func startKeyboardSession() async {
         awaitingSwipeBack = false
+        isStartingSession = true
+        defer { isStartingSession = false }
         if modelState != .ready { await prepare() }
         guard modelState == .ready else { return }
         guard await recorder.requestPermission() else {
