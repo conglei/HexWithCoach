@@ -21,6 +21,7 @@ struct HexIOSApp: App {
     init() {
         let container = TranscriptStore.makeContainer()
         modelContainer = container
+        TranscriptStore.ensureUniqueIDs(in: container.mainContext)
         _model = State(initialValue: DictationModel(modelContext: container.mainContext))
         let prefs = CoachPreferences()
         _coachPreferences = State(initialValue: prefs)
