@@ -282,6 +282,7 @@ final class DictationModel {
         sessionCaptureURL = nil
         sessionActive = false
         sessionExpiresAt = nil
+        awaitingSwipeBack = false
         publishSessionState(active: false, expiresAt: nil)
         endActivity()
     }
