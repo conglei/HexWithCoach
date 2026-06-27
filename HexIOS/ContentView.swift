@@ -53,6 +53,14 @@ struct ContentView: View {
         .fullScreenCover(isPresented: $showOnboarding, onDismiss: { didOnboard = true }) {
             OnboardingView(model: model)
         }
+        // A Flow Session just started (e.g. the keyboard bounced via hexkb://
+        // startSession): show a dedicated swipe-back screen over any tab.
+        .fullScreenCover(isPresented: Binding(
+            get: { model.awaitingSwipeBack },
+            set: { if !$0 { model.dismissSwipeBackHint() } }
+        )) {
+            SwipeBackView(model: model)
+        }
         .alert(
             "Something went wrong",
             isPresented: Binding(
