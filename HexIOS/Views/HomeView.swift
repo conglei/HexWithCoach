@@ -2,11 +2,8 @@
 //  HomeView.swift
 //  HexIOS
 //
-//  Home tab. Two ways to make text, sized by how much state each carries:
-//  dictation (keyboard, in other apps) is a single bit — on/off — so it lives in
-//  a compact header toggle; the in-app "New note" capture is the action you take
-//  here, so it's the hero. Monochrome surfaces; the single accent marks whatever
-//  is live or tappable. A Recent preview rounds it out (full list lives in History).
+//  Home tab. A greeting + a big gradient mic for in-app capture, a dictation
+//  status pill, and a Recent preview. Styled with the shared HexTheme.
 //
 
 import SwiftData
@@ -14,6 +11,7 @@ import SwiftUI
 
 struct HomeView: View {
     let model: DictationModel
+    @Binding var selectedTab: AppTab
     @Query(sort: \TranscriptEntry.date, order: .reverse) private var entries: [TranscriptEntry]
     @State private var incognito = CapturePreferences.incognito
 
@@ -21,25 +19,25 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    header
+                    header.padding(.top, 8)
 
                     if let status = statusLine {
                         Text(status.text)
-                            .font(.footnote)
-                            .foregroundStyle(status.accent ? Color.accentColor : Color.secondary)
-                            .padding(.top, 10)
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(status.accent ? AnyShapeStyle(HexTheme.gradientColors[0]) : AnyShapeStyle(.secondary))
+                            .padding(.top, 12)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    newNoteHero
-                        .padding(.top, 44)
-                        .padding(.bottom, 48)
+                    hero
+                        .padding(.top, 40)
+                        .padding(.bottom, 44)
 
                     if !entries.isEmpty { recentSection }
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 8)
             }
+            .background(Color(.systemGroupedBackground))
             .toolbar(.hidden, for: .navigationBar)
             .fullScreenCover(isPresented: Binding(
                 get: { model.phase != .idle },
@@ -49,95 +47,98 @@ struct HomeView: View {
             )) {
                 RecordingView(model: model)
             }
+            .onAppear { incognito = CapturePreferences.incognito }
         }
     }
 
-    // MARK: Header — brand + compact dictation toggle
+    // MARK: - Header
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Text("Hex")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(greeting).font(.subheadline).foregroundStyle(.secondary)
+                Text("Hex").font(.largeTitle.weight(.bold))
+            }
             Spacer()
-            Button {
-                incognito.toggle()
-                CapturePreferences.incognito = incognito
-            } label: {
-                Image(systemName: "eyeglasses")
-                    .font(.subheadline)
-                    .foregroundStyle(incognito ? Color.accentColor : .secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(
-                        incognito ? AnyShapeStyle(Color.accentColor.opacity(0.15)) : AnyShapeStyle(Color(.secondarySystemBackground)),
-                        in: .capsule
-                    )
+            HStack(spacing: 8) {
+                incognitoButton
+                dictationPill
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(incognito ? "Incognito on" : "Incognito off")
-            Toggle("Dictation", isOn: dictationBinding)
-                .toggleStyle(DictationPillToggleStyle())
-                .disabled(model.modelState != .ready)
-                .opacity(model.modelState == .ready ? 1 : 0.5)
+            .padding(.top, 6)
         }
-        .onAppear { incognito = CapturePreferences.incognito }
     }
 
-    /// The dictation toggle is the whole Flow Session in one bit: turning it on
-    /// starts the continuous keyboard session (then the user swipes back to their
-    /// app); turning it off ends it. No timers, no separate "End" button.
-    private var dictationBinding: Binding<Bool> {
-        Binding(
-            get: { model.sessionActive },
-            set: { on in
-                if on {
-                    Task { await model.startKeyboardSession() }
-                } else {
-                    model.endSession()
-                }
+    private var greeting: String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 5 ..< 12: "Good morning"
+        case 12 ..< 17: "Good afternoon"
+        default: "Good evening"
+        }
+    }
+
+    private var dictationPill: some View {
+        Button {
+            if model.sessionActive { model.endSession() } else { Task { await model.startKeyboardSession() } }
+        } label: {
+            HStack(spacing: 6) {
+                Circle().fill(model.sessionActive ? Color.green : Color.secondary).frame(width: 7, height: 7)
+                Text(model.sessionActive ? "Dictation on" : "Dictation off")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
             }
-        )
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(Color(.secondarySystemGroupedBackground), in: .capsule)
+            .overlay(Capsule().strokeBorder(Color(.separator).opacity(0.4)))
+        }
+        .buttonStyle(.plain)
+        .disabled(model.modelState != .ready)
+        .opacity(model.modelState == .ready ? 1 : 0.5)
     }
 
-    /// One quiet line under the header, by priority: incognito, model progress,
-    /// then the swipe-back hint while dictation is live, otherwise nothing.
+    private var incognitoButton: some View {
+        Button {
+            incognito.toggle()
+            CapturePreferences.incognito = incognito
+        } label: {
+            Image(systemName: "eyeglasses")
+                .font(.subheadline)
+                .foregroundStyle(incognito ? AnyShapeStyle(HexTheme.gradientColors[0]) : AnyShapeStyle(.secondary))
+                .frame(width: 34, height: 34)
+                .background(
+                    incognito ? AnyShapeStyle(HexTheme.gradientSoft) : AnyShapeStyle(Color(.secondarySystemGroupedBackground)),
+                    in: .circle
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(incognito ? "Incognito on" : "Incognito off")
+    }
+
     private var statusLine: (text: String, accent: Bool)? {
-        if incognito {
-            return ("Incognito — dictation won’t be saved", true)
-        }
+        if incognito { return ("Incognito — dictation won’t be saved", true) }
         switch model.modelState {
         case .loading:
             return (model.modelProgress > 0
                 ? "Downloading model… \(Int(model.modelProgress * 100))%"
                 : "Preparing model… first run downloads ~600MB", false)
-        case .failed:
-            return ("Model unavailable", false)
-        case .ready:
-            return model.sessionActive
-                ? ("Swipe back, then tap the Hex mic to dictate", true)
-                : nil
+        case .failed: return ("Model unavailable", false)
+        case .ready: return nil
         }
     }
 
-    // MARK: New note — the in-app capture hero
+    // MARK: - Hero
 
-    private var newNoteHero: some View {
-        VStack(spacing: 14) {
-            Button {
+    private var hero: some View {
+        VStack(spacing: 18) {
+            GradientMicButton(systemImage: micSymbol, size: 140) {
                 Task { await model.toggleRecording() }
-            } label: {
-                Image(systemName: micSymbol)
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 76, height: 76)
-                    .background(model.phase == .recording ? Color.red : Color.accentColor, in: .circle)
             }
             .disabled(!model.canRecord && model.phase != .recording)
+            .opacity(model.canRecord || model.phase == .recording ? 1 : 0.5)
 
-            VStack(spacing: 3) {
-                Text("New note").font(.callout.weight(.medium))
-                Text(captionText).font(.footnote).foregroundStyle(.secondary)
+            VStack(spacing: 4) {
+                Text("Tap to dictate").font(.title2.weight(.semibold))
+                Text(captionText).font(.subheadline).foregroundStyle(.secondary)
             }
             .multilineTextAlignment(.center)
         }
@@ -154,92 +155,50 @@ struct HomeView: View {
 
     private var captionText: String {
         switch model.phase {
-        case .idle: "Records & saves here"
+        case .idle: "Records and saves a note here"
         case .recording: "Listening… tap to stop"
         case .transcribing: "Transcribing…"
         }
     }
 
-    // MARK: Recent — last few transcripts, kind shown by icon
+    // MARK: - Recent
 
     private var recentEntries: [TranscriptEntry] { Array(entries.prefix(3)) }
 
     private var recentSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Recent")
-                .font(.subheadline.weight(.medium))
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Recent").font(.headline)
+                Spacer()
+                Button("See all") { selectedTab = .history }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(HexTheme.gradientColors[0])
+            }
+
+            ForEach(recentEntries, id: \.persistentModelID) { entry in
+                recentCard(entry)
+            }
+        }
+        .padding(.bottom, 24)
+    }
+
+    private func recentCard(_ entry: TranscriptEntry) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: entry.kind.systemImage)
+                .font(.subheadline)
+                .foregroundStyle(HexTheme.gradientColors[0])
+                .frame(width: 36, height: 36)
+                .background(HexTheme.gradientSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            Text(entry.text)
+                .font(.subheadline)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 8)
+            Text(entry.date, style: .time)
+                .font(.caption)
                 .foregroundStyle(.secondary)
-                .padding(.bottom, 4)
-
-            ForEach(Array(recentEntries.enumerated()), id: \.element.persistentModelID) { index, entry in
-                HStack(spacing: 12) {
-                    Image(systemName: entry.kind.systemImage)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 20)
-                    Text(entry.text)
-                        .font(.subheadline)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Spacer(minLength: 8)
-                    Text(entry.date, style: .time)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .monospacedDigit()
-                }
-                .padding(.vertical, 11)
-
-                if index < recentEntries.count - 1 { Divider() }
-            }
+                .monospacedDigit()
         }
-    }
-}
-
-/// Compact pill toggle for dictation: a status dot, the label, and a small
-/// switch, tinted with the accent when live. Custom-drawn so it stays small in
-/// the header rather than the full-width system switch.
-private struct DictationPillToggleStyle: ToggleStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        let on = configuration.isOn
-        return Button {
-            withAnimation(.snappy(duration: 0.2)) { configuration.isOn.toggle() }
-        } label: {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(on ? Color.accentColor : Color.secondary)
-                    .frame(width: 7, height: 7)
-                configuration.label
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-                miniSwitch(on: on)
-            }
-            .padding(.vertical, 5)
-            .padding(.leading, 11)
-            .padding(.trailing, 7)
-            .background(
-                on ? AnyShapeStyle(Color.accentColor.opacity(0.12))
-                   : AnyShapeStyle(Color(.secondarySystemBackground)),
-                in: .capsule
-            )
-            .overlay(
-                Capsule().strokeBorder(
-                    on ? Color.accentColor.opacity(0.35) : Color(.separator),
-                    lineWidth: 1
-                )
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func miniSwitch(on: Bool) -> some View {
-        ZStack(alignment: on ? .trailing : .leading) {
-            Capsule()
-                .fill(on ? Color.accentColor : Color(.systemGray3))
-                .frame(width: 32, height: 19)
-            Circle()
-                .fill(.white)
-                .frame(width: 15, height: 15)
-                .padding(2)
-        }
+        .hexCard(padding: 12)
     }
 }

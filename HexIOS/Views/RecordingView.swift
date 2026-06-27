@@ -2,10 +2,9 @@
 //  RecordingView.swift
 //  HexIOS
 //
-//  Recording modal (locked design §4.2): presented over Home while capturing an
-//  in-app note. Red dot + timer, waveform, accent stop, swipe-up to cancel, then
-//  a transient Transcribing state. (Waveform is a lively placeholder for V1; real
-//  input metering can replace it later.)
+//  Recording modal: presented over Home while capturing an in-app note. Top bar
+//  (Cancel · timer · language), a LISTENING state with a gradient waveform, and a
+//  gradient stop button. Styled with HexTheme.
 //
 
 import SwiftUI
@@ -15,24 +14,27 @@ struct RecordingView: View {
     @State private var dragOffset: CGFloat = 0
 
     var body: some View {
-        VStack(spacing: 28) {
-            Text("New note")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            topBar
+                .padding(.horizontal, 20)
+                .padding(.top, 18)
+
+            Spacer()
 
             if model.phase == .transcribing {
                 transcribing
             } else {
-                timerPill
-                waveform
-                stopButton
-                Text("Tap to stop · swipe up to cancel")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                listening
+            }
+
+            Spacer()
+
+            if model.phase != .transcribing {
+                stopButton.padding(.bottom, 44)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemBackground))
+        .background(Color(.systemGroupedBackground))
         .offset(y: dragOffset)
         .gesture(
             DragGesture()
@@ -44,16 +46,29 @@ struct RecordingView: View {
         )
     }
 
+    private var topBar: some View {
+        HStack {
+            Button("Cancel") { model.cancelRecording() }
+                .foregroundStyle(.secondary)
+            Spacer()
+            timerPill
+            Spacer()
+            Text("EN")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(HexTheme.gradientColors[0])
+        }
+    }
+
     private var timerPill: some View {
         TimelineView(.periodic(from: .now, by: 0.5)) { _ in
-            HStack(spacing: 8) {
-                Circle().fill(.red).frame(width: 10, height: 10)
+            HStack(spacing: 7) {
+                Circle().fill(HexTheme.gradient).frame(width: 8, height: 8)
                 Text(elapsedString).monospacedDigit()
             }
-            .font(.title3.weight(.medium))
+            .font(.subheadline.weight(.medium))
             .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Color(.secondarySystemBackground), in: .capsule)
+            .padding(.vertical, 7)
+            .background(Color(.secondarySystemGroupedBackground), in: .capsule)
         }
     }
 
@@ -63,15 +78,31 @@ struct RecordingView: View {
         return String(format: "%d:%02d", secs / 60, secs % 60)
     }
 
+    private var listening: some View {
+        VStack(spacing: 28) {
+            HStack(spacing: 7) {
+                Circle().fill(HexTheme.gradient).frame(width: 8, height: 8)
+                Text("LISTENING")
+                    .font(.caption.weight(.semibold))
+                    .tracking(1.5)
+                    .foregroundStyle(HexTheme.gradientColors[0])
+            }
+            waveform
+            Text("Tap to stop · swipe up to cancel")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private var waveform: some View {
         HStack(spacing: 4) {
             ForEach(Array(model.levels.enumerated()), id: \.offset) { _, level in
                 Capsule()
-                    .fill(Color.accentColor)
-                    .frame(width: 4, height: 6 + level * 50)
+                    .fill(HexTheme.gradient)
+                    .frame(width: 4, height: 8 + level * 56)
             }
         }
-        .frame(height: 56)
+        .frame(height: 70)
         .animation(.linear(duration: 0.05), value: model.levels)
     }
 
@@ -80,15 +111,17 @@ struct RecordingView: View {
             Task { await model.toggleRecording() }
         } label: {
             Image(systemName: "stop.fill")
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: 30, weight: .bold))
                 .foregroundStyle(.white)
-                .frame(width: 78, height: 78)
-                .background(Color.accentColor, in: .circle)
+                .frame(width: 84, height: 84)
+                .background(HexTheme.gradient, in: .circle)
+                .shadow(color: HexTheme.gradientColors[1].opacity(0.35), radius: 16, y: 8)
         }
+        .buttonStyle(.plain)
     }
 
     private var transcribing: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             ProgressView()
             Text("Transcribing…").foregroundStyle(.secondary)
         }
