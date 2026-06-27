@@ -56,7 +56,7 @@ struct ContentView: View {
         // A Flow Session just started (e.g. the keyboard bounced via hexkb://
         // startSession): show a dedicated swipe-back screen over any tab.
         .fullScreenCover(isPresented: Binding(
-            get: { model.awaitingSwipeBack },
+            get: { model.awaitingSwipeBack || model.isStartingSession },
             set: { if !$0 { model.dismissSwipeBackHint() } }
         )) {
             SwipeBackView(model: model)
