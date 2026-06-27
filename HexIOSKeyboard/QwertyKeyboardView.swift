@@ -2,16 +2,19 @@
 //  QwertyKeyboardView.swift
 //  HexIOSKeyboard
 //
-//  A standard QWERTY layout that clones Apple's system keyboard styling and drops
-//  the Hex mic into the bottom-right corner (where Apple's dictation mic lives).
-//  This is the only SwiftUI surface; all text/IPC wiring stays in
-//  `KeyboardViewController`. There is intentionally NO prediction/autocorrect bar:
-//  a third-party extension doesn't get Apple's language model (a later step).
+//  A standard QWERTY layout that clones Apple's system keyboard, with a Hex
+//  toolbar strip *above* the keys instead of a corner dictation mic. The strip is
+//  the only Hex-specific surface:
 //
-//  While `state.isCapturing` is true we dim the letters and show a "Listening…"
-//  waveform with Cancel + red-stop controls (the recording state). The remaining
-//  KeyboardPhase cases (noFullAccess, inserting, needsBounce, error) render as a
-//  slim status banner above the live keys.
+//    • Idle:      [globe] · big blue "Tap to dictate" pill · settings icon
+//    • Recording: "Cancel" · big red "Tap to stop" pill (the keys dim underneath)
+//
+//  We intentionally drop the system dictation mic (bottom-right) and surface our
+//  own dictation control on top, where it's unmissable. There is no prediction/
+//  autocorrect bar — a third-party extension doesn't get Apple's language model.
+//
+//  All text/IPC wiring stays in `KeyboardViewController`; this view just renders
+//  `KeyboardState` and calls back through `KeyboardActions`.
 //
 
 import SwiftUI
@@ -19,15 +22,26 @@ import SwiftUI
 // MARK: - Layout model
 
 /// A single key in a row. Most keys are letters; a few are "special" (shift,
-/// backspace, etc.) and carry their own glyph + width behavior.
+/// backspace, etc.) and carry their own glyph + width weight.
 private enum KeyKind: Equatable {
     case character(String)
     case shift
     case backspace
     case modeSwitch(String)   // "123" / "ABC" / "#+="
-    case globe
     case space
     case `return`
+
+    /// Width relative to a letter key (= 1). Mirrors the system keyboard's
+    /// proportions so a full row spans the width without any key collapsing.
+    var widthWeight: CGFloat {
+        switch self {
+        case .character: return 1
+        case .shift, .backspace: return 1.5
+        case .modeSwitch: return 2
+        case .return: return 2
+        case .space: return 5
+        }
+    }
 }
 
 // MARK: - Shift / letter case state
@@ -56,23 +70,26 @@ struct QwertyKeyboardView: View {
     @State private var layer: KeyboardLayer = .letters
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             keyboardBackground.ignoresSafeArea()
 
             VStack(spacing: 6) {
+                HexToolbar(
+                    state: state,
+                    actions: actions,
+                    colorScheme: colorScheme
+                )
+
                 statusBanner
 
-                if state.isCapturing {
-                    RecordingSurface(state: state, actions: actions)
-                        .transition(.opacity)
-                } else {
-                    keysSurface
-                        .transition(.opacity)
-                }
+                keysSurface
+                    .opacity(keysDimmed ? 0.35 : 1)
+                    .allowsHitTesting(!keysDisabled)
             }
             .padding(.horizontal, 3)
             .padding(.top, 4)
             .padding(.bottom, 3)
+            .frame(maxHeight: .infinity, alignment: .top)
         }
         .animation(.easeInOut(duration: 0.15), value: state.isCapturing)
         .animation(.easeInOut(duration: 0.12), value: layer)
@@ -88,6 +105,11 @@ struct QwertyKeyboardView: View {
             : Color(red: 0.82, green: 0.83, blue: 0.85)
     }
 
+    /// Keys dim while recording (the host app holds the mic) and when Full Access
+    /// is off (the toolbar pill is the only useful control then).
+    private var keysDimmed: Bool { state.isCapturing || !state.hasFullAccess }
+    private var keysDisabled: Bool { state.isCapturing || !state.hasFullAccess }
+
     // MARK: - Status banner (non-recording phases)
 
     @ViewBuilder
@@ -101,15 +123,11 @@ struct QwertyKeyboardView: View {
             banner(text: "Inserted",
                    systemImage: "checkmark.circle.fill",
                    tint: .green)
-        case .needsBounce:
-            banner(text: "Tap the mic to start a new session",
-                   systemImage: "arrow.up.forward.app.fill",
-                   tint: .accentColor)
         case .error(let message):
             banner(text: message,
                    systemImage: "exclamationmark.triangle.fill",
                    tint: .red)
-        case .idle, .recording:
+        case .idle, .recording, .needsBounce:
             EmptyView()
         }
     }
@@ -148,24 +166,11 @@ struct QwertyKeyboardView: View {
                     onShift: handleShift,
                     onBackspace: { actions.onDelete() },
                     onModeSwitch: handleModeSwitch,
-                    onGlobe: { actions.onNextKeyboard() },
                     onSpace: { actions.onSpace() },
-                    onReturn: { actions.onReturn() },
-                    onMic: { actions.onMic() },
-                    micEnabled: state.hasFullAccess
+                    onReturn: { actions.onReturn() }
                 )
             }
         }
-        .opacity(bannerDisablesKeys ? 0.4 : 1)
-        .allowsHitTesting(!bannerDisablesKeys)
-    }
-
-    /// Only `noFullAccess` truly blocks typing (the mic is useless and we want the
-    /// user to fix Full Access). Other phases are transient/informational, so keys
-    /// stay live.
-    private var bannerDisablesKeys: Bool {
-        if case .noFullAccess = state.phase { return true }
-        return false
     }
 
     private let rowSpacing: CGFloat = 8
@@ -198,16 +203,10 @@ struct QwertyKeyboardView: View {
         }
     }
 
-    /// The bottom row matches Apple's: mode-switch · globe · space · return. The
-    /// Hex mic is appended by `KeyRow` in the corner (Apple's dictation spot).
+    /// Bottom row: mode-switch · space · return. The globe lives in the top
+    /// toolbar now, and there is no corner mic.
     private var bottomRow: [KeyKind] {
-        var keys: [KeyKind] = [.modeSwitch(layer == .letters ? "123" : "ABC")]
-        if state.needsNextKeyboard {
-            keys.append(.globe)
-        }
-        keys.append(.space)
-        keys.append(.return)
-        return keys
+        [.modeSwitch(layer == .letters ? "123" : "ABC"), .space, .return]
     }
 
     // MARK: - Handlers
@@ -242,7 +241,163 @@ struct QwertyKeyboardView: View {
     }
 }
 
-// MARK: - Key row
+// MARK: - Hex toolbar (above the keys)
+
+private struct HexToolbar: View {
+    let state: KeyboardState
+    let actions: KeyboardActions
+    let colorScheme: ColorScheme
+
+    private let height: CGFloat = 50
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if state.isCapturing {
+                recordingControls
+            } else {
+                idleControls
+            }
+        }
+        .frame(height: height)
+        .padding(.horizontal, 3)
+    }
+
+    // Idle: globe · "Tap to dictate" · settings
+    @ViewBuilder
+    private var idleControls: some View {
+        if state.needsNextKeyboard {
+            ToolbarIconButton(systemImage: "globe", colorScheme: colorScheme, action: actions.onNextKeyboard)
+        }
+
+        ToolbarPill(
+            title: state.hasFullAccess ? "Tap to dictate" : "Enable Full Access to dictate",
+            systemImage: "mic.fill",
+            fill: state.hasFullAccess ? Color.accentColor : Color.gray,
+            enabled: state.hasFullAccess,
+            action: actions.onMic
+        )
+
+        ToolbarIconButton(systemImage: "slider.horizontal.3", colorScheme: colorScheme, action: actions.onSettings)
+    }
+
+    // Recording: Cancel · "Tap to stop"
+    @ViewBuilder
+    private var recordingControls: some View {
+        ToolbarTextButton(title: "Cancel", colorScheme: colorScheme, action: actions.onCancelDictation)
+
+        ToolbarPill(
+            title: "Tap to stop",
+            fill: .red,
+            enabled: true,
+            leading: { AnyView(WaveformView(isActive: true).frame(width: 30)) },
+            action: actions.onMic
+        )
+    }
+}
+
+// MARK: - Toolbar components
+
+/// The big center pill ("Tap to dictate" / "Tap to stop"). Fills the available
+/// width between the flanking buttons.
+private struct ToolbarPill: View {
+    let title: String
+    var systemImage: String? = nil
+    let fill: Color
+    let enabled: Bool
+    var leading: () -> AnyView = { AnyView(EmptyView()) }
+    let action: () -> Void
+
+    init(
+        title: String,
+        systemImage: String? = nil,
+        fill: Color,
+        enabled: Bool,
+        leading: @escaping () -> AnyView = { AnyView(EmptyView()) },
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.fill = fill
+        self.enabled = enabled
+        self.leading = leading
+        self.action = action
+    }
+
+    @State private var isPressed = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if let systemImage {
+                    Image(systemName: systemImage).font(.system(size: 17, weight: .semibold))
+                }
+                leading()
+                Text(title).font(.system(size: 17, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(fill)
+            )
+            .scaleEffect(isPressed ? 0.98 : 1)
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.6)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+        .animation(.easeOut(duration: 0.05), value: isPressed)
+    }
+}
+
+/// A square icon button (globe / settings) flanking the pill.
+private struct ToolbarIconButton: View {
+    let systemImage: String
+    let colorScheme: ColorScheme
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 18, weight: .regular))
+                .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+                .frame(width: 46, height: 50)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(KeyStyle.specialFill(colorScheme))
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A text button (Cancel) flanking the recording pill — sized to its label.
+private struct ToolbarTextButton: View {
+    let title: String
+    let colorScheme: ColorScheme
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+                .padding(.horizontal, 20)
+                .frame(height: 50)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(KeyStyle.specialFill(colorScheme))
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Key row (proportional widths)
 
 private struct KeyRow: View {
     let keys: [KeyKind]
@@ -254,42 +409,34 @@ private struct KeyRow: View {
     let onShift: () -> Void
     let onBackspace: () -> Void
     let onModeSwitch: (String) -> Void
-    let onGlobe: () -> Void
     let onSpace: () -> Void
     let onReturn: () -> Void
-    let onMic: () -> Void
-    let micEnabled: Bool
-
-    /// Does this row contain the space bar? If so it's the bottom row and gets the
-    /// mic appended in the corner.
-    private var isBottomRow: Bool {
-        keys.contains { if case .space = $0 { return true }; return false }
-    }
-
-    var body: some View {
-        HStack(spacing: keySpacing) {
-            ForEach(Array(keys.enumerated()), id: \.offset) { _, key in
-                keyButton(for: key)
-                    .layoutPriority(layoutPriority(for: key))
-            }
-            if isBottomRow {
-                MicKey(colorScheme: colorScheme, enabled: micEnabled, action: onMic)
-            }
-        }
-    }
 
     private let keySpacing: CGFloat = 5.5
 
-    /// Letters share width evenly; the wider special keys claim more via layout
-    /// priority so they read like the system keyboard's proportions.
-    private func layoutPriority(for key: KeyKind) -> Double {
-        switch key {
-        case .character: return 1
-        case .shift, .backspace: return 1.5
-        case .modeSwitch, .globe: return 1.4
-        case .space: return 5
-        case .return: return 2
+    var body: some View {
+        GeometryReader { geo in
+            let widths = keyWidths(totalWidth: geo.size.width)
+            HStack(spacing: keySpacing) {
+                ForEach(Array(keys.enumerated()), id: \.offset) { index, key in
+                    keyButton(for: key)
+                        .frame(width: widths[index])
+                }
+            }
+            .frame(width: geo.size.width, height: keyHeight)
         }
+        .frame(height: keyHeight)
+    }
+
+    /// Distribute the row width by each key's weight so a row always spans the
+    /// full width and no key collapses (the old layoutPriority bug).
+    private func keyWidths(totalWidth: CGFloat) -> [CGFloat] {
+        let weights = keys.map(\.widthWeight)
+        let totalWeight = weights.reduce(0, +)
+        let spacing = keySpacing * CGFloat(max(keys.count - 1, 0))
+        let available = max(totalWidth - spacing, 0)
+        guard totalWeight > 0 else { return keys.map { _ in 0 } }
+        return weights.map { available * $0 / totalWeight }
     }
 
     @ViewBuilder
@@ -316,11 +463,6 @@ private struct KeyRow: View {
             SpecialKey(colorScheme: colorScheme) { onModeSwitch(label) } content: {
                 Text(label)
                     .font(.system(size: 15, weight: .regular))
-            }
-        case .globe:
-            SpecialKey(colorScheme: colorScheme) { onGlobe() } content: {
-                Image(systemName: "globe")
-                    .font(.system(size: 17, weight: .regular))
             }
         case .space:
             SpecialKey(colorScheme: colorScheme, light: true) { onSpace() } content: {
@@ -456,108 +598,6 @@ private struct SpecialKey<Content: View>: View {
         if emphasized { return KeyStyle.emphasizedFill(colorScheme) }
         if light { return KeyStyle.letterFill(colorScheme) }
         return KeyStyle.specialFill(colorScheme)
-    }
-}
-
-// MARK: - Mic key (bottom-right corner)
-
-private struct MicKey: View {
-    let colorScheme: ColorScheme
-    let enabled: Bool
-    let action: () -> Void
-
-    @State private var isPressed = false
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "mic.fill")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 46, height: keyHeight)
-                .background(
-                    RoundedRectangle(cornerRadius: keyCornerRadius, style: .continuous)
-                        .fill(enabled ? Color.accentColor : Color.gray)
-                        .shadow(color: .black.opacity(0.28), radius: 0, x: 0, y: 1)
-                )
-                .scaleEffect(isPressed ? 0.94 : 1)
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-        .opacity(enabled ? 1 : 0.5)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in isPressed = false }
-        )
-        .animation(.easeOut(duration: 0.05), value: isPressed)
-        .accessibilityLabel("Dictate")
-    }
-}
-
-// MARK: - Recording surface
-
-private struct RecordingSurface: View {
-    let state: KeyboardState
-    let actions: KeyboardActions
-
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
-
-            VStack(spacing: 12) {
-                Text("Listening…")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-
-                WaveformView(isActive: true)
-                    .frame(height: 40)
-
-                if let remaining = state.remainingText {
-                    Text("\(remaining) left")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            HStack(spacing: 12) {
-                Button(action: {
-                    // TODO: discard — true discard isn't wired yet, so we stop
-                    // capture (which transcribes what we have). Same as stop for now.
-                    actions.onMic()
-                }) {
-                    Text("Cancel")
-                        .font(.system(size: 16, weight: .medium))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: keyHeight)
-                        .background(
-                            RoundedRectangle(cornerRadius: keyCornerRadius, style: .continuous)
-                                .fill(KeyStyle.specialFill(colorScheme))
-                        )
-                        .foregroundStyle(.primary)
-                }
-                .buttonStyle(.plain)
-
-                Button(action: { actions.onMic() }) {
-                    Image(systemName: "stop.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 64, height: keyHeight)
-                        .background(
-                            RoundedRectangle(cornerRadius: keyCornerRadius, style: .continuous)
-                                .fill(Color.red)
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Stop recording")
-            }
-            .padding(.bottom, 4)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.horizontal, 6)
     }
 }
 

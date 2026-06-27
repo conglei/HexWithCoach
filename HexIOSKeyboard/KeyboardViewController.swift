@@ -47,7 +47,9 @@ final class KeyboardViewController: UIInputViewController {
             onCaretMove: { [weak self] offset in self?.textDocumentProxy.adjustTextPosition(byCharacterOffset: offset) },
             onInsert: { [weak self] text in self?.textDocumentProxy.insertText(text) },
             onUndo: { [weak self] in self?.performUndoAction(redo: false) },
-            onRedo: { [weak self] in self?.performUndoAction(redo: true) }
+            onRedo: { [weak self] in self?.performUndoAction(redo: true) },
+            onCancelDictation: { [weak self] in self?.handleMicTap() },
+            onSettings: { [weak self] in self?.openHostApp(path: "settings") }
         )
 
         let root = KeyboardView(state: state, actions: actions)
@@ -170,6 +172,13 @@ final class KeyboardViewController: UIInputViewController {
                 self?.state.statusText = "iOS blocked opening Hex."
             }
         }
+    }
+
+    /// Open the Hex app at a given path (e.g. "settings") from the toolbar. Best
+    /// effort — requires Full Access and a UIApplication in the responder chain.
+    private func openHostApp(path: String) {
+        guard hasFullAccess, let url = URL(string: "hexkb://\(path)") else { return }
+        firstUIApplicationInResponderChain()?.open(url, options: [:], completionHandler: nil)
     }
 
     private func currentSession() -> DictationSessionState? {

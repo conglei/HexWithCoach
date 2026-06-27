@@ -12,6 +12,7 @@ import SwiftUI
 struct HexIOSApp: App {
     private let modelContainer: ModelContainer
     @State private var model: DictationModel
+    @State private var selectedTab: AppTab = .home
     @Environment(\.scenePhase) private var scenePhase
 
     @MainActor
@@ -23,12 +24,20 @@ struct HexIOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(model: model)
+            ContentView(model: model, selectedTab: $selectedTab)
                 .modelContainer(modelContainer)
                 .onOpenURL { url in
-                    // Keyboard session bounce: hexkb://startSession
-                    guard url.scheme == "hexkb", url.host == "startSession" else { return }
-                    Task { await model.startKeyboardSession() }
+                    guard url.scheme == "hexkb" else { return }
+                    switch url.host {
+                    case "startSession":
+                        // Keyboard session bounce.
+                        Task { await model.startKeyboardSession() }
+                    case "settings":
+                        // Keyboard toolbar settings icon → Settings tab.
+                        selectedTab = .settings
+                    default:
+                        break
+                    }
                 }
                 .onChange(of: scenePhase) { _, phase in
                     // Hands-free entry (App Intent / Action Button / Siri): the

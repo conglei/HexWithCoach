@@ -10,8 +10,16 @@
 import SwiftData
 import SwiftUI
 
+/// The three root tabs, used as TabView selection tags so deep links can switch.
+enum AppTab: Hashable {
+    case home, history, settings
+}
+
 struct ContentView: View {
     let model: DictationModel
+    /// Selected tab, bound from the app so deep links (e.g. the keyboard's
+    /// settings button → `hexkb://settings`) can switch tabs.
+    @Binding var selectedTab: AppTab
 
     /// First-run flag (stored in the shared App Group so the keyboard can read it
     /// later if needed). When false, onboarding is presented full-screen.
@@ -20,15 +28,18 @@ struct ContentView: View {
     @State private var showOnboarding = false
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             HomeView(model: model)
                 .tabItem { Label("Home", systemImage: "mic") }
+                .tag(AppTab.home)
 
             HistoryView()
                 .tabItem { Label("History", systemImage: "clock") }
+                .tag(AppTab.history)
 
             SettingsView(model: model, showOnboarding: $showOnboarding)
                 .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(AppTab.settings)
         }
         .tint(.accentColor)
         .task { await model.prepare() }
@@ -54,6 +65,6 @@ struct ContentView: View {
         for: TranscriptEntry.self,
         configurations: ModelConfiguration(isStoredInMemoryOnly: true)
     )
-    return ContentView(model: DictationModel(modelContext: container.mainContext))
+    return ContentView(model: DictationModel(modelContext: container.mainContext), selectedTab: .constant(.home))
         .modelContainer(container)
 }
