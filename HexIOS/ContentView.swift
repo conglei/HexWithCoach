@@ -35,7 +35,7 @@ struct ContentView: View {
                 .tabItem { Label("Review", systemImage: "sparkles") }
                 .tag(AppTab.review)
 
-            HomeView(model: model)
+            HomeView(model: model, selectedTab: $selectedTab)
                 .tabItem { Label("Home", systemImage: "mic") }
                 .tag(AppTab.home)
 
