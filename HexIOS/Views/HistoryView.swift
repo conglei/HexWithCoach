@@ -13,7 +13,12 @@ import SwiftUI
 
 struct HistoryView: View {
     @Query(sort: \TranscriptEntry.date, order: .reverse) private var entries: [TranscriptEntry]
+    @Query private var allCards: [CoachCardEntity]
     @State private var query = ""
+
+    /// Only annotate processed/pending once the Coach has actually run — otherwise
+    /// every row would show a confusing "pending" badge when coaching is off.
+    private var coachActive: Bool { entries.contains { $0.coachAnalyzedAt != nil } }
 
     private var filtered: [TranscriptEntry] {
         guard !query.isEmpty else { return entries }
@@ -39,7 +44,7 @@ struct HistoryView: View {
                     List {
                         ForEach(grouped, id: \.day) { group in
                             Section(group.day.formatted(date: .abbreviated, time: .omitted)) {
-                                ForEach(group.entries) { entry in
+                                ForEach(group.entries, id: \.persistentModelID) { entry in
                                     NavigationLink {
                                         TranscriptDetailView(entry: entry)
                                     } label: {
@@ -57,17 +62,43 @@ struct HistoryView: View {
     }
 
     private func row(_ entry: TranscriptEntry) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(entry.text)
-            HStack(spacing: 6) {
-                Image(systemName: entry.kind.systemImage)
-                Text(entry.kind.label)
-                Text("·")
-                Text(entry.date, style: .time)
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(entry.text)
+                HStack(spacing: 6) {
+                    Image(systemName: entry.kind.systemImage)
+                    Text(entry.kind.label)
+                    Text("·")
+                    Text(entry.date, style: .time)
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
             }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
+            Spacer(minLength: 4)
+            if coachActive { statusIndicator(entry) }
         }
         .padding(.vertical, 2)
+    }
+
+    /// Whether the Coach has processed this transcript, and how many notes it found.
+    @ViewBuilder
+    private func statusIndicator(_ entry: TranscriptEntry) -> some View {
+        if entry.coachAnalyzedAt == nil {
+            Image(systemName: "hourglass")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        } else {
+            let count = allCards.filter { $0.transcriptID == entry.id }.count
+            if count > 0 {
+                Label("\(count)", systemImage: "sparkles")
+                    .font(.caption2)
+                    .labelStyle(.titleAndIcon)
+                    .foregroundStyle(Color.accentColor)
+            } else {
+                Image(systemName: "checkmark.circle")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
     }
 }

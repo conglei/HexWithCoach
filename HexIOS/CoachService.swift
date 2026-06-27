@@ -82,14 +82,25 @@ final class CoachService {
 
         for entry in batch {
             let words = entry.text.split { $0.isWhitespace }.count
+            let durationSec = duration(forAudio: entry.audioFilename, fallbackWordCount: words)
+
+            // Skip trivially short dictations — too little to coach on, and not
+            // worth the spend. Mark them analyzed so they roll out of the backlog.
+            if durationSec < Self.minDurationSec {
+                entry.coachAnalyzedAt = now
+                continue
+            }
+
+            // Send the audio too (multimodal lens) so the model can actually hear
+            // pronunciation/prosody, not just read the transcript.
+            let audioClip = audio(for: entry.audioFilename)
             let input = CoachTranscriptInput(
-                id: entry.id, text: entry.text,
-                durationSec: duration(forAudio: entry.audioFilename, fallbackWordCount: words)
+                id: entry.id, text: entry.text, durationSec: durationSec, audio: audioClip
             )
             do {
                 let analysis = try await pipeline.analyze(input, profile: &profile, at: now)
                 allInsights.append(contentsOf: analysis.insights)
-                runCost += Self.estimatedCost(forTranscriptChars: entry.text.count)
+                runCost += Self.estimatedCost(chars: entry.text.count, audioSec: audioClip == nil ? 0 : durationSec)
                 entry.coachAnalyzedAt = now
             } catch {
                 // Stop on the first hard error (e.g. a bad key) so we don't keep
@@ -112,6 +123,9 @@ final class CoachService {
 
     // MARK: - Helpers
 
+    /// Below this, a dictation is too short to coach on — skip it.
+    private static let minDurationSec: Double = 10
+
     /// Real audio duration when the file is on disk; otherwise a ~150 wpm estimate.
     private func duration(forAudio filename: String?, fallbackWordCount: Int) -> Double {
         if let url = AudioStore.url(for: filename),
@@ -121,13 +135,21 @@ final class CoachService {
         return max(1, Double(fallbackWordCount) / 150 * 60)
     }
 
-    /// Rough per-transcript cost: two passes (cheap extract + stronger critic),
-    /// tokens ≈ chars/4 plus prompt/profile overhead. Precise token accounting is
-    /// CE-5; this just keeps the running estimate honest enough to not surprise.
-    private static func estimatedCost(forTranscriptChars chars: Int) -> Double {
-        let promptTokens = max(200, chars / 4 + 400)
-        let outputTokens = 250
-        return CoachCostEstimator.usd(promptTokens: promptTokens, outputTokens: outputTokens, model: GeminiClient.Model.flashLite)
-            + CoachCostEstimator.usd(promptTokens: promptTokens, outputTokens: outputTokens, model: GeminiClient.Model.flash)
+    /// Load a transcript's retained audio for the multimodal lens (nil if none).
+    private func audio(for filename: String?) -> CoachAudio? {
+        guard let url = AudioStore.url(for: filename), let data = try? Data(contentsOf: url) else { return nil }
+        return CoachAudio(data: data, mimeType: "audio/wav")
+    }
+
+    /// Rough per-transcript cost: cheap extract (with audio, ~32 tok/s) + stronger
+    /// text-only critic. Precise token accounting is CE-5; this keeps the running
+    /// estimate honest enough to not surprise.
+    private static func estimatedCost(chars: Int, audioSec: Double) -> Double {
+        let audioTokens = Int(audioSec * 32)
+        let extractPrompt = max(200, chars / 4 + 400 + audioTokens)
+        let criticPrompt = max(200, chars / 4 + 400)
+        let output = 250
+        return CoachCostEstimator.usd(promptTokens: extractPrompt, outputTokens: output, model: GeminiClient.Model.flashLite)
+            + CoachCostEstimator.usd(promptTokens: criticPrompt, outputTokens: output, model: GeminiClient.Model.flash)
     }
 }
