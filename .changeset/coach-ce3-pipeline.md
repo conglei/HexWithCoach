@@ -1,0 +1,5 @@
+---
+"hex-app": minor
+---
+
+Coach engine (CE-3): the two-tier, verified analysis pipeline that replaces the old one-shot prompt (pillar B). A provider-agnostic `CoachPipeline` in HexCore runs **Tier-1 extract** (per-lens candidate observations across grammar/lexis/discourse/pronunciation/prosody — each with the user's exact span, a teachable rule, a meaning-preserving native rewrite, severity, and needsAudio; conditioned on the LearnerProfile + the local fluency signals) → **Tier-2 critic** (verifies each candidate is a real error with a genuinely-better rewrite, dropping low-confidence false positives) → **integrate** survivors into the LearnerProfile → **prioritize** the 1–2 highest-leverage focuses. It now feeds the model the transcript alongside the audio (CE-4 multimodal lens; stops withholding the transcript). The pipeline talks to a `CoachLLM` seam so it's fully unit-tested with a mock (7 tests); a thin `GeminiCoachLLM` adapter in HexEngine maps tiers to Gemini models. No UI yet — RC-2/RC-3 will render the insights.
