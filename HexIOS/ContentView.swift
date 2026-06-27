@@ -28,6 +28,8 @@ struct ContentView: View {
     @AppStorage(OnboardingState.didOnboardKey, store: OnboardingState.store)
     private var didOnboard = false
     @State private var showOnboarding = false
+    /// History's navigation stack, owned here so "See all" can reset it to root.
+    @State private var historyPath = NavigationPath()
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -35,11 +37,14 @@ struct ContentView: View {
                 .tabItem { Label("Review", systemImage: "sparkles") }
                 .tag(AppTab.review)
 
-            HomeView(model: model, selectedTab: $selectedTab)
+            HomeView(model: model, selectedTab: $selectedTab, onShowAllHistory: {
+                historyPath = NavigationPath()
+                selectedTab = .history
+            })
                 .tabItem { Label("Home", systemImage: "mic") }
                 .tag(AppTab.home)
 
-            HistoryView()
+            HistoryView(path: $historyPath)
                 .tabItem { Label("History", systemImage: "clock") }
                 .tag(AppTab.history)
 

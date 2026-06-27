@@ -88,6 +88,10 @@ final class DictationModel {
         }
     }
 
+    /// The note just saved from in-app capture, so Home can open it automatically
+    /// once the recording sheet dismisses. Cleared by the consumer.
+    var lastSavedNote: TranscriptEntry?
+
     /// Persist a transcript, retaining its audio (moved into the App Group) so the
     /// Coach corpus has both text and audio.
     private func save(text: String, kind: TranscriptKind, audioURL: URL?) {
@@ -98,8 +102,12 @@ final class DictationModel {
             return
         }
         let filename = audioURL.flatMap { AudioStore.persist($0) }
-        modelContext.insert(TranscriptEntry(text: text, date: Date(), kind: kind, audioFilename: filename))
+        let entry = TranscriptEntry(text: text, date: Date(), kind: kind, audioFilename: filename)
+        modelContext.insert(entry)
         try? modelContext.save()
+        // In-app notes open straight into their detail; dictation snippets just
+        // get inserted into the host app, so don't surface those.
+        if kind == .note { lastSavedNote = entry }
     }
     /// When the current in-app note recording started (for the recording modal timer).
     private(set) var recordingStartedAt: Date?
