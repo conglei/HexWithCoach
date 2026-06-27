@@ -91,6 +91,11 @@ struct KeyboardActions {
     var onInsert: (String) -> Void
     var onUndo: () -> Void
     var onRedo: () -> Void
+    /// Cancel the in-progress dictation (toolbar "Cancel"). Currently stops the
+    /// capture like the mic does; true discard isn't wired yet.
+    var onCancelDictation: () -> Void
+    /// Open the Hex app (toolbar settings icon) for preferences/onboarding.
+    var onSettings: () -> Void
 }
 
 /// The hosted SwiftUI surface. `KeyboardViewController` constructs this with the
