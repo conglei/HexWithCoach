@@ -4,8 +4,9 @@
 //
 //  History tab (locked design §4.4): unified transcript list (notes + keyboard
 //  insertions), day-grouped, searchable. Backed by SwiftData (@Query), so it
-//  persists across launches and syncs via CloudKit. Inline audio playback is a
-//  later add (P4-3).
+//  persists across launches and syncs via CloudKit. Restyled with the shared
+//  HexTheme — each transcript is a white rounded card on a grouped background.
+//  Inline audio playback is a later add (P4-3).
 //
 
 import SwiftData
@@ -41,43 +42,84 @@ struct HistoryView: View {
                         description: Text("Notes and keyboard dictations show up here.")
                     )
                 } else {
-                    List {
-                        ForEach(grouped, id: \.day) { group in
-                            Section(group.day.formatted(date: .abbreviated, time: .omitted)) {
-                                ForEach(group.entries, id: \.persistentModelID) { entry in
-                                    NavigationLink {
-                                        TranscriptDetailView(entry: entry)
-                                    } label: {
-                                        row(entry)
-                                    }
-                                }
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 24) {
+                            ForEach(grouped, id: \.day) { group in
+                                section(group)
                             }
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
                     }
                 }
             }
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("History")
             .searchable(text: $query, prompt: "Search transcripts")
         }
     }
 
-    private func row(_ entry: TranscriptEntry) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(entry.text)
-                HStack(spacing: 6) {
-                    Image(systemName: entry.kind.systemImage)
-                    Text(entry.kind.label)
-                    Text("·")
-                    Text(entry.date, style: .time)
-                }
-                .font(.caption2)
+    // MARK: - Day section
+
+    private func section(_ group: (day: Date, entries: [TranscriptEntry])) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(dayHeader(group.day))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
+                .padding(.leading, 4)
+
+            ForEach(group.entries, id: \.persistentModelID) { entry in
+                NavigationLink {
+                    TranscriptDetailView(entry: entry)
+                } label: {
+                    card(entry)
+                }
+                .buttonStyle(.plain)
             }
-            Spacer(minLength: 4)
-            if coachActive { statusIndicator(entry) }
         }
-        .padding(.vertical, 2)
+    }
+
+    /// "TODAY · JUN 27" — relative when recent, weekday + date otherwise.
+    private func dayHeader(_ day: Date) -> String {
+        let cal = Calendar.current
+        let prefix: String
+        if cal.isDateInToday(day) {
+            prefix = "Today"
+        } else if cal.isDateInYesterday(day) {
+            prefix = "Yesterday"
+        } else {
+            prefix = day.formatted(.dateTime.weekday(.wide))
+        }
+        let date = day.formatted(.dateTime.month(.abbreviated).day())
+        return "\(prefix) · \(date)".uppercased()
+    }
+
+    // MARK: - Transcript card
+
+    private func card(_ entry: TranscriptEntry) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                Text(entry.text)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if coachActive { statusIndicator(entry) }
+            }
+
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(HexTheme.gradientColors[0])
+                    .frame(width: 6, height: 6)
+                Text(entry.kind.label)
+                Text("·")
+                Text(entry.date, style: .time)
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+        }
+        .hexCard()
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Whether the Coach has processed this transcript, and how many notes it found.
