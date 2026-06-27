@@ -8,6 +8,7 @@
 
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct HomeView: View {
     let model: DictationModel
@@ -17,27 +18,41 @@ struct HomeView: View {
     @State private var incognito = CapturePreferences.incognito
     @State private var path = NavigationPath()
 
+    // Pull-down-to-dictate.
+    @State private var pull: CGFloat = 0
+    @State private var pullArmed = false
+    private let pullThreshold: CGFloat = 110
+
     var body: some View {
         NavigationStack(path: $path) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    header.padding(.top, 8)
+            GeometryReader { geo in
+                ScrollView {
+                    ZStack(alignment: .top) {
+                        // Scroll-offset probe (drives pull-to-dictate).
+                        GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: ScrollOffsetKey.self,
+                                value: proxy.frame(in: .named("home")).minY
+                            )
+                        }
+                        .frame(height: 0)
 
-                    if let status = statusLine {
-                        Text(status.text)
-                            .font(.footnote.weight(.medium))
-                            .foregroundStyle(status.accent ? AnyShapeStyle(HexTheme.gradientColors[0]) : AnyShapeStyle(.secondary))
-                            .padding(.top, 12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 0) {
+                            header.padding(.top, 8)
+                            statusView
+                            Spacer(minLength: 24)
+                            hero
+                            Spacer(minLength: 0).frame(height: 32)
+                            if !entries.isEmpty { recentSection }
+                        }
+                        .frame(minHeight: geo.size.height, alignment: .top)
+                        .padding(.horizontal, 20)
                     }
-
-                    hero
-                        .padding(.top, 96)
-                        .padding(.bottom, 56)
-
-                    if !entries.isEmpty { recentSection }
                 }
-                .padding(.horizontal, 20)
+                .coordinateSpace(name: "home")
+                .scrollIndicators(.hidden)
+                .onPreferenceChange(ScrollOffsetKey.self) { handlePull($0) }
+                .overlay(alignment: .top) { pullIndicator }
             }
             .background(Color(.systemGroupedBackground))
             .toolbar(.hidden, for: .navigationBar)
@@ -58,6 +73,58 @@ struct HomeView: View {
                     model.lastSavedNote = nil
                 }
             }
+        }
+    }
+
+    // MARK: - Pull to dictate
+
+    /// Pulling the screen down past the threshold and releasing starts a new note
+    /// — the second way to dictate, alongside tapping the mic.
+    private func handlePull(_ offset: CGFloat) {
+        let amount = max(0, offset)
+        pull = amount
+        if amount >= pullThreshold {
+            if !pullArmed {
+                pullArmed = true
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            }
+        } else if pullArmed, amount < pullThreshold * 0.6 {
+            // Released past the threshold → start dictating.
+            pullArmed = false
+            if model.canRecord { Task { await model.toggleRecording() } }
+        }
+    }
+
+    @ViewBuilder
+    private var pullIndicator: some View {
+        if pull > 1, model.phase == .idle {
+            let progress = min(1, pull / pullThreshold)
+            VStack(spacing: 6) {
+                Image(systemName: pullArmed ? "mic.fill" : "arrow.down")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(HexTheme.gradient, in: .circle)
+                    .scaleEffect(0.7 + 0.3 * progress)
+                Text(pullArmed ? "Release to dictate" : "Pull to dictate")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            .opacity(Double(min(1, pull / 50)))
+            .offset(y: min(pull, pullThreshold) * 0.5 - 8)
+            .allowsHitTesting(false)
+            .animation(.easeOut(duration: 0.12), value: pullArmed)
+        }
+    }
+
+    @ViewBuilder
+    private var statusView: some View {
+        if let status = statusLine {
+            Text(status.text)
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(status.accent ? AnyShapeStyle(HexTheme.gradientColors[0]) : AnyShapeStyle(.secondary))
+                .padding(.top, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -212,4 +279,11 @@ struct HomeView: View {
         }
         .hexCard(padding: 12)
     }
+}
+
+/// Reports the Home content's top offset within the scroll view so the pull-down
+/// gesture can detect an overscroll.
+private struct ScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
