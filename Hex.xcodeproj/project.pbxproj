@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		35B84163BCC297826D063C72 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 31CB50E41AA5E1941B7A1281 /* Foundation.framework */; };
 		47512ABF2E14D8C9000E25BA /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 47512ABE2E14D8C9000E25BA /* WhisperKit */; };
 		476316272E5FB31400913CDE /* HexCore in Frameworks */ = {isa = PBXBuildFile; productRef = 476316262E5FB31400913CDE /* HexCore */; };
 		4765045E2D45900200C7EA60 /* Pow in Frameworks */ = {isa = PBXBuildFile; productRef = 4765045D2D45900200C7EA60 /* Pow */; };
@@ -29,6 +30,7 @@
 		4EFA07062FEF882200A6BFA0 /* HexCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4EFA07052FEF882200A6BFA0 /* HexCore */; };
 		4F0D6A012F1A000100000001 /* HexCore in Frameworks */ = {isa = PBXBuildFile; productRef = 476316262E5FB31400913CDE /* HexCore */; };
 		4F0D6A022F1A000100000001 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = 47E05E012D444EE900D26DA6 /* ComposableArchitecture */; };
+		57F3BA759BCAE4382B151EA7 /* SessionLengthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 576F8B0BC68A98BFE7D3BF90 /* SessionLengthTests.swift */; };
 		7BA7464C2FBD689B00814C43 /* MLXAudioSTT in Frameworks */ = {isa = PBXBuildFile; productRef = 7BA7464B2FBD689B00814C43 /* MLXAudioSTT */; };
 		B5045C972D78DED500D0A119 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = B5045C962D78DED500D0A119 /* MarkdownUI */; };
 		B53356002D7B8D4900E5F542 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = B53355FF2D7B8D4900E5F542 /* Localizable.xcstrings */; };
@@ -56,6 +58,13 @@
 			remoteGlobalIDString = 4EFA06EA2FEF86F500A6BFA0;
 			remoteInfo = HexWidgetsExtension;
 		};
+		DE7FB3D21710F6453FC9A92A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 47E05DE62D444EC600D26DA6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4EF356142FEF3C2100DCA9C2;
+			remoteInfo = HexIOS;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -74,6 +83,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		31CB50E41AA5E1941B7A1281 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		473544502D445936001FBCB5 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		473544542D445959001FBCB5 /* Testing.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Testing.framework; path = Platforms/MacOSX.platform/Developer/Library/Frameworks/Testing.framework; sourceTree = DEVELOPER_DIR; };
 		478637A52D48725900319BFA /* HexTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HexTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -83,8 +93,10 @@
 		4EFA06EB2FEF86F500A6BFA0 /* HexWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HexWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		4EFA06EC2FEF86F500A6BFA0 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		4EFA06EE2FEF86F500A6BFA0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		576F8B0BC68A98BFE7D3BF90 /* SessionLengthTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionLengthTests.swift; sourceTree = "<group>"; };
 		B53355FF2D7B8D4900E5F542 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		B5A1C7E22E6A1C5B00AB1234 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.icon; name = AppIcon.icon; path = Hex/AppIcon.icon; sourceTree = "<group>"; };
+		C1408FD4F795F2464BB81846 /* HexIOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HexIOSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -129,6 +141,8 @@
 		};
 		4EAA000000000000000000E1 /* HexEngine */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = HexEngine;
 			sourceTree = "<group>";
 		};
@@ -158,12 +172,22 @@
 		};
 		4F0D6A032F1A000100000001 /* HexTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = HexTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		00B1231B558D452AED3670FB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				35B84163BCC297826D063C72 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		478637A22D48725900319BFA /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -224,6 +248,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2A23ABCD2E895CAC39B94743 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				31CB50E41AA5E1941B7A1281 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		389E4D86F46EE8AF05CC10BF /* HexIOSTests */ = {
+			isa = PBXGroup;
+			children = (
+				576F8B0BC68A98BFE7D3BF90 /* SessionLengthTests.swift */,
+			);
+			name = HexIOSTests;
+			path = HexIOSTests;
+			sourceTree = SOURCE_ROOT;
+		};
 		4735444F2D445936001FBCB5 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -231,6 +272,7 @@
 				473544502D445936001FBCB5 /* XCTest.framework */,
 				4EFA06EC2FEF86F500A6BFA0 /* WidgetKit.framework */,
 				4EFA06EE2FEF86F500A6BFA0 /* SwiftUI.framework */,
+				2A23ABCD2E895CAC39B94743 /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -248,6 +290,7 @@
 				4EFA06F02FEF86F500A6BFA0 /* HexWidgets */,
 				4735444F2D445936001FBCB5 /* Frameworks */,
 				47E05DEF2D444EC600D26DA6 /* Products */,
+				389E4D86F46EE8AF05CC10BF /* HexIOSTests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -259,6 +302,7 @@
 				4EF356152FEF3C2100DCA9C2 /* HexIOS.app */,
 				4EF356E12FEF431A00DCA9C2 /* HexIOSKeyboard.appex */,
 				4EFA06EB2FEF86F500A6BFA0 /* HexWidgetsExtension.appex */,
+				C1408FD4F795F2464BB81846 /* HexIOSTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -402,6 +446,24 @@
 			productReference = 4EFA06EB2FEF86F500A6BFA0 /* HexWidgetsExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		DF72E1BC1207AEDFC58AB4E1 /* HexIOSTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7B37F7D1A09576F7F4BFD5BF /* Build configuration list for PBXNativeTarget "HexIOSTests" */;
+			buildPhases = (
+				114600132E59B09039226DB4 /* Sources */,
+				00B1231B558D452AED3670FB /* Frameworks */,
+				1F9BF4C6C449503B1FFF3864 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				93566040171926AF47FB3035 /* PBXTargetDependency */,
+			);
+			name = HexIOSTests;
+			productName = HexIOSTests;
+			productReference = C1408FD4F795F2464BB81846 /* HexIOSTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -462,11 +524,19 @@
 				4EF356142FEF3C2100DCA9C2 /* HexIOS */,
 				4EF356E02FEF431A00DCA9C2 /* HexIOSKeyboard */,
 				4EFA06EA2FEF86F500A6BFA0 /* HexWidgetsExtension */,
+				DF72E1BC1207AEDFC58AB4E1 /* HexIOSTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		1F9BF4C6C449503B1FFF3864 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		478637A32D48725900319BFA /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -506,6 +576,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		114600132E59B09039226DB4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				57F3BA759BCAE4382B151EA7 /* SessionLengthTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		478637A12D48725900319BFA /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -559,9 +637,33 @@
 			target = 4EFA06EA2FEF86F500A6BFA0 /* HexWidgetsExtension */;
 			targetProxy = 4EFA06FE2FEF86F600A6BFA0 /* PBXContainerItemProxy */;
 		};
+		93566040171926AF47FB3035 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = HexIOS;
+			target = 4EF356142FEF3C2100DCA9C2 /* HexIOS */;
+			targetProxy = DE7FB3D21710F6453FC9A92A /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		1E1FECDCBE5F07A7F84112D7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				PRODUCT_BUNDLE_IDENTIFIER = stonefrontier.HexIOS.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/HexIOS.app/HexIOS";
+			};
+			name = Debug;
+		};
 		478637AC2D48725900319BFA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1028,6 +1130,25 @@
 			};
 			name = Release;
 		};
+		9C3D2D3B1DDA004950B6C01C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				PRODUCT_BUNDLE_IDENTIFIER = stonefrontier.HexIOS.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/HexIOS.app/HexIOS";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1081,6 +1202,15 @@
 			buildConfigurations = (
 				4EFA07012FEF86F600A6BFA0 /* Debug */,
 				4EFA07022FEF86F600A6BFA0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7B37F7D1A09576F7F4BFD5BF /* Build configuration list for PBXNativeTarget "HexIOSTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9C3D2D3B1DDA004950B6C01C /* Release */,
+				1E1FECDCBE5F07A7F84112D7 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
