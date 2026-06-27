@@ -12,6 +12,8 @@ import UIKit
 
 struct SettingsView: View {
     @Bindable var model: DictationModel
+    let coach: CoachService
+    @Bindable var coachPreferences: CoachPreferences
     /// Re-presents the first-run onboarding flow (owned by ContentView).
     @Binding var showOnboarding: Bool
     @Environment(\.openURL) private var openURL
@@ -21,7 +23,6 @@ struct SettingsView: View {
     @State private var syncAudio = SyncPreferences.syncAudio
     @State private var syncChangedThisLaunch = false
 
-    @State private var coach = CoachPreferences()
     @State private var apiKeyDraft = ""
 
     // Placeholder (formatter seam #199).
@@ -90,17 +91,18 @@ struct SettingsView: View {
     @ViewBuilder
     private var coachSection: some View {
         Section {
-            Toggle("Enable Coach", isOn: $coach.enabled)
+            Toggle("Enable Coach", isOn: $coachPreferences.enabled)
 
-            if coach.enabled {
-                if coach.hasAPIKey {
+            if coachPreferences.enabled {
+                if coachPreferences.hasAPIKey {
                     LabeledContent("Gemini API key") {
                         Label("Saved", systemImage: "checkmark.seal.fill")
                             .foregroundStyle(.green)
                             .labelStyle(.titleAndIcon)
                     }
+                    LabeledContent("Estimated spend", value: spendText)
                     Button("Remove key", role: .destructive) {
-                        coach.clearAPIKey()
+                        coachPreferences.clearAPIKey()
                         apiKeyDraft = ""
                     }
                 } else {
@@ -109,7 +111,7 @@ struct SettingsView: View {
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                     Button("Save key") {
-                        coach.saveAPIKey(apiKeyDraft)
+                        coachPreferences.saveAPIKey(apiKeyDraft)
                         apiKeyDraft = ""
                     }
                     .disabled(apiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -123,14 +125,18 @@ struct SettingsView: View {
         }
     }
 
+    private var spendText: String {
+        coach.totalCostUSD < 0.01 ? "< $0.01" : String(format: "$%.2f", coach.totalCostUSD)
+    }
+
     @ViewBuilder
     private var coachFooter: some View {
-        if !coach.enabled {
+        if !coachPreferences.enabled {
             Text("The Coach reviews your real speech and suggests more natural phrasing. It’s off by default.")
-        } else if !coach.hasAPIKey {
+        } else if !coachPreferences.hasAPIKey {
             Text("Add your own Gemini API key to turn it on. When the Coach is on, your dictations (text and audio) are sent to Google’s Gemini API using your key for analysis. Your key is stored in this device’s Keychain and never synced.")
         } else {
-            Text("Coach is on. Your dictations (text and audio) are sent to Google’s Gemini API using your key for analysis. Capture stays on this device until then; remove the key anytime to stop.")
+            Text("Coach is on. Your dictations are analyzed with your Gemini key (running cost shown above). Capture stays on this device; remove the key anytime to stop.")
         }
     }
 

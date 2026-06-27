@@ -32,6 +32,8 @@ enum SyncPreferences {
 @Model
 final class TranscriptEntry {
     // CloudKit-backed SwiftData requires every attribute to have a default.
+    /// Stable identity used to link Coach cards back to their source transcript.
+    var id: UUID = UUID()
     var text: String = ""
     var date: Date = Date()
     var kindRaw: String = TranscriptKind.note.rawValue
@@ -41,6 +43,8 @@ final class TranscriptEntry {
     /// Portable audio identity — a filename inside the App Group Audio dir, not an
     /// absolute path (RC-0 / data-model §4). nil if audio wasn't retained.
     var audioFilename: String?
+    /// When the Coach analyzed this transcript. nil = still in the backlog (RC-2).
+    var coachAnalyzedAt: Date?
 
     var kind: TranscriptKind { TranscriptKind(rawValue: kindRaw) ?? .note }
 
@@ -50,6 +54,53 @@ final class TranscriptEntry {
         self.kindRaw = kind.rawValue
         self.sourceAppName = sourceAppName
         self.audioFilename = audioFilename
+    }
+}
+
+/// Lifecycle of a Coach card in the Review feed.
+enum CoachCardStatus: String, Codable {
+    case new        // unseen, in the feed
+    case done       // user tapped "Got it"
+    case dismissed  // user tapped "Not useful"
+    case saved      // user saved it to the phrasebook (RC-5)
+}
+
+/// Persisted Review-feed card (RC-2/RC-3). A SwiftData mirror of the pure
+/// `CoachCard` (HexCore) so the feed can `@Query` it and it syncs via CloudKit.
+@Model
+final class CoachCardEntity {
+    var id: UUID = UUID()
+    var kindRaw: String = CoachCardKind.improvement.rawValue
+    var lensRaw: String = Lens.grammar.rawValue
+    var key: String = ""
+    var title: String = ""
+    var detail: String = ""
+    var originalSpan: String?
+    var nativeRewrite: String?
+    var transcriptID: UUID?
+    var recurrenceNote: String?
+    var createdAt: Date = Date()
+    var statusRaw: String = CoachCardStatus.new.rawValue
+
+    var kind: CoachCardKind { CoachCardKind(rawValue: kindRaw) ?? .improvement }
+    var lens: Lens { Lens(rawValue: lensRaw) ?? .grammar }
+    var status: CoachCardStatus {
+        get { CoachCardStatus(rawValue: statusRaw) ?? .new }
+        set { statusRaw = newValue.rawValue }
+    }
+
+    init(card: CoachCard) {
+        id = card.id
+        kindRaw = card.kind.rawValue
+        lensRaw = card.lens.rawValue
+        key = card.key
+        title = card.title
+        detail = card.detail
+        originalSpan = card.originalSpan
+        nativeRewrite = card.nativeRewrite
+        transcriptID = card.transcriptID
+        recurrenceNote = card.recurrenceNote
+        createdAt = card.createdAt
     }
 }
 
@@ -98,20 +149,20 @@ enum TranscriptStore {
     static func makeContainer() -> ModelContainer {
         if SyncPreferences.iCloudEnabled,
            let cloud = try? ModelContainer(
-               for: TranscriptEntry.self,
+               for: TranscriptEntry.self, CoachCardEntity.self,
                configurations: ModelConfiguration(cloudKitDatabase: .automatic)
            ) {
             return cloud
         }
         if let local = try? ModelContainer(
-            for: TranscriptEntry.self,
+            for: TranscriptEntry.self, CoachCardEntity.self,
             configurations: ModelConfiguration(cloudKitDatabase: .none)
         ) {
             return local
         }
         // In-memory last resort so the app still runs.
         return try! ModelContainer(
-            for: TranscriptEntry.self,
+            for: TranscriptEntry.self, CoachCardEntity.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
     }

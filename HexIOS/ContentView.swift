@@ -10,13 +10,15 @@
 import SwiftData
 import SwiftUI
 
-/// The three root tabs, used as TabView selection tags so deep links can switch.
+/// The root tabs, used as TabView selection tags so deep links can switch.
 enum AppTab: Hashable {
-    case home, history, settings
+    case review, home, history, settings
 }
 
 struct ContentView: View {
     let model: DictationModel
+    let coach: CoachService
+    let coachPreferences: CoachPreferences
     /// Selected tab, bound from the app so deep links (e.g. the keyboard's
     /// settings button → `hexkb://settings`) can switch tabs.
     @Binding var selectedTab: AppTab
@@ -29,6 +31,10 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
+            ReviewView(coach: coach, preferences: coachPreferences, selectedTab: $selectedTab)
+                .tabItem { Label("Review", systemImage: "sparkles") }
+                .tag(AppTab.review)
+
             HomeView(model: model)
                 .tabItem { Label("Home", systemImage: "mic") }
                 .tag(AppTab.home)
@@ -37,7 +43,7 @@ struct ContentView: View {
                 .tabItem { Label("History", systemImage: "clock") }
                 .tag(AppTab.history)
 
-            SettingsView(model: model, showOnboarding: $showOnboarding)
+            SettingsView(model: model, coach: coach, coachPreferences: coachPreferences, showOnboarding: $showOnboarding)
                 .tabItem { Label("Settings", systemImage: "gearshape") }
                 .tag(AppTab.settings)
         }
@@ -62,9 +68,15 @@ struct ContentView: View {
 
 #Preview {
     let container = try! ModelContainer(
-        for: TranscriptEntry.self,
+        for: TranscriptEntry.self, CoachCardEntity.self,
         configurations: ModelConfiguration(isStoredInMemoryOnly: true)
     )
-    return ContentView(model: DictationModel(modelContext: container.mainContext), selectedTab: .constant(.home))
-        .modelContainer(container)
+    let prefs = CoachPreferences()
+    return ContentView(
+        model: DictationModel(modelContext: container.mainContext),
+        coach: CoachService(modelContext: container.mainContext, preferences: prefs),
+        coachPreferences: prefs,
+        selectedTab: .constant(.review)
+    )
+    .modelContainer(container)
 }
