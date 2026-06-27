@@ -31,15 +31,19 @@ private enum KeyKind: Equatable {
     case space
     case `return`
 
-    /// Width relative to a letter key (= 1). Mirrors the system keyboard's
-    /// proportions so a full row spans the width without any key collapsing.
-    var widthWeight: CGFloat {
+    var isCharacter: Bool {
+        if case .character = self { return true }
+        return false
+    }
+
+    /// For non-character keys: how the leftover row width (after the fixed-width
+    /// letters) is shared. Letters always take the same `letterW`, so they line
+    /// up across rows and shorter rows (a-l) inset — exactly like iOS.
+    var fillWeight: CGFloat {
         switch self {
-        case .character: return 1
-        case .shift, .backspace: return 1.5
-        case .modeSwitch: return 2
-        case .return: return 2
+        case .character: return 0
         case .space: return 5
+        case .shift, .backspace, .modeSwitch, .return: return 1
         }
     }
 }
@@ -99,9 +103,10 @@ struct QwertyKeyboardView: View {
 
     private var keyboardBackground: Color {
         // Matches the system keyboard's recessed tray color closely enough for a
-        // third-party extension (we can't read the true system material).
+        // third-party extension (we can't read the true system material). Dark
+        // mode is near-black like Apple's, so the keys read as raised.
         colorScheme == .dark
-            ? Color(red: 0.16, green: 0.16, blue: 0.17)
+            ? Color(red: 0.09, green: 0.09, blue: 0.10)
             : Color(red: 0.82, green: 0.83, blue: 0.85)
     }
 
@@ -173,7 +178,7 @@ struct QwertyKeyboardView: View {
         }
     }
 
-    private let rowSpacing: CGFloat = 8
+    private let rowSpacing: CGFloat = 11
 
     // MARK: - Row definitions per layer
 
@@ -412,7 +417,7 @@ private struct KeyRow: View {
     let onSpace: () -> Void
     let onReturn: () -> Void
 
-    private let keySpacing: CGFloat = 5.5
+    private let keySpacing: CGFloat = 6
 
     var body: some View {
         GeometryReader { geo in
@@ -423,20 +428,28 @@ private struct KeyRow: View {
                         .frame(width: widths[index])
                 }
             }
-            .frame(width: geo.size.width, height: keyHeight)
+            // Center so letter-only rows (a-l, number rows) inset like Apple's.
+            .frame(width: geo.size.width, height: keyHeight, alignment: .center)
         }
         .frame(height: keyHeight)
     }
 
-    /// Distribute the row width by each key's weight so a row always spans the
-    /// full width and no key collapses (the old layoutPriority bug).
+    /// iOS-style widths: every letter key is the same width, derived from a
+    /// 10-column grid (the widest row). Special keys expand to absorb the leftover
+    /// so full rows span the width; shorter letter-only rows end up narrower and
+    /// are centered — the inset that makes a-l read like Apple's keyboard.
     private func keyWidths(totalWidth: CGFloat) -> [CGFloat] {
-        let weights = keys.map(\.widthWeight)
-        let totalWeight = weights.reduce(0, +)
-        let spacing = keySpacing * CGFloat(max(keys.count - 1, 0))
-        let available = max(totalWidth - spacing, 0)
-        guard totalWeight > 0 else { return keys.map { _ in 0 } }
-        return weights.map { available * $0 / totalWeight }
+        let g = keySpacing
+        let letterW = max((totalWidth - 9 * g) / 10, 0)
+        let charCount = keys.filter(\.isCharacter).count
+        let gaps = CGFloat(max(keys.count - 1, 0)) * g
+        let remaining = max(totalWidth - CGFloat(charCount) * letterW - gaps, 0)
+        let sumFill = keys.map(\.fillWeight).reduce(0, +)
+        return keys.map { key in
+            if key.isCharacter { return letterW }
+            guard sumFill > 0 else { return letterW }
+            return remaining * key.fillWeight / sumFill
+        }
     }
 
     @ViewBuilder
@@ -488,8 +501,8 @@ private struct KeyRow: View {
 
 // MARK: - Individual key views
 
-private let keyHeight: CGFloat = 44
-private let keyCornerRadius: CGFloat = 5
+private let keyHeight: CGFloat = 46
+private let keyCornerRadius: CGFloat = 7
 
 private struct LetterKey: View {
     let label: String
@@ -500,7 +513,7 @@ private struct LetterKey: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 22, weight: .regular))
+            .font(.system(size: 24, weight: .regular))
             .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
             .frame(maxWidth: .infinity)
             .frame(height: keyHeight)
@@ -606,13 +619,13 @@ private struct SpecialKey<Content: View>: View {
 private enum KeyStyle {
     static func letterFill(_ scheme: ColorScheme) -> Color {
         scheme == .dark
-            ? Color(red: 0.42, green: 0.42, blue: 0.44)
+            ? Color(red: 0.33, green: 0.33, blue: 0.35)
             : Color.white
     }
 
     static func specialFill(_ scheme: ColorScheme) -> Color {
         scheme == .dark
-            ? Color(red: 0.28, green: 0.28, blue: 0.30)
+            ? Color(red: 0.20, green: 0.20, blue: 0.22)
             : Color(red: 0.68, green: 0.70, blue: 0.73)
     }
 
