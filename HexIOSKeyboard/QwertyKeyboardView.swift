@@ -272,7 +272,7 @@ private struct HexToolbar: View {
 
         ToolbarPill(
             title: state.hasFullAccess ? "Tap to dictate" : "Enable Full Access to dictate",
-            systemImage: "mic.fill",
+            imageName: "DictateGlyph",
             fill: state.hasFullAccess ? Color.accentColor : Color.gray,
             enabled: state.hasFullAccess,
             action: actions.onMic
@@ -306,6 +306,9 @@ private struct HexToolbar: View {
 private struct ToolbarPill: View {
     let title: String
     var systemImage: String? = nil
+    /// Name of a template asset (in the keyboard's asset catalog) to use as the
+    /// leading glyph, e.g. the Hex dictation mark. Tinted white like `systemImage`.
+    var imageName: String? = nil
     let fill: Color
     let enabled: Bool
     var leading: () -> AnyView = { AnyView(EmptyView()) }
@@ -314,6 +317,7 @@ private struct ToolbarPill: View {
     init(
         title: String,
         systemImage: String? = nil,
+        imageName: String? = nil,
         fill: Color,
         enabled: Bool,
         leading: @escaping () -> AnyView = { AnyView(EmptyView()) },
@@ -321,6 +325,7 @@ private struct ToolbarPill: View {
     ) {
         self.title = title
         self.systemImage = systemImage
+        self.imageName = imageName
         self.fill = fill
         self.enabled = enabled
         self.leading = leading
@@ -332,7 +337,13 @@ private struct ToolbarPill: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                if let systemImage {
+                if let imageName {
+                    Image(imageName)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 18, height: 18)
+                } else if let systemImage {
                     Image(systemName: systemImage).font(.system(size: 15, weight: .semibold))
                 }
                 leading()
