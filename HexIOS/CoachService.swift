@@ -100,9 +100,12 @@ final class CoachService {
     /// drop the cards it previously produced, reset its analyzed flag, and analyze
     /// it again. Honors the same key/budget guards as the backlog run.
     func analyzeEntry(_ entry: TranscriptEntry) async {
-        // Objective lane (keyless, CI-3): compute GOP + pronunciation patterns
-        // independent of the BYOK key/budget. No-op when the model is absent.
+        // Objective lane (keyless, CI-2/CI-3): compute GOP + pronunciation patterns
+        // and deterministic fluency patterns, independent of the BYOK key/budget.
+        // Pronunciation is a no-op when the phoneme model is absent; fluency works
+        // unconditionally (keyless-first).
         await analyzePronunciation(for: entry)
+        recomputeFluencyPatterns()
 
         guard preferences.isReady, !isAnalyzing else { return }
         guard let apiKey = CoachKeychain.read(CoachKeychain.geminiAPIKeyAccount), !apiKey.isEmpty else { return }
@@ -281,6 +284,39 @@ final class CoachService {
         guard !corpus.isEmpty else { return }
 
         let observations = PronunciationPatternDetector.detect(corpus: corpus)
+        guard !observations.isEmpty else { return }
+
+        var profile = profileStore.load()
+        profile.integrate(observations, at: Date())
+        try? profileStore.save(profile)
+    }
+
+    // MARK: - Fluency (objective lane, CI-2)
+
+    /// Compute deterministic objective fluency signals for every note, run the pure
+    /// fillers/long-pauses/restarts detector (absolute thresholds + recurrence +
+    /// cold-start; pace stays informational, never a pattern), and merge the
+    /// resulting prosody patterns into the LearnerProfile. Keyless: NO LLM, NO
+    /// network, NO model. The same fluency numbers also flow to the LLM as grounding
+    /// in `CoachPipeline` (via `CoachTranscriptInput`); this lane only authors the
+    /// free objective patterns (ADR-0001, ADR-0004). Pure logic lives in HexCore.
+    func recomputeFluencyPatterns() {
+        let descriptor = FetchDescriptor<TranscriptEntry>(sortBy: [SortDescriptor(\.date)])
+        guard let all = try? modelContext.fetch(descriptor) else { return }
+
+        let corpus: [FluencyPatternDetector.Note] = all.map { entry in
+            let words = entry.text.split { $0.isWhitespace }.count
+            let durationSec = duration(forAudio: entry.audioFilename, fallbackWordCount: words)
+            let signals = FluencyAnalyzer.analyze(
+                transcript: entry.text,
+                durationSec: durationSec,
+                wordTimings: entry.wordTimings
+            )
+            return FluencyPatternDetector.Note(transcriptID: entry.id, signals: signals)
+        }
+        guard !corpus.isEmpty else { return }
+
+        let observations = FluencyPatternDetector.detect(corpus: corpus)
         guard !observations.isEmpty else { return }
 
         var profile = profileStore.load()

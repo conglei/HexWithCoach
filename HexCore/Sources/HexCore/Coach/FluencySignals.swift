@@ -272,3 +272,173 @@ public enum FluencyAnalyzer {
         return (pauses.count, mean, longRate)
     }
 }
+
+// MARK: - Fluency pattern detector (pure, deterministic)
+
+/// Turns per-note `FluencySignals` into prosody/fluency `RecurringPattern`s,
+/// deterministically and with NO LLM (ADR-0001; design §2). Mirrors
+/// `PronunciationPatternDetector`'s structure, but fluency uses **light absolute
+/// thresholds** (fillers/pauses/restarts ARE measurable on an absolute scale —
+/// unlike GOP, which must be per-speaker-relative) gated by **recurrence** and a
+/// **cold-start gate**.
+///
+/// A fluency kind becomes a flagged pattern ONLY when ALL of these hold:
+///   1. **Cold-start gate** — the corpus has at least `minNotes` notes. Below
+///      that there isn't enough evidence the habit is stable, so we emit nothing.
+///   2. **Absolute threshold** — the per-note measurement crosses a conservative,
+///      documented bar (e.g. fillers/min ≥ `fillerRateThreshold`). A note that
+///      crosses counts as a "flagged instance" for that kind.
+///   3. **Recurrence** — the kind is flagged in at least `minRecurringNotes` (N)
+///      distinct notes. One unusually disfluent note can't manufacture a pattern.
+///
+/// **Pace is informational only — never a pattern** (design §2, "pace is
+/// informational in V1; relative flagging later"). It is *not* among the kinds.
+/// All raw fluency numbers still flow to the LLM as grounding elsewhere
+/// (`CoachPipeline`); this detector only authors the keyless objective patterns.
+///
+/// Long-pause / mean-pause checks require word timings (`hasPauseStats`); notes
+/// without timings simply don't contribute pause evidence (they never count as
+/// flagged or unflagged for the pause kind), so missing timings can't mask a
+/// pattern or invent one.
+public enum FluencyPatternDetector {
+
+    // MARK: Kinds (everything EXCEPT pace — pace is informational, never a pattern).
+
+    /// The fluency habits this detector can flag. Deliberately excludes pace.
+    public enum Kind: String, Sendable, CaseIterable, Equatable {
+        case fillers
+        case longPauses
+        case restarts
+    }
+
+    // MARK: Constants (conservative; documented; tunable on real corpora — see
+    // design §8 open item 1). Absolute bars are intentionally lenient so an
+    // ordinarily-fluent speaker is never flagged; recurrence does the rest.
+
+    /// Cold-start gate: no patterns until the corpus has at least this many notes.
+    public static let minNotes = 5
+
+    /// Recurrence N: a kind must be flagged in at least this many DISTINCT notes
+    /// to become a pattern (so one disfluent note can't manufacture one).
+    public static let minRecurringNotes = 3
+
+    /// A note is "filler-heavy" when its fillers/minute is at or above this. ~8/min
+    /// is roughly one filler every 7–8 seconds — clearly habitual, not occasional.
+    public static let fillerRateThreshold: Double = 8.0
+
+    /// …but ignore filler rate on very short notes, where one "um" spikes the
+    /// per-minute rate. A note must have at least this many fillers to count.
+    public static let minFillerCount = 3
+
+    /// A note is "long-pause-heavy" when more than this fraction of its inter-word
+    /// gaps exceed the long-pause threshold (~1s). 0.15 = >15% of gaps are long.
+    /// Only considered when the note actually has pause stats (word timings).
+    public static let longPauseRateThreshold: Double = 0.15
+
+    /// A note is "restart-heavy" when it contains at least this many restarts /
+    /// false starts. Restarts are rare in fluent speech, so a low absolute bar is
+    /// already conservative once paired with recurrence.
+    public static let minRestartCount = 2
+
+    /// A note in the detector's corpus: its signals plus the transcript id, so a
+    /// flagged pattern can carry the learner's own example back into the profile.
+    public struct Note: Sendable, Equatable {
+        public var transcriptID: UUID
+        public var signals: FluencySignals
+        public init(transcriptID: UUID, signals: FluencySignals) {
+            self.transcriptID = transcriptID
+            self.signals = signals
+        }
+    }
+
+    /// Canonical dedupe key for a fluency pattern, stable across runs so the
+    /// profile merges recurrences (mirrors `RecurringPattern.key` semantics).
+    public static func key(for kind: Kind) -> String { "fluency-\(kind.rawValue)" }
+
+    /// Whether a single note crosses the absolute bar for `kind`. Pure; the unit
+    /// the recurrence count is built from. Pause kinds require `hasPauseStats`.
+    static func isFlagged(_ signals: FluencySignals, kind: Kind) -> Bool {
+        switch kind {
+        case .fillers:
+            return signals.fillerCount >= minFillerCount
+                && signals.fillersPerMinute >= fillerRateThreshold
+        case .longPauses:
+            return signals.hasPauseStats && signals.longPauseRate > longPauseRateThreshold
+        case .restarts:
+            return signals.restartCount >= minRestartCount
+        }
+    }
+
+    /// Detect fluency patterns over the learner's whole corpus and return them as
+    /// `VerifiedObservation`s ready for `LearnerProfile.integrate`. Deterministic
+    /// + pure: same corpus in → same observations out. Never emits a pace pattern.
+    public static func detect(corpus: [Note]) -> [VerifiedObservation] {
+        // Cold-start gate.
+        guard corpus.count >= minNotes else { return [] }
+
+        struct Recurrence { var notes = Set<UUID>(); var firstExample: (id: UUID, span: String)? }
+        var recur: [Kind: Recurrence] = [:]
+
+        for note in corpus {
+            for kind in Kind.allCases where isFlagged(note.signals, kind: kind) {
+                var r = recur[kind] ?? Recurrence()
+                r.notes.insert(note.transcriptID)
+                if r.firstExample == nil {
+                    r.firstExample = (note.transcriptID, example(for: kind, in: note.signals))
+                }
+                recur[kind] = r
+            }
+        }
+
+        var observations: [VerifiedObservation] = []
+        // Iterate kinds in declaration order for a stable, diffable output.
+        for kind in Kind.allCases {
+            guard let r = recur[kind] else { continue }
+            // Recurrence gate (N distinct notes).
+            guard r.notes.count >= minRecurringNotes, let example = r.firstExample else { continue }
+
+            observations.append(VerifiedObservation(
+                lens: .prosody,
+                key: key(for: kind),
+                summary: summary(for: kind),
+                rule: rule(for: kind),
+                severity: 3,
+                example: ExampleRef(transcriptID: example.id, span: example.span),
+                inferredL1: nil
+            ))
+        }
+        return observations
+    }
+
+    // MARK: Teaching strings (keyless baseline; the LLM enriches when a key is present)
+
+    private static func summary(for kind: Kind) -> String {
+        switch kind {
+        case .fillers:    return "Frequent filler words (um, uh, like)"
+        case .longPauses: return "Frequent long pauses mid-sentence"
+        case .restarts:   return "Frequent restarts and false starts"
+        }
+    }
+
+    private static func rule(for kind: Kind) -> String {
+        switch kind {
+        case .fillers:
+            return "Fillers like \"um\", \"uh\" and \"like\" recur often in your speech. A short silent pause sounds more confident than a filled one."
+        case .longPauses:
+            return "Long mid-sentence pauses recur in your speech. Planning a clause before you start it keeps the flow smoother."
+        case .restarts:
+            return "Restarts and false starts recur in your speech. Finishing a sentence before reshaping it makes you easier to follow."
+        }
+    }
+
+    /// A short, human-facing example span for the flagged note (the keyless cards
+    /// pair this with the learner's own transcript). Mirrors how the pronunciation
+    /// detector carries the offending word.
+    private static func example(for kind: Kind, in signals: FluencySignals) -> String {
+        switch kind {
+        case .fillers:    return "\(signals.fillerCount) fillers"
+        case .longPauses: return "\(Int((signals.longPauseRate * 100).rounded()))% long pauses"
+        case .restarts:   return "\(signals.restartCount) restarts"
+        }
+    }
+}
