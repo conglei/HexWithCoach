@@ -173,4 +173,42 @@ import HexCore
         e.kindRaw = "garbage"
         #expect(e.kind == .note)
     }
+
+    // MARK: Pronunciation result persistence (CI-3)
+
+    private func sampleResult() -> PronunciationResult {
+        PronunciationResult(words: [
+            WordScore(word: "think", phonemes: [
+                PhonemeScore(symbol: "θ", start: 0, end: 0.02, gop: -2.0),
+                PhonemeScore(symbol: "ɪ", start: 0.02, end: 0.04, gop: -0.1),
+            ]),
+        ])
+    }
+
+    @Test func pronunciationResultRoundTripsThroughJSONField() {
+        let e = TranscriptEntry(text: "think", date: Date(), kind: .note)
+        #expect(e.pronunciationResult == nil)   // none captured yet
+
+        e.pronunciationResult = sampleResult()
+        #expect(e.pronunciationJSON != nil)     // persisted as JSON, like wordTimings
+        #expect(e.pronunciationResult == sampleResult())
+    }
+
+    @Test func emptyPronunciationResultClearsTheField() {
+        let e = TranscriptEntry(text: "x", date: Date(), kind: .note)
+        e.pronunciationResult = sampleResult()
+        e.pronunciationResult = PronunciationResult(words: [])
+        #expect(e.pronunciationJSON == nil)
+        #expect(e.pronunciationResult == nil)
+    }
+
+    @Test func pronunciationSignalsDeriveFromPersistedResult() {
+        let e = TranscriptEntry(text: "think", date: Date(), kind: .note)
+        #expect(e.pronunciationSignals == nil)
+
+        e.pronunciationResult = sampleResult()
+        let signals = e.pronunciationSignals
+        #expect(signals != nil)
+        #expect(signals?.worstWords.first?.worstPhoneme == "θ")
+    }
 }

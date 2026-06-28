@@ -12,7 +12,7 @@ import AVFoundation
 /// One aligned phoneme with its time interval and a Goodness-of-Pronunciation
 /// score: `gop ≤ 0`, closer to 0 = the audio confidently matched the expected
 /// phoneme; very negative = likely mispronounced.
-public struct PhonemeScore: Sendable, Equatable {
+public struct PhonemeScore: Sendable, Equatable, Codable {
     public let symbol: String       // IPA
     public let start: Double        // seconds
     public let end: Double
@@ -23,7 +23,7 @@ public struct PhonemeScore: Sendable, Equatable {
 }
 
 /// A word with its constituent phoneme scores.
-public struct WordScore: Sendable, Equatable {
+public struct WordScore: Sendable, Equatable, Codable {
     public let word: String
     public let phonemes: [PhonemeScore]
     public init(word: String, phonemes: [PhonemeScore]) { self.word = word; self.phonemes = phonemes }
@@ -31,7 +31,7 @@ public struct WordScore: Sendable, Equatable {
     public var gop: Double { phonemes.isEmpty ? 0 : phonemes.map(\.gop).reduce(0, +) / Double(phonemes.count) }
 }
 
-public struct PronunciationResult: Sendable, Equatable {
+public struct PronunciationResult: Sendable, Equatable, Codable {
     public let words: [WordScore]
     public init(words: [WordScore]) { self.words = words }
     public var overall: Double {

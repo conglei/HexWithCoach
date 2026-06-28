@@ -50,6 +50,11 @@ final class TranscriptEntry {
     /// detail view. Populated for Parakeet notes; nil when the model didn't expose
     /// timings (older notes, Whisper/Qwen). Stored as JSON so CloudKit can sync it.
     var wordTimingsJSON: String?
+    /// Per-note pronunciation result (JSON-encoded `PronunciationResult`) from the
+    /// on-device GOP analyzer (CI-3). Populated when the phoneme model is present;
+    /// nil otherwise (keyless-no-model state, or analysis not yet run). Stored as
+    /// JSON, exactly like `wordTimingsJSON`, so CloudKit can sync it.
+    var pronunciationJSON: String?
 
     var kind: TranscriptKind { TranscriptKind(rawValue: kindRaw) ?? .note }
 
@@ -66,6 +71,28 @@ final class TranscriptEntry {
             }
             wordTimingsJSON = String(data: data, encoding: .utf8)
         }
+    }
+
+    /// Decoded per-note pronunciation result, or nil when none was captured.
+    var pronunciationResult: PronunciationResult? {
+        get {
+            guard let json = pronunciationJSON, let data = json.data(using: .utf8) else { return nil }
+            return try? JSONDecoder().decode(PronunciationResult.self, from: data)
+        }
+        set {
+            guard let newValue, !newValue.words.isEmpty, let data = try? JSONEncoder().encode(newValue) else {
+                pronunciationJSON = nil
+                return
+            }
+            pronunciationJSON = String(data: data, encoding: .utf8)
+        }
+    }
+
+    /// Compact pronunciation summary derived from the persisted result (CI-3),
+    /// or nil when no result was captured. Cheap to recompute on read.
+    var pronunciationSignals: PronunciationSignals? {
+        guard let result = pronunciationResult else { return nil }
+        return PronunciationSignals(result: result)
     }
 
     init(text: String, date: Date, kind: TranscriptKind, sourceAppName: String? = nil, audioFilename: String? = nil) {
