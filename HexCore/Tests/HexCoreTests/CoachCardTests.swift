@@ -43,6 +43,29 @@ struct CoachCardTests {
     }
 
     @Test
+    func improvementCardCopiesContextAndPracticeText() {
+        let withFields = CoachInsight(
+            transcriptID: tid, lens: .grammar, key: "missing-article",
+            summary: "drops articles", rule: "Use 'the' before specific nouns.",
+            originalSpan: "went to store", nativeRewrite: "went to the store", severity: 3,
+            context: "I went to store yesterday.", practiceText: "I went to the store yesterday."
+        )
+        let analysis = CoachAnalysis(insights: [withFields], focuses: [], signals: .init())
+        let cards = CoachCardCurator.curate(analysis: analysis, wins: [], profile: LearnerProfile(), now: t0)
+        #expect(cards[0].context == "I went to store yesterday.")
+        #expect(cards[0].practiceText == "I went to the store yesterday.")
+    }
+
+    @Test
+    func improvementCardLeavesEmptyContextAndPracticeTextAsNil() {
+        // The default `insight()` helper has empty context/practiceText → nil on the card.
+        let analysis = CoachAnalysis(insights: [insight()], focuses: [], signals: .init())
+        let cards = CoachCardCurator.curate(analysis: analysis, wins: [], profile: LearnerProfile(), now: t0)
+        #expect(cards[0].context == nil)
+        #expect(cards[0].practiceText == nil)
+    }
+
+    @Test
     func recurringInsightGetsFrequencyNote() {
         let analysis = CoachAnalysis(insights: [insight()], focuses: [], signals: .init())
         let cards = CoachCardCurator.curate(analysis: analysis, wins: [], profile: profile(frequency: 4), now: t0)

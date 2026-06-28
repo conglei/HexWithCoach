@@ -15,6 +15,9 @@ import SwiftUI
 
 struct TranscriptDetailView: View {
     let entry: TranscriptEntry
+    /// When arriving from a Coach card, the flagged span to emphasize in the
+    /// transcript so the learner can find it in context.
+    var highlightSpan: String? = nil
     @State private var audio = AudioPlayer()
     @State private var showPronunciation = false
     @Environment(\.modelContext) private var modelContext
@@ -39,7 +42,7 @@ struct TranscriptDetailView: View {
                     SyncedTranscriptView(words: words, audio: audio)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    Text(entry.text)
+                    Text(transcriptAttributed)
                         .font(.title3.weight(.semibold))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -90,6 +93,18 @@ struct TranscriptDetailView: View {
         }
         .task { if let url = audioURL { audio.load(url) } }
         .onDisappear { audio.stop() }
+    }
+
+    /// The transcript with the Coach-flagged span emphasized (when we arrived here
+    /// from a card), so the learner can spot it in context. Plain otherwise.
+    private var transcriptAttributed: AttributedString {
+        var attributed = AttributedString(entry.text)
+        if let span = highlightSpan, !span.isEmpty,
+           let range = attributed.range(of: span, options: .caseInsensitive) {
+            attributed[range].font = .title3.weight(.heavy)
+            attributed[range].foregroundColor = HexTheme.gradientColors[0]
+        }
+        return attributed
     }
 
     /// "• DICTATION · date" — the source + timestamp line.
@@ -186,8 +201,15 @@ private struct CoachRewriteCard: View {
         .padding(16)
         .background(HexTheme.gradientSoft, in: RoundedRectangle(cornerRadius: HexTheme.cardRadius, style: .continuous))
         .fullScreenCover(isPresented: $showShadow) {
-            ShadowingView(target: rewrite) {}
+            ShadowingView(target: shadowTarget) {}
         }
+    }
+
+    /// Shadow the real, speakable practice sentence when the card has one; else
+    /// fall back to the displayed rewrite (older cards / non-pronunciation lenses).
+    private var shadowTarget: String {
+        if let practice = card.practiceText, !practice.isEmpty { return practice }
+        return rewrite
     }
 
     /// Bookmark → keep this rephrase in the phrasebook (RC-5).

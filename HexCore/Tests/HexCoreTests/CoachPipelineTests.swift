@@ -149,6 +149,42 @@ struct CoachPipelineTests {
     }
 
     @Test
+    func extractionCandidateDecodesWithoutContextOrPracticeText() throws {
+        // Older/sparse LLM JSON that omits the newer fields must still decode.
+        let sparse = #"{"candidates":[{"lens":"grammar","key":"k","summary":"s","span":"sp","rule":"r","nativeRewrite":"nr","severity":3}]}"#
+        let decoded = try CoachPipeline.decodeJSON(ExtractionResponse.self, from: sparse)
+        let c = try #require(decoded.candidates.first)
+        #expect(c.context == "")
+        #expect(c.practiceText == "")
+        #expect(c.needsAudio == false)
+    }
+
+    @Test
+    func extractionCandidateRoundTripsContextAndPracticeText() throws {
+        let full = #"{"candidates":[{"lens":"grammar","key":"k","summary":"s","span":"went to store","rule":"r","nativeRewrite":"went to the store","severity":3,"needsAudio":false,"context":"I went to store yesterday.","practiceText":"I went to the store yesterday."}]}"#
+        let decoded = try CoachPipeline.decodeJSON(ExtractionResponse.self, from: full)
+        let c = try #require(decoded.candidates.first)
+        #expect(c.context == "I went to store yesterday.")
+        #expect(c.practiceText == "I went to the store yesterday.")
+    }
+
+    @Test
+    func verifiedInsightCarriesContextAndPracticeText() async throws {
+        let extract = """
+        {"candidates":[{"lens":"grammar","key":"missing-article","summary":"drops articles","span":"went to store","rule":"r","nativeRewrite":"went to the store","severity":3,"needsAudio":false,"context":"I went to store yesterday.","practiceText":"I went to the store yesterday."}]}
+        """
+        let critic = """
+        {"verdicts":[{"index":0,"isRealError":true,"rewriteIsBetter":true,"confidence":0.9}]}
+        """
+        let pipeline = CoachPipeline(llm: MockCoachLLM(extractJSON: extract, criticJSON: critic))
+        var profile = LearnerProfile()
+        let analysis = try await pipeline.analyze(input(), profile: &profile, at: t0)
+        let insight = try #require(analysis.insights.first)
+        #expect(insight.context == "I went to store yesterday.")
+        #expect(insight.practiceText == "I went to the store yesterday.")
+    }
+
+    @Test
     func audioIsForwardedToExtraction() async throws {
         let critic = #"{"verdicts":[]}"#
         let mock = MockCoachLLM(extractJSON: #"{"candidates":[]}"#, criticJSON: critic)

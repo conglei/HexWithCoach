@@ -97,6 +97,8 @@ final class CoachCardEntity {
     var detail: String = ""
     var originalSpan: String?
     var nativeRewrite: String?
+    var context: String?
+    var practiceText: String?
     var transcriptID: UUID?
     var recurrenceNote: String?
     var createdAt: Date = Date()
@@ -118,6 +120,8 @@ final class CoachCardEntity {
         detail = card.detail
         originalSpan = card.originalSpan
         nativeRewrite = card.nativeRewrite
+        context = card.context
+        practiceText = card.practiceText
         transcriptID = card.transcriptID
         recurrenceNote = card.recurrenceNote
         createdAt = card.createdAt
