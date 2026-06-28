@@ -24,6 +24,11 @@ let package = Package(
 	            .product(name: "Logging", package: "swift-log"),
 	        ],
 	        path: "Sources/HexCore",
+	        resources: [
+	            // Bundled keyless teaching assets (CI-4): phoneme guide,
+	            // fluency tips, L1→interference table. Loaded via Bundle.module.
+	            .process("Coach/Resources"),
+	        ],
 	        linkerSettings: [
 	            .linkedFramework("IOKit", .when(platforms: [.macOS])),
 	        ]

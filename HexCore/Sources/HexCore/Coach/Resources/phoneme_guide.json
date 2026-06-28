@@ -1,0 +1,375 @@
+{
+  "version": 1,
+  "language": "en",
+  "phonemes": [
+    {
+      "ipa": "p",
+      "exampleWord": "pin",
+      "description": "A voiceless stop made with both lips, with a puff of air at the start of a word.",
+      "howToArticulate": "Press your lips together, build up air, then release it in a quick burst with no voicing.",
+      "commonL1Substitutions": ["b"],
+      "practiceSentence": "Please put the paper in the proper place.",
+      "minimalPair": "pin / bin"
+    },
+    {
+      "ipa": "b",
+      "exampleWord": "bin",
+      "description": "A voiced stop made with both lips, like a softer version of 'p'.",
+      "howToArticulate": "Press your lips together and release while keeping your voice on, with little or no puff of air.",
+      "commonL1Substitutions": ["p", "v"],
+      "practiceSentence": "The big brown bear bumped the table.",
+      "minimalPair": "bin / pin"
+    },
+    {
+      "ipa": "t",
+      "exampleWord": "two",
+      "description": "A voiceless stop made by tapping the tongue tip behind the upper teeth, with a puff of air.",
+      "howToArticulate": "Touch the ridge behind your top teeth with your tongue tip, hold the air, then release it sharply without voicing.",
+      "commonL1Substitutions": ["d", "θ", "ts"],
+      "practiceSentence": "Take time to talk to the teacher.",
+      "minimalPair": "two / do"
+    },
+    {
+      "ipa": "d",
+      "exampleWord": "do",
+      "description": "A voiced stop made just behind the upper teeth, the voiced partner of 't'.",
+      "howToArticulate": "Place your tongue tip on the ridge behind your top teeth and release while voicing, with little air.",
+      "commonL1Substitutions": ["t", "ð"],
+      "practiceSentence": "Dad decided to do the dishes today.",
+      "minimalPair": "do / two"
+    },
+    {
+      "ipa": "k",
+      "exampleWord": "key",
+      "description": "A voiceless stop made at the back of the mouth, with a puff of air at the start of a word.",
+      "howToArticulate": "Raise the back of your tongue to the soft palate, block the air, then release it with no voicing.",
+      "commonL1Substitutions": ["ɡ", "x"],
+      "practiceSentence": "Keep the cards in the kitchen cabinet.",
+      "minimalPair": "key / ghee"
+    },
+    {
+      "ipa": "ɡ",
+      "exampleWord": "go",
+      "description": "A voiced stop made at the back of the mouth, the voiced partner of 'k'.",
+      "howToArticulate": "Raise the back of your tongue to the soft palate and release while keeping your voice on.",
+      "commonL1Substitutions": ["k", "ɣ"],
+      "practiceSentence": "The good dog got a green bag.",
+      "minimalPair": "go / Coe"
+    },
+    {
+      "ipa": "tʃ",
+      "exampleWord": "chair",
+      "description": "A voiceless affricate that begins like 't' and ends in a 'sh' rush of air.",
+      "howToArticulate": "Stop the air with your tongue on the ridge, then release it into a 'sh' sound, all without voicing.",
+      "commonL1Substitutions": ["ʃ", "ts", "dʒ"],
+      "practiceSentence": "Each child chose a cheese sandwich.",
+      "minimalPair": "chair / share"
+    },
+    {
+      "ipa": "dʒ",
+      "exampleWord": "jam",
+      "description": "A voiced affricate that begins like 'd' and ends in a 'zh' buzz, the voiced partner of 'ch'.",
+      "howToArticulate": "Stop the air with your tongue on the ridge, then release it into a buzzing 'zh' while voicing.",
+      "commonL1Substitutions": ["tʃ", "ʒ", "j"],
+      "practiceSentence": "Just enjoy the orange juice and jam.",
+      "minimalPair": "jam / cham"
+    },
+    {
+      "ipa": "f",
+      "exampleWord": "fan",
+      "description": "A voiceless fricative made by pushing air between the top teeth and lower lip.",
+      "howToArticulate": "Rest your top teeth lightly on your lower lip and blow air through without voicing.",
+      "commonL1Substitutions": ["p", "v", "h"],
+      "practiceSentence": "Find five fresh figs for the family.",
+      "minimalPair": "fan / van"
+    },
+    {
+      "ipa": "v",
+      "exampleWord": "van",
+      "description": "A voiced fricative made between the top teeth and lower lip, the voiced partner of 'f'.",
+      "howToArticulate": "Rest your top teeth lightly on your lower lip and blow air while keeping your voice on.",
+      "commonL1Substitutions": ["b", "f", "w"],
+      "practiceSentence": "Victor loves visiting the village.",
+      "minimalPair": "van / fan"
+    },
+    {
+      "ipa": "θ",
+      "exampleWord": "think",
+      "description": "A voiceless fricative made with the tongue tip between the teeth (the 'th' in 'think').",
+      "howToArticulate": "Stick your tongue tip lightly between your teeth and blow air through without voicing.",
+      "commonL1Substitutions": ["t", "s", "f"],
+      "practiceSentence": "I think the thin path is the third one.",
+      "minimalPair": "think / sink"
+    },
+    {
+      "ipa": "ð",
+      "exampleWord": "this",
+      "description": "A voiced fricative made with the tongue between the teeth (the 'th' in 'this').",
+      "howToArticulate": "Place your tongue tip lightly between your teeth and let your voice buzz as air passes.",
+      "commonL1Substitutions": ["d", "z", "v"],
+      "practiceSentence": "They gathered there with their mother.",
+      "minimalPair": "this / dis"
+    },
+    {
+      "ipa": "s",
+      "exampleWord": "see",
+      "description": "A voiceless fricative made by hissing air over the tongue behind the teeth.",
+      "howToArticulate": "Raise the front of your tongue near the ridge behind your teeth and push a thin stream of air through.",
+      "commonL1Substitutions": ["z", "ʃ", "θ"],
+      "practiceSentence": "Sam sees seven small stars.",
+      "minimalPair": "see / zee"
+    },
+    {
+      "ipa": "z",
+      "exampleWord": "zoo",
+      "description": "A voiced fricative, the buzzing partner of 's'.",
+      "howToArticulate": "Make the same shape as 's' but turn on your voice so the air buzzes.",
+      "commonL1Substitutions": ["s", "dʒ"],
+      "practiceSentence": "The lazy bees buzz in the zoo.",
+      "minimalPair": "zoo / Sue"
+    },
+    {
+      "ipa": "ʃ",
+      "exampleWord": "she",
+      "description": "A voiceless fricative made with a 'shh' sound, tongue pulled slightly back.",
+      "howToArticulate": "Round your lips a little, pull your tongue back from the 's' position, and push air to make 'shh'.",
+      "commonL1Substitutions": ["s", "tʃ", "ɕ"],
+      "practiceSentence": "She should wash the shiny shells.",
+      "minimalPair": "she / sea"
+    },
+    {
+      "ipa": "ʒ",
+      "exampleWord": "measure",
+      "description": "A voiced fricative, the buzzing 'zh' partner of 'sh'.",
+      "howToArticulate": "Make the 'sh' shape but turn on your voice so the air buzzes, as in 'measure'.",
+      "commonL1Substitutions": ["ʃ", "z", "dʒ"],
+      "practiceSentence": "The treasure gave us great pleasure.",
+      "minimalPair": "measure / mesher"
+    },
+    {
+      "ipa": "h",
+      "exampleWord": "hat",
+      "description": "A voiceless breathy sound made by pushing air out of an open mouth.",
+      "howToArticulate": "Open your mouth and breathe out gently, as if fogging a mirror, with no other constriction.",
+      "commonL1Substitutions": ["x", "∅"],
+      "practiceSentence": "He has a happy and healthy habit.",
+      "minimalPair": "hat / at"
+    },
+    {
+      "ipa": "m",
+      "exampleWord": "man",
+      "description": "A voiced nasal made by humming with both lips closed.",
+      "howToArticulate": "Close your lips and let your voice come out through your nose.",
+      "commonL1Substitutions": ["n"],
+      "practiceSentence": "My mom made a small meal.",
+      "minimalPair": "man / ban"
+    },
+    {
+      "ipa": "n",
+      "exampleWord": "no",
+      "description": "A voiced nasal made with the tongue tip behind the upper teeth.",
+      "howToArticulate": "Touch the ridge behind your top teeth with your tongue tip and let your voice flow out your nose.",
+      "commonL1Substitutions": ["ŋ", "m", "l"],
+      "practiceSentence": "Nine new nurses need names.",
+      "minimalPair": "no / mo"
+    },
+    {
+      "ipa": "ŋ",
+      "exampleWord": "sing",
+      "description": "A voiced nasal made at the back of the mouth (the 'ng' in 'sing').",
+      "howToArticulate": "Raise the back of your tongue to the soft palate, like for 'g', but send your voice through your nose.",
+      "commonL1Substitutions": ["n", "ŋɡ", "nk"],
+      "practiceSentence": "The singer was bringing strong songs.",
+      "minimalPair": "sing / sin"
+    },
+    {
+      "ipa": "l",
+      "exampleWord": "let",
+      "description": "A voiced sound made by touching the tongue tip behind the teeth and letting air flow around the sides.",
+      "howToArticulate": "Touch the ridge behind your top teeth with your tongue tip and let your voice flow over the sides of your tongue.",
+      "commonL1Substitutions": ["ɹ", "n"],
+      "practiceSentence": "Lily likes the little yellow ball.",
+      "minimalPair": "let / wet"
+    },
+    {
+      "ipa": "ɹ",
+      "exampleWord": "red",
+      "description": "The voiced American 'r', made without the tongue touching anything.",
+      "howToArticulate": "Curl or bunch your tongue back without touching the roof of your mouth, round your lips slightly, and voice it.",
+      "commonL1Substitutions": ["l", "r", "ɾ", "ʁ"],
+      "practiceSentence": "Robert read a really great story.",
+      "minimalPair": "red / led"
+    },
+    {
+      "ipa": "w",
+      "exampleWord": "we",
+      "description": "A voiced glide made with rounded lips that slides into the next vowel.",
+      "howToArticulate": "Round your lips tightly as for 'oo', then quickly open into the following vowel while voicing.",
+      "commonL1Substitutions": ["v", "ʋ"],
+      "practiceSentence": "We will wait for the warm weather.",
+      "minimalPair": "we / vee"
+    },
+    {
+      "ipa": "j",
+      "exampleWord": "yes",
+      "description": "A voiced glide that starts near 'ee' and slides into the next vowel (the 'y' in 'yes').",
+      "howToArticulate": "Raise the front of your tongue toward the roof as for 'ee', then glide into the following vowel.",
+      "commonL1Substitutions": ["dʒ", "ʒ", "i"],
+      "practiceSentence": "Yesterday you used your yellow yo-yo.",
+      "minimalPair": "yes / jess"
+    },
+    {
+      "ipa": "iː",
+      "exampleWord": "see",
+      "description": "A long, tense front vowel with spread lips, as in 'see'.",
+      "howToArticulate": "Smile slightly and raise the front of your tongue high, holding the sound long and steady.",
+      "commonL1Substitutions": ["ɪ", "i"],
+      "practiceSentence": "She sees the green trees by the sea.",
+      "minimalPair": "seat / sit"
+    },
+    {
+      "ipa": "ɪ",
+      "exampleWord": "sit",
+      "description": "A short, relaxed front vowel, looser and lower than 'ee', as in 'sit'.",
+      "howToArticulate": "Relax your tongue just below the 'ee' position and keep the sound short and lax.",
+      "commonL1Substitutions": ["iː", "e"],
+      "practiceSentence": "Tim will fix the big ship.",
+      "minimalPair": "sit / seat"
+    },
+    {
+      "ipa": "ɛ",
+      "exampleWord": "bed",
+      "description": "A short mid-front vowel, mouth a little more open than 'ih', as in 'bed'.",
+      "howToArticulate": "Drop your jaw a bit from the 'ih' position and keep your tongue in the front of your mouth.",
+      "commonL1Substitutions": ["e", "æ", "ɪ"],
+      "practiceSentence": "Ten men went to the red tent.",
+      "minimalPair": "bed / bad"
+    },
+    {
+      "ipa": "æ",
+      "exampleWord": "cat",
+      "description": "A short, open front vowel with the mouth wide, as in 'cat'.",
+      "howToArticulate": "Open your mouth wide, keep your tongue low and forward, and let the sound be flat and bright.",
+      "commonL1Substitutions": ["ɛ", "ɑː", "a"],
+      "practiceSentence": "The cat sat on the black mat.",
+      "minimalPair": "cat / cot"
+    },
+    {
+      "ipa": "ʌ",
+      "exampleWord": "cup",
+      "description": "A short, central vowel with a relaxed, open mouth, as in 'cup'.",
+      "howToArticulate": "Keep your tongue in a neutral, central position and your mouth slightly open, with a short relaxed sound.",
+      "commonL1Substitutions": ["ɑː", "ə", "ʊ", "a"],
+      "practiceSentence": "My uncle won the running cup.",
+      "minimalPair": "cup / cop"
+    },
+    {
+      "ipa": "ɑː",
+      "exampleWord": "father",
+      "description": "A long, open back vowel with the mouth wide, as in 'father'.",
+      "howToArticulate": "Open your mouth wide, drop your tongue low and toward the back, and hold the sound long.",
+      "commonL1Substitutions": ["ʌ", "æ", "ɔː"],
+      "practiceSentence": "The calm father parked the car far away.",
+      "minimalPair": "cart / cut"
+    },
+    {
+      "ipa": "ɔː",
+      "exampleWord": "thought",
+      "description": "A long, rounded back vowel, as in 'thought' or 'law'.",
+      "howToArticulate": "Round your lips, raise the back of your tongue a little, and hold the sound long.",
+      "commonL1Substitutions": ["o", "ɑː", "ɒ", "oʊ"],
+      "practiceSentence": "I bought a tall ball at dawn.",
+      "minimalPair": "caught / cot"
+    },
+    {
+      "ipa": "ʊ",
+      "exampleWord": "book",
+      "description": "A short, relaxed rounded back vowel, as in 'book'.",
+      "howToArticulate": "Round your lips loosely and raise the back of your tongue partway, keeping the sound short and lax.",
+      "commonL1Substitutions": ["uː", "u"],
+      "practiceSentence": "She took a good look at the book.",
+      "minimalPair": "full / fool"
+    },
+    {
+      "ipa": "uː",
+      "exampleWord": "blue",
+      "description": "A long, tense rounded back vowel, as in 'blue' or 'food'.",
+      "howToArticulate": "Round your lips tightly, raise the back of your tongue high, and hold the sound long and steady.",
+      "commonL1Substitutions": ["ʊ", "u"],
+      "practiceSentence": "The blue moon shone over the pool.",
+      "minimalPair": "fool / full"
+    },
+    {
+      "ipa": "ə",
+      "exampleWord": "about",
+      "description": "The schwa: a short, weak, neutral vowel used in unstressed syllables, as in 'about'.",
+      "howToArticulate": "Relax your tongue and lips completely in the center of your mouth and make a very short, soft sound.",
+      "commonL1Substitutions": ["ʌ", "ɑː", "full vowel"],
+      "practiceSentence": "A banana and a sofa are common around here.",
+      "minimalPair": "about / a boat"
+    },
+    {
+      "ipa": "ɚ",
+      "exampleWord": "teacher",
+      "description": "An r-colored schwa: the unstressed 'er' at the end of words like 'teacher'.",
+      "howToArticulate": "Make a relaxed central schwa while curling or bunching your tongue back for an 'r' color.",
+      "commonL1Substitutions": ["ə", "a", " er"],
+      "practiceSentence": "The teacher gave the doctor better water.",
+      "minimalPair": "teacher / teacha"
+    },
+    {
+      "ipa": "ɜː",
+      "exampleWord": "bird",
+      "description": "A long, stressed r-colored central vowel, as in 'bird' or 'her'.",
+      "howToArticulate": "Hold a central vowel long while curling or bunching your tongue back for a strong 'r' color.",
+      "commonL1Substitutions": ["ɛ", "ə", "er"],
+      "practiceSentence": "The early bird heard the first word.",
+      "minimalPair": "bird / bud"
+    },
+    {
+      "ipa": "eɪ",
+      "exampleWord": "say",
+      "description": "A diphthong that glides from a mid-front vowel up toward 'ee', as in 'say'.",
+      "howToArticulate": "Start with a relaxed 'eh', then glide smoothly up and forward toward 'ee' in one motion.",
+      "commonL1Substitutions": ["e", "ɛ"],
+      "practiceSentence": "They came to play on the same day.",
+      "minimalPair": "say / see"
+    },
+    {
+      "ipa": "aɪ",
+      "exampleWord": "my",
+      "description": "A diphthong that glides from an open vowel up toward 'ee', as in 'my'.",
+      "howToArticulate": "Start with an open 'ah', then glide smoothly up toward 'ee' in one continuous motion.",
+      "commonL1Substitutions": ["a", "ɛ"],
+      "practiceSentence": "I tried to find my bright kite.",
+      "minimalPair": "my / me"
+    },
+    {
+      "ipa": "ɔɪ",
+      "exampleWord": "boy",
+      "description": "A diphthong that glides from a rounded back vowel up toward 'ee', as in 'boy'.",
+      "howToArticulate": "Start with a rounded 'aw', then glide forward and up toward 'ee' in one motion.",
+      "commonL1Substitutions": ["o", "oj"],
+      "practiceSentence": "The boy enjoyed his new toy.",
+      "minimalPair": "boy / buy"
+    },
+    {
+      "ipa": "aʊ",
+      "exampleWord": "now",
+      "description": "A diphthong that glides from an open vowel toward 'oo', as in 'now'.",
+      "howToArticulate": "Start with an open 'ah', then glide back and round your lips toward 'oo' in one motion.",
+      "commonL1Substitutions": ["a", "o"],
+      "practiceSentence": "The brown cow is out in the town now.",
+      "minimalPair": "now / no"
+    },
+    {
+      "ipa": "oʊ",
+      "exampleWord": "go",
+      "description": "A diphthong that glides from a mid-back vowel toward 'oo', as in 'go'.",
+      "howToArticulate": "Start with a rounded 'oh', then glide up and round further toward 'oo' in one smooth motion.",
+      "commonL1Substitutions": ["o", "ɔː"],
+      "practiceSentence": "I know we won't go home alone.",
+      "minimalPair": "go / gaw"
+    }
+  ]
+}

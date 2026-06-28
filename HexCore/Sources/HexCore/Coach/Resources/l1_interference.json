@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "languages": [
+    {
+      "l1": "Mandarin",
+      "displayName": "Mandarin Chinese",
+      "interferencePhonemes": ["θ", "ð", "v", "ɹ", "l", "ŋ", "ɪ", "æ", "ʌ", "z"],
+      "note": "Mandarin lacks 'th' sounds and has no final voiced stops; 'l' and 'n' and the English 'r' are frequently confused, and short/long vowel contrasts are hard."
+    },
+    {
+      "l1": "Spanish",
+      "displayName": "Spanish",
+      "interferencePhonemes": ["v", "z", "ʃ", "dʒ", "θ", "ð", "ɪ", "æ", "ʌ", "ʊ", "h"],
+      "note": "Spanish has five pure vowels, so English lax vowels (ɪ, æ, ʌ, ʊ) tend to collapse into nearby tense vowels; 'b/v' and 's/z' are often merged."
+    },
+    {
+      "l1": "Hindi",
+      "displayName": "Hindi",
+      "interferencePhonemes": ["v", "w", "θ", "ð", "z", "æ", "ɒ", "f"],
+      "note": "Hindi merges 'v' and 'w' into one sound, replaces 'th' with dental stops, and uses retroflex 't/d' that color English alveolar stops."
+    },
+    {
+      "l1": "Arabic",
+      "displayName": "Arabic",
+      "interferencePhonemes": ["p", "v", "ɪ", "ɛ", "ʊ", "ŋ", "tʃ", "oʊ", "eɪ"],
+      "note": "Arabic lacks 'p' (often realized as 'b') and 'v', has only three vowel qualities so short English vowels are hard, and tends to insert vowels into consonant clusters."
+    },
+    {
+      "l1": "Korean",
+      "displayName": "Korean",
+      "interferencePhonemes": ["f", "v", "θ", "ð", "z", "ɹ", "l", "ʒ", "ɪ", "æ"],
+      "note": "Korean has no 'f/v/z/th', uses one liquid for 'l' and 'r', and tends to add a vowel after final consonants, breaking clusters."
+    },
+    {
+      "l1": "Japanese",
+      "displayName": "Japanese",
+      "interferencePhonemes": ["ɹ", "l", "f", "v", "θ", "ð", "w", "ɪ", "æ", "ʌ"],
+      "note": "Japanese has a single tap for 'l' and 'r', lacks 'th' and 'v', and its open-syllable structure leads to extra vowels inserted into consonant clusters."
+    },
+    {
+      "l1": "French",
+      "displayName": "French",
+      "interferencePhonemes": ["θ", "ð", "h", "ɹ", "ɪ", "ʊ", "æ", "ŋ", "tʃ", "dʒ"],
+      "note": "French has no 'th' or 'h', uses a uvular 'r', and stresses syllables evenly, which flattens English word stress and rhythm."
+    },
+    {
+      "l1": "German",
+      "displayName": "German",
+      "interferencePhonemes": ["θ", "ð", "w", "v", "ɹ", "z", "dʒ", "æ"],
+      "note": "German devoices final consonants (so 'd' sounds like 't'), lacks 'th', confuses 'w' and 'v', and uses a different 'r'."
+    },
+    {
+      "l1": "Portuguese",
+      "displayName": "Portuguese",
+      "interferencePhonemes": ["θ", "ð", "ɹ", "h", "ɪ", "ʊ", "ʌ", "æ", "ŋ", "l"],
+      "note": "Portuguese lacks 'th', nasalizes vowels heavily, uses an 'h'-like or guttural 'r', and often turns dark final 'l' into a 'w'-like sound."
+    },
+    {
+      "l1": "Russian",
+      "displayName": "Russian",
+      "interferencePhonemes": ["θ", "ð", "w", "ɹ", "h", "ŋ", "æ", "ɪ", "ə"],
+      "note": "Russian has no 'th' or 'w' (often replaced by 'v'), devoices final consonants, uses a trilled 'r', and reduces unstressed vowels differently from English schwa."
+    }
+  ]
+}
