@@ -46,8 +46,27 @@ final class TranscriptEntry {
     var audioFilename: String?
     /// When the Coach analyzed this transcript. nil = still in the backlog (RC-2).
     var coachAnalyzedAt: Date?
+    /// Word-level timings (JSON-encoded `[WordTiming]`) for audio↔text sync in the
+    /// detail view. Populated for Parakeet notes; nil when the model didn't expose
+    /// timings (older notes, Whisper/Qwen). Stored as JSON so CloudKit can sync it.
+    var wordTimingsJSON: String?
 
     var kind: TranscriptKind { TranscriptKind(rawValue: kindRaw) ?? .note }
+
+    /// Decoded word timings, or nil when none were captured.
+    var wordTimings: [WordTiming]? {
+        get {
+            guard let json = wordTimingsJSON, let data = json.data(using: .utf8) else { return nil }
+            return try? JSONDecoder().decode([WordTiming].self, from: data)
+        }
+        set {
+            guard let newValue, !newValue.isEmpty, let data = try? JSONEncoder().encode(newValue) else {
+                wordTimingsJSON = nil
+                return
+            }
+            wordTimingsJSON = String(data: data, encoding: .utf8)
+        }
+    }
 
     init(text: String, date: Date, kind: TranscriptKind, sourceAppName: String? = nil, audioFilename: String? = nil) {
         self.text = text

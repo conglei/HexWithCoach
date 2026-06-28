@@ -40,8 +40,12 @@ final class ShadowingModel {
         let utterance = AVSpeechUtterance(string: target)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.95
-        try? AVAudioSession.sharedInstance().setCategory(.playback)
-        try? AVAudioSession.sharedInstance().setActive(true)
+        // Reset the session so TTS plays out the main speaker, not the earpiece the
+        // recording session leaves it routed to (mirrors AudioPlayer's route reset).
+        let session = AVAudioSession.sharedInstance()
+        try? session.setActive(false, options: .notifyOthersOnDeactivation)
+        try? session.setCategory(.playback, mode: .default)
+        try? session.setActive(true)
         synthesizer.speak(utterance)
     }
 

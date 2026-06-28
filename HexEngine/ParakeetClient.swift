@@ -2,6 +2,13 @@ import Foundation
 import HexCore
 import os
 
+/// A Parakeet transcription plus, when available, word-level timings derived from
+/// the model's per-token timestamps. `words` is empty when timings aren't produced.
+struct ParakeetTranscription {
+    let text: String
+    let words: [WordTiming]
+}
+
 #if canImport(FluidAudio)
 import FluidAudio
 
@@ -110,7 +117,7 @@ actor ParakeetClient {
     return total
   }
 
-  func transcribe(_ url: URL, reinitializeOnEmpty: Bool = true) async throws -> String {
+  func transcribe(_ url: URL, reinitializeOnEmpty: Bool = true) async throws -> ParakeetTranscription {
     try Task.checkCancellation()
     await acquireTranscribeSlot()
     defer { releaseTranscribeSlot() }
@@ -119,8 +126,8 @@ actor ParakeetClient {
       throw NSError(domain: "Parakeet", code: -1, userInfo: [NSLocalizedDescriptionKey: "Parakeet not initialized"])
     }
 
-    var text = try await transcribeLocked(url)
-    if text.isEmpty, reinitializeOnEmpty {
+    var result = try await transcribeLocked(url)
+    if result.text.isEmpty, reinitializeOnEmpty {
       let shouldReinitialize: Bool = {
         guard let lastTranscriberReinitializeAt else { return true }
         return Date().timeIntervalSince(lastTranscriberReinitializeAt) >= transcriberReinitializeCooldown
@@ -129,15 +136,15 @@ actor ParakeetClient {
         logger.notice("Parakeet returned empty text for \(url.lastPathComponent); reinitializing transcriber")
         try await reinitializeTranscriberLocked()
         lastTranscriberReinitializeAt = Date()
-        text = try await transcribeLocked(url)
-        if text.isEmpty {
+        result = try await transcribeLocked(url)
+        if result.text.isEmpty {
           logger.notice("Parakeet returned empty text after reinitialize for \(url.lastPathComponent)")
         }
       } else {
         logger.debug("Parakeet returned empty text for \(url.lastPathComponent); skipping reinitialize cooldown")
       }
     }
-    return text
+    return ParakeetTranscription(text: result.text, words: Self.words(from: result.timings))
   }
 
   func resetTranscriberState() async throws {
@@ -154,7 +161,7 @@ actor ParakeetClient {
     try await reinitializeTranscriberLocked()
   }
 
-  private func transcribeLocked(_ url: URL) async throws -> String {
+  private func transcribeLocked(_ url: URL) async throws -> (text: String, timings: [TokenTiming]) {
     guard let asr else {
       throw NSError(domain: "Parakeet", code: -1, userInfo: [NSLocalizedDescriptionKey: "Parakeet not initialized"])
     }
@@ -163,7 +170,38 @@ actor ParakeetClient {
     // File-based batch transcribe uses FluidAudio's default `.system` decoder path.
     let result = try await asr.transcribe(url, source: .system)
     logger.info("Parakeet transcription finished in \(String(format: "%.2f", Date().timeIntervalSince(t0)))s")
-    return result.text
+    return (result.text, result.tokenTimings ?? [])
+  }
+
+  /// Group Parakeet's sub-word token timings into word-level timings. FluidAudio
+  /// emits SentencePiece tokens where a word boundary is marked by a leading `▁`
+  /// (normalized to a leading space in `TokenTiming.token`); continuation tokens
+  /// carry neither. Each word spans from its first token's start to its last
+  /// token's end. Resolution is ~80ms (the encoder frame size).
+  private static func words(from timings: [TokenTiming]) -> [WordTiming] {
+    var result: [WordTiming] = []
+    var current: (text: String, start: Double, end: Double)?
+
+    for timing in timings {
+      let token = timing.token
+      let startsWord = token.hasPrefix("▁") || token.hasPrefix(" ")
+      var piece = token
+      while piece.hasPrefix("▁") || piece.hasPrefix(" ") { piece.removeFirst() }
+
+      if current == nil || startsWord {
+        if let c = current, !c.text.isEmpty {
+          result.append(WordTiming(word: c.text, start: c.start, end: c.end))
+        }
+        current = (piece, timing.startTime, timing.endTime)
+      } else {
+        current?.text += piece
+        current?.end = timing.endTime
+      }
+    }
+    if let c = current, !c.text.isEmpty {
+      result.append(WordTiming(word: c.text, start: c.start, end: c.end))
+    }
+    return result
   }
 
   private func reinitializeTranscriberLocked() async throws {
@@ -280,7 +318,7 @@ actor ParakeetClient {
       userInfo: [NSLocalizedDescriptionKey: "Parakeet support not linked. Add Swift Package: https://github.com/FluidInference/FluidAudio.git and link FluidAudio to Hex."]
     )
   }
-  func transcribe(_ url: URL) async throws -> String { throw NSError(domain: "Parakeet", code: -3, userInfo: [NSLocalizedDescriptionKey: "Parakeet not available"]) }
+  func transcribe(_ url: URL, reinitializeOnEmpty: Bool = true) async throws -> ParakeetTranscription { throw NSError(domain: "Parakeet", code: -3, userInfo: [NSLocalizedDescriptionKey: "Parakeet not available"]) }
   func waitUntilTranscribeIdle() async {}
   func resetTranscriberState() async throws {}
   func reinitializeTranscriber() async throws {}

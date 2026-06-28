@@ -6,7 +6,7 @@ import Foundation
 /// Supplied by the ASR when it exposes word-level timestamps. iOS on-device ASR
 /// may not provide these yet — when absent, the text-based signals still carry
 /// the V1 value and the pause stats are simply zeroed (see `FluencySignals`).
-public struct WordTiming: Sendable, Equatable {
+public struct WordTiming: Sendable, Equatable, Codable {
     public var word: String
     /// Start offset in seconds from the beginning of the utterance.
     public var start: Double

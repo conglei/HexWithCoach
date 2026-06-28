@@ -9,6 +9,8 @@
 
 import AVFoundation
 import Foundation
+import HexCore
+import os
 import Observation
 
 @MainActor
@@ -34,11 +36,27 @@ final class AudioPlayer {
 
     func play() {
         guard let player else { return }
-        try? AVAudioSession.sharedInstance().setCategory(.playback)
-        try? AVAudioSession.sharedInstance().setActive(true)
+        activateSpeakerPlayback()
+        player.volume = 1
         player.play()
         isPlaying = true
         startTicking()
+    }
+
+    /// Force media playback out the main speaker. After recording, the shared
+    /// `AVAudioSession` is left in `.record`/`.playAndRecord` + `.measurement` mode,
+    /// which routes playback to the quiet earpiece. We fully reset the session here
+    /// (deactivate → set `.playback`/`.default` → reactivate) so the route refreshes
+    /// to the speaker.
+    private func activateSpeakerPlayback() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            try session.setCategory(.playback, mode: .default)
+            try session.setActive(true)
+        } catch {
+            HexLog.recording.error("AudioPlayer: failed to set playback route: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     func pause() {
@@ -52,6 +70,14 @@ final class AudioPlayer {
         let clamped = min(max(fraction, 0), 1)
         player.currentTime = clamped * duration
         currentTime = player.currentTime
+    }
+
+    /// Seek to an absolute time (seconds). Used to jump to a tapped word.
+    func seek(toTime time: TimeInterval) {
+        guard let player else { return }
+        let clamped = min(max(time, 0), duration)
+        player.currentTime = clamped
+        currentTime = clamped
     }
 
     func stop() {

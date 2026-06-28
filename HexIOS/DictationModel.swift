@@ -95,7 +95,7 @@ final class DictationModel {
 
     /// Persist a transcript, retaining its audio (moved into the App Group) so the
     /// Coach corpus has both text and audio.
-    private func save(text: String, kind: TranscriptKind, audioURL: URL?, surface: Bool = true) {
+    private func save(text: String, kind: TranscriptKind, audioURL: URL?, words: [HexCore.WordTiming]? = nil, surface: Bool = true) {
         // Incognito (RC-8): dictation still inserts text, but we keep nothing —
         // no transcript, no audio.
         guard !CapturePreferences.incognito else {
@@ -104,6 +104,7 @@ final class DictationModel {
         }
         let filename = audioURL.flatMap { AudioStore.persist($0) }
         let entry = TranscriptEntry(text: text, date: Date(), kind: kind, audioFilename: filename)
+        entry.wordTimings = words
         modelContext.insert(entry)
         try? modelContext.save()
         // In-app notes open straight into their detail; dictation snippets just
@@ -287,11 +288,11 @@ final class DictationModel {
         }
 
         do {
-            let text = try await transcription.transcribe(clip, modelName, DecodingOptions()) { _ in }
+            let result = try await transcription.transcribeWithTimings(clip, modelName, DecodingOptions()) { _ in }
             // Drop the now-redundant spans (keep `clip` for save()).
             cleanupDraftSegments(segments, except: clip)
-            guard !text.isEmpty else { try? FileManager.default.removeItem(at: clip); return }
-            save(text: text, kind: .note, audioURL: clip)
+            guard !result.text.isEmpty else { try? FileManager.default.removeItem(at: clip); return }
+            save(text: result.text, kind: .note, audioURL: clip, words: result.words)
         } catch {
             // Keep the spans on failure so the recorded audio isn't lost.
             errorMessage = error.localizedDescription
@@ -347,10 +348,10 @@ final class DictationModel {
 
         let clip: URL = spans.count == 1 ? spans[0] : ((try? AudioStore.concatenate(spans)) ?? spans[0])
         do {
-            let text = try await transcription.transcribe(clip, modelName, DecodingOptions()) { _ in }
+            let result = try await transcription.transcribeWithTimings(clip, modelName, DecodingOptions()) { _ in }
             cleanupDraftSegments(spans, except: clip)
-            guard !text.isEmpty else { try? FileManager.default.removeItem(at: clip); return }
-            save(text: text, kind: .note, audioURL: clip, surface: false)
+            guard !result.text.isEmpty else { try? FileManager.default.removeItem(at: clip); return }
+            save(text: result.text, kind: .note, audioURL: clip, words: result.words, surface: false)
             HexLog.transcription.notice("Recovered an interrupted note (\(spans.count) span(s))")
         } catch {
             // Keep the spans so the next launch can retry; don't surface an error.
