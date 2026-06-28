@@ -2,18 +2,30 @@
 //  ProgressDigestView.swift
 //  HexIOS
 //
-//  RC-6 weekly digest: the expandable surface behind the Review header. Shows the
-//  streak, per-lens levels (only-up), "wins" (mastered patterns), and the next
-//  focus. Every metric here is growth-framed — nothing reads as a downgrade. Styled
-//  with the shared HexTheme: a gradient streak hero and clean gradient rows.
+//  RC-6 weekly digest, extended for CI-12: the expandable surface behind the
+//  Review header. Shows the streak, per-lens levels + objective trends, a
+//  pronunciation GOP summary, "wins" (mastered patterns), and the next focus.
+//  Every metric here is growth-framed — nothing reads as a downgrade. The
+//  trend/aggregation math is the pure `ProgressSummary` helper (HexCore); this
+//  view only renders it. Styled with the shared HexTheme.
 //
 
 import HexCore
+import SwiftData
 import SwiftUI
 
 struct ProgressDigestView: View {
     let progress: CoachProgress
+
+    /// Persisted transcripts — read-only — so we can derive the pronunciation GOP
+    /// summary from per-note signals already stored with each note (CI-3). No new
+    /// persistence is introduced.
+    @Query private var transcripts: [TranscriptEntry]
+
     @State private var profile = LearnerProfile()
+    @State private var summary = ProgressSummary(
+        lenses: [], pronunciation: .init(), streak: StreakState(), totalWins: 0
+    )
 
     var body: some View {
         ScrollView {
@@ -21,6 +33,10 @@ struct ProgressDigestView: View {
                 streakCard
 
                 improvingSection
+
+                if summary.pronunciation.hasData {
+                    pronunciationSection
+                }
 
                 if !mastered.isEmpty {
                     winsSection
@@ -35,7 +51,13 @@ struct ProgressDigestView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("This week")
         .navigationBarTitleDisplayMode(.inline)
-        .task { profile = progress.loadProfile() }
+        .task { reload() }
+    }
+
+    private func reload() {
+        profile = progress.loadProfile()
+        let corpus = transcripts.compactMap(\.pronunciationSignals)
+        summary = progress.summary(pronunciationCorpus: corpus)
     }
 
     // MARK: - Streak hero
@@ -50,7 +72,7 @@ struct ProgressDigestView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(streakText)
                     .font(.title3.weight(.bold))
-                Text("best \(progress.streak.best) day\(progress.streak.best == 1 ? "" : "s")")
+                Text(streakSubtitle)
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.85))
             }
@@ -63,17 +85,25 @@ struct ProgressDigestView: View {
     }
 
     private var streakText: String {
-        let n = progress.streak.current
+        let n = summary.streak.current
         return n == 0 ? "Start your streak" : "\(n)-day streak"
     }
 
-    // MARK: - Levels
+    private var streakSubtitle: String {
+        let best = summary.streak.best
+        let bestText = "best \(best) day\(best == 1 ? "" : "s")"
+        return summary.totalWins > 0
+            ? "\(bestText) · \(summary.totalWins) win\(summary.totalWins == 1 ? "" : "s")"
+            : bestText
+    }
+
+    // MARK: - Levels + trends
 
     private var improvingSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader("HOW YOU'RE IMPROVING")
             VStack(spacing: 16) {
-                ForEach(Lens.allCases, id: \.self) { lens in
+                ForEach(summary.lenses) { lens in
                     levelRow(lens)
                 }
             }
@@ -81,16 +111,64 @@ struct ProgressDigestView: View {
         }
     }
 
-    private func levelRow(_ lens: Lens) -> some View {
-        let level = profile.level(for: lens)
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(lensDisplayName(lens)).font(.subheadline.weight(.medium))
+    private func levelRow(_ lens: ProgressSummary.LensProgress) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(lensDisplayName(lens.lens)).font(.subheadline.weight(.medium))
+                trendBadge(lens)
                 Spacer()
-                Text("\(level)").font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
+                Text("\(lens.level)").font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
             }
-            ProgressView(value: Double(level), total: 100)
+            ProgressView(value: Double(lens.level), total: 100)
                 .tint(HexTheme.gradientColors[0])
+        }
+    }
+
+    @ViewBuilder
+    private func trendBadge(_ lens: ProgressSummary.LensProgress) -> some View {
+        switch lens.trend {
+        case .improving:
+            let wins = lens.mastered
+            Label(wins > 0 ? "\(wins) win\(wins == 1 ? "" : "s")" : "improving", systemImage: "arrow.up.right")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(HexTheme.gradientColors[0])
+        case .steady, .new:
+            EmptyView()
+        }
+    }
+
+    // MARK: - Pronunciation GOP summary (CI-12)
+
+    private var pronunciationSection: some View {
+        let pron = summary.pronunciation
+        return VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("PRONUNCIATION")
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Across \(pron.noteCount) note\(pron.noteCount == 1 ? "" : "s")")
+                        .font(.subheadline.weight(.medium))
+                    Spacer()
+                    if pron.masteredPhonemes > 0 {
+                        Label("\(pron.masteredPhonemes) sound\(pron.masteredPhonemes == 1 ? "" : "s") mastered",
+                              systemImage: "checkmark.seal.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(HexTheme.gradientColors[0])
+                    }
+                }
+                if !pron.weakestPhonemes.isEmpty {
+                    Text("Sounds to keep practicing")
+                        .font(.caption).foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        ForEach(pron.weakestPhonemes, id: \.symbol) { p in
+                            Text("/\(p.symbol)/")
+                                .font(.footnote.weight(.semibold).monospaced())
+                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .background(HexTheme.gradientSoft, in: Capsule())
+                        }
+                    }
+                }
+            }
+            .hexCard()
         }
     }
 
