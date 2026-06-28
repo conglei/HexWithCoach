@@ -36,8 +36,18 @@ struct OnboardingView: View {
     @State private var micPermission = AVAudioApplication.shared.recordPermission
     @State private var keyboardReady = KeyboardPresence.lastActive(appGroupIdentifier: HexAppGroup.identifier) != nil
     @State private var confirmText = ""
+    /// L1 onboarding is answered once and then complete — even when skipped
+    /// (ADR-0003). This local flag marks that the learner has moved past it.
+    @State private var languageAnswered = false
 
-    private enum Step: Int, CaseIterable { case keyboard, microphone, model }
+    private let coachPreferences = CoachPreferences()
+
+    /// First languages offered in the L1 picker, sourced from the bundled
+    /// L1→interference table so every choice maps to a prioritization prior.
+    private let firstLanguages: [L1InterferenceEntry] =
+        TeachingContent.default.l1Interference.languages
+
+    private enum Step: Int, CaseIterable { case keyboard, microphone, model, language }
 
     private var micGranted: Bool { micPermission == .granted }
     private var modelReady: Bool { model.modelState == .ready }
@@ -47,6 +57,7 @@ struct OnboardingView: View {
         case .keyboard: keyboardReady
         case .microphone: micGranted
         case .model: modelReady
+        case .language: languageAnswered
         }
     }
 
@@ -77,6 +88,14 @@ struct OnboardingView: View {
         }
         .task { await model.prepare() }
         .task { await observeKeyboardActive() }
+        .onAppear {
+            // Treat a previously stored choice as already answered so re-opening
+            // onboarding doesn't re-ask (ADR-0003: ask once).
+            if let stored = coachPreferences.firstLanguage,
+               !stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                languageAnswered = true
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             micPermission = AVAudioApplication.shared.recordPermission
@@ -119,6 +138,7 @@ struct OnboardingView: View {
         .animation(.snappy, value: keyboardReady)
         .animation(.snappy, value: micGranted)
         .animation(.snappy, value: modelReady)
+        .animation(.snappy, value: languageAnswered)
     }
 
     // MARK: - Step card
@@ -145,6 +165,7 @@ struct OnboardingView: View {
         case .keyboard: "keyboard"
         case .microphone: "mic.fill"
         case .model: "arrow.down.circle"
+        case .language: "globe"
         }
     }
 
@@ -153,6 +174,7 @@ struct OnboardingView: View {
         case .keyboard: "Set up the Hex keyboard"
         case .microphone: "Allow microphone access"
         case .model: "Download the model"
+        case .language: "What's your first language?"
         }
     }
 
@@ -174,6 +196,8 @@ struct OnboardingView: View {
             case .ready: "\(model.modelName) is ready."
             case .failed(let message): "Download failed: \(message)"
             }
+        case .language:
+            "Tell us your native language and the Coach will prioritize the English sounds it tends to make tricky. Optional — you can skip this."
         }
     }
 
@@ -215,6 +239,34 @@ struct OnboardingView: View {
                     .buttonStyle(.bordered).controlSize(.large)
             case .ready:
                 EmptyView()
+            }
+        case .language:
+            VStack(spacing: 12) {
+                Menu {
+                    ForEach(firstLanguages, id: \.l1) { entry in
+                        Button(entry.displayName) {
+                            coachPreferences.firstLanguage = entry.l1
+                            languageAnswered = true
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text("Choose your language").fontWeight(.semibold)
+                        Spacer()
+                        Image(systemName: "chevron.up.chevron.down").font(.footnote)
+                    }
+                    .padding(.horizontal, 16)
+                    .frame(height: 50)
+                    .frame(maxWidth: .infinity)
+                    .foregroundStyle(.white)
+                    .background(Color.accentColor, in: .rect(cornerRadius: 12))
+                }
+
+                Button("Prefer not to say") {
+                    coachPreferences.firstLanguage = nil
+                    languageAnswered = true
+                }
+                .buttonStyle(.bordered).controlSize(.large)
             }
         }
     }
