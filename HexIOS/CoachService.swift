@@ -14,6 +14,7 @@ import AVFoundation
 import Foundation
 import HexCore
 import Observation
+import os
 import SwiftData
 
 @MainActor
@@ -99,6 +100,10 @@ final class CoachService {
     /// drop the cards it previously produced, reset its analyzed flag, and analyze
     /// it again. Honors the same key/budget guards as the backlog run.
     func analyzeEntry(_ entry: TranscriptEntry) async {
+        // Objective lane (keyless, CI-3): compute GOP + pronunciation patterns
+        // independent of the BYOK key/budget. No-op when the model is absent.
+        await analyzePronunciation(for: entry)
+
         guard preferences.isReady, !isAnalyzing else { return }
         guard let apiKey = CoachKeychain.read(CoachKeychain.geminiAPIKeyAccount), !apiKey.isEmpty else { return }
         guard budget.canAnalyze(spentThisMonth: spentThisMonthUSD) else {
@@ -233,6 +238,73 @@ final class CoachService {
 
         try? profileStore.save(profile)
         try? modelContext.save()
+    }
+
+    // MARK: - Pronunciation (objective lane, CI-3)
+
+    /// Compute + persist the on-device GOP `PronunciationResult` for a note when
+    /// the phoneme model is present (gated on `PronunciationAssets.ready`), then
+    /// re-derive per-speaker-relative pronunciation patterns across the corpus and
+    /// merge them into the profile. Deterministic + keyless: NO LLM, NO network.
+    ///
+    /// No-op when the model assets are absent (keyless-no-model state) — the rest
+    /// of coaching still works and GOP can backfill once the model arrives. Safe
+    /// to call repeatedly; an entry that already has a result is not re-analyzed.
+    func analyzePronunciation(for entry: TranscriptEntry) async {
+        guard PronunciationAssets.ready else { return }
+
+        // 1. Compute + persist this note's result if we don't have one yet.
+        if entry.pronunciationResult == nil,
+           let url = AudioStore.url(for: entry.audioFilename) {
+            let text = entry.text
+            let result = await Self.runPronunciation(audioURL: url, transcript: text)
+            if let result, !result.words.isEmpty {
+                entry.pronunciationResult = result
+                try? modelContext.save()
+            }
+        }
+
+        // 2. Re-derive patterns over the full corpus and merge into the profile.
+        recomputePronunciationPatterns()
+    }
+
+    /// Gather every note's persisted pronunciation signals into the detector's
+    /// corpus, run the pure per-speaker-relative + recurrence detector, and merge
+    /// the resulting patterns into the LearnerProfile. Pure logic lives in HexCore.
+    func recomputePronunciationPatterns() {
+        let descriptor = FetchDescriptor<TranscriptEntry>(sortBy: [SortDescriptor(\.date)])
+        guard let all = try? modelContext.fetch(descriptor) else { return }
+        let corpus: [PronunciationPatternDetector.Note] = all.compactMap { entry in
+            guard let signals = entry.pronunciationSignals else { return nil }
+            return PronunciationPatternDetector.Note(transcriptID: entry.id, signals: signals)
+        }
+        guard !corpus.isEmpty else { return }
+
+        let observations = PronunciationPatternDetector.detect(corpus: corpus)
+        guard !observations.isEmpty else { return }
+
+        var profile = profileStore.load()
+        profile.integrate(observations, at: Date())
+        try? profileStore.save(profile)
+    }
+
+    /// Run the analyzer off the main actor. Returns nil if assets fail to load or
+    /// analysis throws (e.g. clip too short / out-of-dictionary words).
+    private static func runPronunciation(audioURL: URL, transcript: String) async -> PronunciationResult? {
+        await Task.detached(priority: .utility) { () -> PronunciationResult? in
+            guard let modelURL = PronunciationAssets.model(),
+                  let vocabURL = PronunciationAssets.vocab(),
+                  let dictURL = PronunciationAssets.cmudict(),
+                  let analyzer = PronunciationAnalyzer(modelURL: modelURL, vocabURL: vocabURL, cmudictURL: dictURL)
+            else { return nil }
+            do {
+                let samples = try PhonemeRecognizer.loadSamples(url: audioURL)
+                return try analyzer.analyze(samples: samples, transcript: transcript)
+            } catch {
+                HexLog.pronunciation.error("CoachService GOP analyze failed: \(error.localizedDescription, privacy: .public)")
+                return nil
+            }
+        }.value
     }
 
     // MARK: - Helpers
