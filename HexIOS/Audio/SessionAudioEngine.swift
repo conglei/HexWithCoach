@@ -100,7 +100,7 @@ final class SessionAudioEngine: @unchecked Sendable {
     /// is reinstalled with the *current* input format after a route/config change.
     private func configureSessionAndStart() throws {
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .measurement, options: [.allowBluetooth])
+        try session.setCategory(.playAndRecord, mode: .measurement, options: [.allowBluetoothHFP])
         try session.setActive(true)
 
         let input = engine.inputNode

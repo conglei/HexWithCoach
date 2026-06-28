@@ -13,9 +13,25 @@ import HexCore
 import os
 import WhisperKit
 
-private let transcriptionLogger = HexLog.transcription
-private let modelsLogger = HexLog.models
-private let parakeetLogger = HexLog.parakeet
+// `os.Logger` is Sendable and these are immutable, so opt them out of the
+// project's `MainActor` default isolation — otherwise the `actor` below (which
+// runs off the main actor) can't read them. (SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor)
+nonisolated let transcriptionLogger = HexLog.transcription
+nonisolated let modelsLogger = HexLog.models
+nonisolated let parakeetLogger = HexLog.parakeet
+
+/// Text plus, when the model provides them, word-level timings (currently Parakeet
+/// only; other engines return an empty `words`).
+nonisolated struct TranscriptionResult: Sendable {
+  let text: String
+  // Qualified: WhisperKit also defines a `WordTiming`, and this file imports both.
+  let words: [HexCore.WordTiming]
+
+  init(text: String, words: [HexCore.WordTiming] = []) {
+    self.text = text
+    self.words = words
+  }
+}
 
 /// A client that downloads and loads WhisperKit models, then transcribes audio files using the loaded model.
 /// Exposes progress callbacks to report overall download-and-load percentage and transcription progress.
@@ -24,6 +40,10 @@ struct TranscriptionClient {
   /// Transcribes an audio file at the specified `URL` using the named `model`.
   /// Reports transcription progress via `progressCallback`.
   var transcribe: @Sendable (URL, String, DecodingOptions, @escaping (Progress) -> Void) async throws -> String
+
+  /// Like `transcribe`, but also returns word-level timings when the model exposes
+  /// them (Parakeet). Used by in-app note capture to power audio↔text sync.
+  var transcribeWithTimings: @Sendable (URL, String, DecodingOptions, @escaping (Progress) -> Void) async throws -> TranscriptionResult
 
   /// Fast Parakeet preview on a growing capture file while recording is in progress.
   var transcribePreview: @Sendable (URL, String) async throws -> String = { _, _ in "" }
@@ -58,6 +78,7 @@ extension TranscriptionClient: DependencyKey {
     let live = TranscriptionClientLive()
     return Self(
       transcribe: { try await live.transcribe(url: $0, model: $1, options: $2, progressCallback: $3) },
+      transcribeWithTimings: { try await live.transcribeWithTimings(url: $0, model: $1, options: $2, progressCallback: $3) },
       transcribePreview: { try await live.transcribePreview(url: $0, model: $1) },
       waitForParakeetIdle: { await live.waitForParakeetIdle() },
       resetParakeetTranscriberState: { try await live.resetParakeetTranscriberState() },
@@ -255,6 +276,29 @@ actor TranscriptionClientLive {
     return names
   }
 
+  /// Transcribe and also return word-level timings when the model exposes them.
+  /// Parakeet yields per-word timings (from its token timestamps); other engines
+  /// fall back to plain text with empty timings.
+  func transcribeWithTimings(
+    url: URL,
+    model: String,
+    options: DecodingOptions,
+    progressCallback: @escaping (Progress) -> Void
+  ) async throws -> TranscriptionResult {
+    if isParakeet(model) {
+      await acquireParakeetPipeline()
+      defer { releaseParakeetPipeline() }
+      try await downloadAndLoadModel(variant: model) { progressCallback($0) }
+      let preparedClip = try ParakeetClipPreparer.ensureMinimumDuration(url: url, logger: parakeetLogger)
+      defer { preparedClip.cleanup() }
+      let result = try await parakeet.transcribe(preparedClip.url)
+      return TranscriptionResult(text: result.text, words: result.words)
+    }
+    // Non-Parakeet engines: reuse the text-only path; timings unavailable for now.
+    let text = try await transcribe(url: url, model: model, options: options, progressCallback: progressCallback)
+    return TranscriptionResult(text: text, words: [])
+  }
+
   /// Transcribes the audio file at `url` using a `model` name.
   /// If the model is not yet loaded (or if it differs from the current model), it is downloaded and loaded first.
   /// Transcription progress can be monitored via `progressCallback`.
@@ -278,7 +322,7 @@ actor TranscriptionClientLive {
       let preparedClip = try ParakeetClipPreparer.ensureMinimumDuration(url: url, logger: parakeetLogger)
       defer { preparedClip.cleanup() }
       let startTx = Date()
-      let text = try await parakeet.transcribe(preparedClip.url)
+      let text = try await parakeet.transcribe(preparedClip.url).text
       transcriptionLogger.info("Parakeet transcription took \(String(format: "%.2f", Date().timeIntervalSince(startTx)))s")
       transcriptionLogger.info("Parakeet request total elapsed \(String(format: "%.2f", Date().timeIntervalSince(startAll)))s")
       return text
@@ -376,7 +420,7 @@ actor TranscriptionClientLive {
       logger: parakeetLogger
     )
     defer { preparedClip.cleanup() }
-    return try await parakeet.transcribe(preparedClip.url, reinitializeOnEmpty: false)
+    return try await parakeet.transcribe(preparedClip.url, reinitializeOnEmpty: false).text
   }
 
   private func acquireParakeetPipeline() async {

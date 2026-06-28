@@ -77,22 +77,21 @@ final class KeyboardState {
     }
 }
 
-/// Actions the SwiftUI surface hands back to `KeyboardViewController`, which owns
-/// all the `textDocumentProxy` / IPC wiring.
+/// Actions the Hex toolbar hands back to `KeyboardViewController`, which owns the
+/// IPC / dictation wiring.
+///
+/// Note: all *typing* (insert / delete / space / return / shift / globe) is now
+/// handled natively by KeyboardKit's `KeyboardView`, so those callbacks are gone.
+/// What remains is only the Hex-specific dictation strip above the keys.
 struct KeyboardActions {
+    /// Start/stop dictation (the big center pill).
     var onMic: () -> Void
-    var onDelete: () -> Void
-    var onNextKeyboard: () -> Void
-    var onSpace: () -> Void
-    var onReturn: () -> Void
-    var onDeleteWord: () -> Void
-    var onCaretMove: (Int) -> Void
-    var onInsert: (String) -> Void
-    var onUndo: () -> Void
-    var onRedo: () -> Void
     /// Cancel the in-progress dictation (toolbar "Cancel"). Currently stops the
     /// capture like the mic does; true discard isn't wired yet.
     var onCancelDictation: () -> Void
     /// Open the Hex app (toolbar settings icon) for preferences/onboarding.
     var onSettings: () -> Void
+
+    /// A do-nothing instance for fallback when the controller is gone.
+    static let noop = KeyboardActions(onMic: {}, onCancelDictation: {}, onSettings: {})
 }

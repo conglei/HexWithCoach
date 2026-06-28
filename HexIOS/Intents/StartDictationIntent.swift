@@ -15,7 +15,10 @@ import HexCore
 
 /// Shared key used to hand a "start a session" request from the intent (which
 /// can't reach the app's model directly) to the app on next activation.
-enum PendingAppAction {
+// Pure App Group / UserDefaults handoff with no main-actor state. Opt out of the
+// project's `MainActor` default isolation so the nonisolated `AppIntent.perform()`
+// can call it. (SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor)
+nonisolated enum PendingAppAction {
     static let key = "hex.pendingStartSession"
 
     static func requestStartSession() {

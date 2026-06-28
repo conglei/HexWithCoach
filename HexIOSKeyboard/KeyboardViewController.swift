@@ -7,14 +7,26 @@
 //  via a custom URL, the host app records + transcribes and writes the result to
 //  the shared App Group mailbox, and on returning here we insert it.
 //
+//  The keys are rendered by KeyboardKit (we subclass `KeyboardInputViewController`
+//  and hand it `HexKeyboardRootView`). KeyboardKit owns all typing through the
+//  text document proxy; this controller owns only the dictation/IPC engine and
+//  the Hex toolbar's actions.
+//
 
 import HexCore
+import KeyboardKit
 import SwiftUI
 import UIKit
 
-final class KeyboardViewController: UIInputViewController {
+final class KeyboardViewController: KeyboardInputViewController {
     private let ipc = KeyboardIPC(appGroupIdentifier: HexAppGroup.identifier)
-    private let state = KeyboardState()
+
+    /// Hex's own dictation state machine. Named `hexState` because the KeyboardKit
+    /// base class already exposes its own `state` (`Keyboard.State`).
+    private let hexState = KeyboardState()
+
+    /// Toolbar callbacks, built once in `viewDidLoad`.
+    private var actions: KeyboardActions = .noop
 
     private var lastInsertedID: UUID?
     private var resultObserver: DarwinSignalObserver?
@@ -31,51 +43,46 @@ final class KeyboardViewController: UIInputViewController {
     /// Don't insert a result older than this (avoids surfacing a stale, never-consumed transcript).
     private let resultFreshnessWindow: TimeInterval = 300
 
+    // MARK: - KeyboardKit setup
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        state.needsNextKeyboard = needsInputModeSwitchKey
-        state.hasFullAccess = hasFullAccess
+        // Set up KeyboardKit for the Hex keyboard app. We don't hand it our App
+        // Group (we run our own IPC) or a Pro license — this is the free tier.
+        setup(for: .hex) { _ in }
 
-        let actions = KeyboardActions(
+        hexState.needsNextKeyboard = needsInputModeSwitchKey
+        hexState.hasFullAccess = hasFullAccess
+        actions = makeActions()
+    }
+
+    /// Called when KeyboardKit needs to (re)build the keyboard view. We hand it the
+    /// native `KeyboardView` (via `HexKeyboardRootView`) with the Hex toolbar slot.
+    override func viewWillSetupKeyboardView() {
+        setupKeyboardView { [weak self] controller in
+            HexKeyboardRootView(
+                keyboardState: controller.state,
+                services: controller.services,
+                hexState: self?.hexState ?? KeyboardState(),
+                actions: self?.actions ?? .noop
+            )
+        }
+    }
+
+    private func makeActions() -> KeyboardActions {
+        KeyboardActions(
             onMic: { [weak self] in self?.handleMicTap() },
-            onDelete: { [weak self] in self?.textDocumentProxy.deleteBackward() },
-            onNextKeyboard: { [weak self] in self?.advanceToNextInputMode() },
-            onSpace: { [weak self] in self?.textDocumentProxy.insertText(" ") },
-            onReturn: { [weak self] in self?.textDocumentProxy.insertText("\n") },
-            onDeleteWord: { [weak self] in self?.deleteWordBackward() },
-            onCaretMove: { [weak self] offset in self?.textDocumentProxy.adjustTextPosition(byCharacterOffset: offset) },
-            onInsert: { [weak self] text in self?.textDocumentProxy.insertText(text) },
-            onUndo: { [weak self] in self?.performUndoAction(redo: false) },
-            onRedo: { [weak self] in self?.performUndoAction(redo: true) },
             onCancelDictation: { [weak self] in self?.handleMicTap() },
             onSettings: { [weak self] in self?.openHostApp(path: "settings") }
         )
-
-        let root = KeyboardView(state: state, actions: actions)
-
-        let hosting = UIHostingController(rootView: root)
-        hosting.view.translatesAutoresizingMaskIntoConstraints = false
-        hosting.view.backgroundColor = .clear
-        addChild(hosting)
-        view.addSubview(hosting.view)
-        NSLayoutConstraint.activate([
-            hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            hosting.view.topAnchor.constraint(equalTo: view.topAnchor),
-            hosting.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
-        hosting.didMove(toParent: self)
-
-        // Tall enough for four full QWERTY rows (~44pt each) plus a status banner.
-        let height = view.heightAnchor.constraint(equalToConstant: 300)
-        height.priority = .defaultHigh
-        height.isActive = true
     }
+
+    // MARK: - Lifecycle
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        state.hasFullAccess = hasFullAccess
+        hexState.hasFullAccess = hasFullAccess
         // With Full Access we can touch the App Group — record presence + signal
         // so the host app's onboarding can confirm the keyboard is set up.
         if hasFullAccess {
@@ -103,8 +110,11 @@ final class KeyboardViewController: UIInputViewController {
     /// no audio — keeps the extension memory-light.
     private func startClock() {
         clockTimer?.invalidate()
+        // The timer is scheduled on `RunLoop.main`, so it already fires on the main
+        // thread — assert the isolation synchronously instead of hopping through a
+        // Task each tick (which captured `self` across a concurrency boundary).
         let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.state.clock = Date() }
+            MainActor.assumeIsolated { self?.hexState.clock = Date() }
         }
         RunLoop.main.add(timer, forMode: .common)
         clockTimer = timer
@@ -112,7 +122,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
-        state.needsNextKeyboard = needsInputModeSwitchKey
+        hexState.needsNextKeyboard = needsInputModeSwitchKey
     }
 
     // MARK: - Actions
@@ -121,26 +131,26 @@ final class KeyboardViewController: UIInputViewController {
     /// bounce once to the host app to start a session.
     private func handleMicTap() {
         guard hasFullAccess else {
-            state.statusText = "Enable Full Access (Settings ▸ Keyboards) to dictate."
+            hexState.statusText = "Enable Full Access (Settings ▸ Keyboards) to dictate."
             return
         }
         // Any user-initiated tap clears a stale error/confirmation so the UI
         // reflects the action they just took.
-        state.errorMessage = nil
-        state.justInserted = false
+        hexState.errorMessage = nil
+        hexState.justInserted = false
         // Re-read liveness fresh on every tap; a session can have died (app
         // crashed/suspended) since we last refreshed, leaving a stale "active" flag.
         let session = currentSession()
         let usable = session?.isUsable(at: Date()) == true
-        state.sessionActive = usable
-        state.sessionExpiresAt = usable ? session?.expiresAt : nil
+        hexState.sessionActive = usable
+        hexState.sessionExpiresAt = usable ? session?.expiresAt : nil
         if usable {
             toggleCapture()
         } else {
             // Session is dead/stale — reset any stuck capturing state and bounce
             // to start a fresh one instead of posting into the void.
             isCapturing = false
-            state.isCapturing = false
+            hexState.isCapturing = false
             startSessionBounce()
         }
     }
@@ -149,27 +159,27 @@ final class KeyboardViewController: UIInputViewController {
         if isCapturing {
             DarwinSignal.post(.captureStop)
             isCapturing = false
-            state.statusText = "Transcribing…"
+            hexState.statusText = "Transcribing…"
         } else {
             DarwinSignal.post(.captureStart)
             isCapturing = true
-            state.statusText = "Listening… tap to stop"
+            hexState.statusText = "Listening… tap to stop"
         }
-        state.isCapturing = isCapturing
+        hexState.isCapturing = isCapturing
     }
 
     private func startSessionBounce() {
         guard let url = URL(string: "hexkb://startSession") else { return }
-        state.statusText = "Starting session in Hex…"
+        hexState.statusText = "Starting session in Hex…"
         guard let application = firstUIApplicationInResponderChain() else {
-            state.errorMessage = "Couldn't reach Hex. Open the app once, then try again."
-            state.statusText = "Couldn't reach the app (no UIApplication in chain)."
+            hexState.errorMessage = "Couldn't reach Hex. Open the app once, then try again."
+            hexState.statusText = "Couldn't reach the app (no UIApplication in chain)."
             return
         }
         application.open(url, options: [:]) { [weak self] success in
             if !success {
-                self?.state.errorMessage = "iOS blocked opening Hex."
-                self?.state.statusText = "iOS blocked opening Hex."
+                self?.hexState.errorMessage = "iOS blocked opening Hex."
+                self?.hexState.statusText = "iOS blocked opening Hex."
             }
         }
     }
@@ -208,11 +218,11 @@ final class KeyboardViewController: UIInputViewController {
     private func refreshSessionState() {
         let session = currentSession()
         let active = session?.isUsable(at: Date()) == true
-        state.sessionActive = active
-        state.sessionExpiresAt = active ? session?.expiresAt : nil
+        hexState.sessionActive = active
+        hexState.sessionExpiresAt = active ? session?.expiresAt : nil
         if !active {
             isCapturing = false
-            state.isCapturing = false
+            hexState.isCapturing = false
         }
     }
 
@@ -227,64 +237,20 @@ final class KeyboardViewController: UIInputViewController {
         lastInsertedID = result.id
         ipc.resultMailbox.clear()
         isCapturing = false
-        state.isCapturing = false
-        state.errorMessage = nil
-        state.statusText = state.sessionActive ? "Inserted — tap to dictate again." : "Inserted."
+        hexState.isCapturing = false
+        hexState.errorMessage = nil
+        hexState.statusText = hexState.sessionActive ? "Inserted — tap to dictate again." : "Inserted."
         flashInsertedConfirmation()
     }
 
     /// Shows the brief ".inserting" confirmation state, then returns to idle.
     private func flashInsertedConfirmation() {
         insertConfirmationTask?.cancel()
-        state.justInserted = true
+        hexState.justInserted = true
         insertConfirmationTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             guard !Task.isCancelled else { return }
-            await MainActor.run { self?.state.justInserted = false }
-        }
-    }
-
-    // MARK: - Editing controls (P2-5)
-
-    /// Deletes back to the previous word boundary using the text *before* the
-    /// caret, mirroring the system "delete word" behavior. Falls back to a single
-    /// `deleteBackward` when the context is unavailable.
-    private func deleteWordBackward() {
-        guard let before = textDocumentProxy.documentContextBeforeInput, !before.isEmpty else {
-            textDocumentProxy.deleteBackward()
-            return
-        }
-        // Count trailing whitespace, then the word characters before it.
-        var deleteCount = 0
-        let reversed = Array(before.reversed())
-        var index = 0
-        while index < reversed.count, reversed[index].isWhitespace {
-            deleteCount += 1
-            index += 1
-        }
-        while index < reversed.count, !reversed[index].isWhitespace {
-            deleteCount += 1
-            index += 1
-        }
-        if deleteCount == 0 { deleteCount = 1 }
-        for _ in 0 ..< deleteCount { textDocumentProxy.deleteBackward() }
-    }
-
-    /// Best-effort undo/redo by walking the responder chain for the host text
-    /// view's `UIUndoManager`. No-ops silently if the host doesn't expose one —
-    /// undo/redo from a keyboard extension isn't guaranteed.
-    private func performUndoAction(redo: Bool) {
-        var responder: UIResponder? = self
-        while let current = responder {
-            if let manager = current.undoManager {
-                if redo {
-                    if manager.canRedo { manager.redo() }
-                } else {
-                    if manager.canUndo { manager.undo() }
-                }
-                return
-            }
-            responder = current.next
+            await MainActor.run { self?.hexState.justInserted = false }
         }
     }
 
@@ -303,5 +269,15 @@ final class KeyboardViewController: UIInputViewController {
             responder = current.next
         }
         return nil
+    }
+}
+
+// MARK: - KeyboardApp
+
+private extension KeyboardApp {
+    /// The Hex keyboard app. Minimal on purpose: no App Group (we run our own
+    /// `KeyboardIPC`) and no Pro license key (free tier).
+    static var hex: KeyboardApp {
+        .init(name: "Hex")
     }
 }

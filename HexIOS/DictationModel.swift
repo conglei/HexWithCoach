@@ -62,6 +62,7 @@ final class DictationModel {
     enum Phase: Equatable {
         case idle
         case recording
+        case paused
         case transcribing
     }
 
@@ -94,7 +95,7 @@ final class DictationModel {
 
     /// Persist a transcript, retaining its audio (moved into the App Group) so the
     /// Coach corpus has both text and audio.
-    private func save(text: String, kind: TranscriptKind, audioURL: URL?) {
+    private func save(text: String, kind: TranscriptKind, audioURL: URL?, words: [HexCore.WordTiming]? = nil, surface: Bool = true) {
         // Incognito (RC-8): dictation still inserts text, but we keep nothing —
         // no transcript, no audio.
         guard !CapturePreferences.incognito else {
@@ -103,15 +104,34 @@ final class DictationModel {
         }
         let filename = audioURL.flatMap { AudioStore.persist($0) }
         let entry = TranscriptEntry(text: text, date: Date(), kind: kind, audioFilename: filename)
+        entry.wordTimings = words
         modelContext.insert(entry)
         try? modelContext.save()
         // In-app notes open straight into their detail; dictation snippets just
-        // get inserted into the host app, so don't surface those.
-        if kind == .note { lastSavedNote = entry }
+        // get inserted into the host app, so don't surface those. Recovered notes
+        // (`surface: false`) appear in History silently rather than yanking the
+        // user into a detail view on launch.
+        if kind == .note, surface { lastSavedNote = entry }
     }
-    /// When the current in-app note recording started (for the recording modal timer).
+    /// When the current note *span* started recording (reset on each resume). Used
+    /// with `accumulatedDuration` to drive the cumulative recording timer.
     private(set) var recordingStartedAt: Date?
+    /// Recording time banked from spans before the current one (so the timer keeps
+    /// counting across pause/resume instead of restarting each resume).
+    private(set) var accumulatedDuration: TimeInterval = 0
+    /// Finalized audio spans of the in-progress note (one per record→pause), stored
+    /// in the crash-safe Drafts dir and concatenated on "Done".
+    private var noteSegments: [URL] = []
+    /// True while a note interrupted by an app kill/crash is being transcribed in
+    /// the background at launch (gates starting a new note).
+    private(set) var isRecovering = false
     var errorMessage: String?
+
+    /// Cumulative elapsed recording time across pause/resume, for the timer.
+    var currentElapsed: TimeInterval {
+        let live = (phase == .recording) ? Date().timeIntervalSince(recordingStartedAt ?? Date()) : 0
+        return accumulatedDuration + live
+    }
 
     /// Set after a keyboard session starts, prompting the user to swipe back to
     /// their app where the keyboard will insert dictated text.
@@ -147,12 +167,16 @@ final class DictationModel {
     private var activity: Activity<FlowSessionAttributes>?
     private var sessionCaptureURL: URL?
 
-    var canRecord: Bool { modelState == .ready && phase != .transcribing }
+    /// Whether a brand-new note can be started (gates the Home mic + pull-to-dictate).
+    /// Only when fully idle — a paused note is still in progress, and we don't start
+    /// one over an in-flight crash recovery.
+    var canRecord: Bool { modelState == .ready && phase == .idle && !isRecovering }
 
     var recordButtonTitle: String {
         switch phase {
         case .idle: "Start Dictation"
-        case .recording: "Stop"
+        case .recording: "Pause"
+        case .paused: "Resume"
         case .transcribing: "Transcribing…"
         }
     }
@@ -180,10 +204,12 @@ final class DictationModel {
         }
     }
 
+    /// The Home mic button: start a new note when idle, finish it when recording or
+    /// paused. (Pause/resume have their own controls in the recording screen.)
     func toggleRecording() async {
         switch phase {
         case .idle: await startRecording()
-        case .recording: await stopAndTranscribe()
+        case .recording, .paused: await finishRecording()
         case .transcribing: break
         }
     }
@@ -196,6 +222,8 @@ final class DictationModel {
         }
         do {
             _ = try recorder.start()
+            noteSegments = []
+            accumulatedDuration = 0
             recordingStartedAt = Date()
             phase = .recording
             startMetering()
@@ -204,13 +232,131 @@ final class DictationModel {
         }
     }
 
-    /// Discard the in-progress note recording without transcribing (swipe-up-to-cancel).
-    func cancelRecording() {
+    /// Pause the in-progress note. The current span is stopped, finalized, and moved
+    /// into crash-safe storage immediately, so a crash/kill while paused can't lose
+    /// it. Resuming records a fresh span that's concatenated on "Done".
+    func pauseRecording() {
         guard phase == .recording else { return }
         stopMetering()
+        if let startedAt = recordingStartedAt {
+            accumulatedDuration += Date().timeIntervalSince(startedAt)
+        }
+        recordingStartedAt = nil
+        if let url = recorder.stop() { bankSpan(url) }
+        phase = .paused
+    }
+
+    /// Resume a paused note by recording a new span (concatenated with the rest on
+    /// "Done"). Mic permission was already granted when the note started.
+    func resumeRecording() {
+        guard phase == .paused else { return }
+        do {
+            _ = try recorder.start()
+            recordingStartedAt = Date()
+            phase = .recording
+            startMetering()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Finish the note: finalize the current span, concatenate every span into one
+    /// clip, transcribe, and save. Works from either recording or paused.
+    func finishRecording() async {
+        guard phase == .recording || phase == .paused else { return }
+        stopMetering()
+        if phase == .recording {
+            if let startedAt = recordingStartedAt {
+                accumulatedDuration += Date().timeIntervalSince(startedAt)
+            }
+            if let url = recorder.stop() { bankSpan(url) }
+        }
+        recordingStartedAt = nil
+        let segments = noteSegments
+        noteSegments = []
+        guard !segments.isEmpty else { phase = .idle; return }
+
+        phase = .transcribing
+        defer { phase = .idle }
+
+        // One span → use it directly; multiple spans → concatenate into one clip.
+        let clip: URL
+        if segments.count == 1 {
+            clip = segments[0]
+        } else {
+            clip = (try? AudioStore.concatenate(segments)) ?? segments[0]
+        }
+
+        do {
+            let result = try await transcription.transcribeWithTimings(clip, modelName, DecodingOptions()) { _ in }
+            // Drop the now-redundant spans (keep `clip` for save()).
+            cleanupDraftSegments(segments, except: clip)
+            guard !result.text.isEmpty else { try? FileManager.default.removeItem(at: clip); return }
+            save(text: result.text, kind: .note, audioURL: clip, words: result.words)
+        } catch {
+            // Keep the spans on failure so the recorded audio isn't lost.
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Discard the in-progress note (any span) without transcribing. Used by the
+    /// "Cancel" control.
+    func cancelRecording() {
+        guard phase == .recording || phase == .paused else { return }
+        stopMetering()
         if let url = recorder.stop() { try? FileManager.default.removeItem(at: url) }
+        cleanupDraftSegments(noteSegments, except: nil)
+        noteSegments = []
+        accumulatedDuration = 0
         recordingStartedAt = nil
         phase = .idle
+    }
+
+    private func cleanupDraftSegments(_ urls: [URL], except keep: URL?) {
+        for url in urls where url != keep {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
+    /// Bank a finalized span for the current note. Normally we move it into the
+    /// crash-safe Drafts dir so an app kill while paused can't lose it; in incognito
+    /// the user wants nothing retained, so we keep it only in temp (ephemeral) and
+    /// it's never eligible for recovery.
+    private func bankSpan(_ tempURL: URL) {
+        if CapturePreferences.incognito {
+            noteSegments.append(tempURL)
+        } else if let persisted = AudioStore.persistDraftSegment(tempURL) {
+            noteSegments.append(persisted)
+        }
+    }
+
+    /// Automatic crash recovery: if an interrupted note left spans on disk (app
+    /// killed while paused, or a transcription that never completed), transcribe
+    /// and save them as a note on the next launch — no user action required. Runs
+    /// silently; the recovered note simply appears in History.
+    func recoverInterruptedNote() async {
+        guard phase == .idle, !isRecovering else { return }
+        let spans = AudioStore.orphanedDraftSegments()
+        guard !spans.isEmpty else { return }
+
+        isRecovering = true
+        defer { isRecovering = false }
+
+        if modelState != .ready { await prepare() }
+        // Can't transcribe without a model — leave the spans for a later launch.
+        guard modelState == .ready else { return }
+
+        let clip: URL = spans.count == 1 ? spans[0] : ((try? AudioStore.concatenate(spans)) ?? spans[0])
+        do {
+            let result = try await transcription.transcribeWithTimings(clip, modelName, DecodingOptions()) { _ in }
+            cleanupDraftSegments(spans, except: clip)
+            guard !result.text.isEmpty else { try? FileManager.default.removeItem(at: clip); return }
+            save(text: result.text, kind: .note, audioURL: clip, words: result.words, surface: false)
+            HexLog.transcription.notice("Recovered an interrupted note (\(spans.count) span(s))")
+        } catch {
+            // Keep the spans so the next launch can retry; don't surface an error.
+            HexLog.transcription.error("Interrupted-note recovery failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     // MARK: - Waveform metering
@@ -235,24 +381,6 @@ final class DictationModel {
         meterTask?.cancel()
         meterTask = nil
         levels = []
-    }
-
-    private func stopAndTranscribe() async {
-        stopMetering()
-        guard let url = recorder.stop() else {
-            phase = .idle
-            return
-        }
-        recordingStartedAt = nil
-        phase = .transcribing
-        defer { phase = .idle }
-        do {
-            let text = try await transcription.transcribe(url, modelName, DecodingOptions()) { _ in }
-            guard !text.isEmpty else { try? FileManager.default.removeItem(at: url); return }
-            save(text: text, kind: .note, audioURL: url)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
     }
 
     func dismissSwipeBackHint() {

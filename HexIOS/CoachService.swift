@@ -92,6 +92,64 @@ final class CoachService {
         return LearnerProfileStore(url: dir.appendingPathComponent("profile.json"))
     }
 
+    /// Whether coaching is opted in with a usable key — gates the re-analyze UI.
+    var isReady: Bool { preferences.isReady }
+
+    /// Re-run the Coach on a single transcript (the per-note "re-analyze" action):
+    /// drop the cards it previously produced, reset its analyzed flag, and analyze
+    /// it again. Honors the same key/budget guards as the backlog run.
+    func analyzeEntry(_ entry: TranscriptEntry) async {
+        guard preferences.isReady, !isAnalyzing else { return }
+        guard let apiKey = CoachKeychain.read(CoachKeychain.geminiAPIKeyAccount), !apiKey.isEmpty else { return }
+        guard budget.canAnalyze(spentThisMonth: spentThisMonthUSD) else {
+            budgetReached = true
+            return
+        }
+        budgetReached = false
+
+        isAnalyzing = true
+        defer { isAnalyzing = false }
+
+        // Replace any cards previously curated from this transcript.
+        if let existing = try? modelContext.fetch(FetchDescriptor<CoachCardEntity>()) {
+            for card in existing where card.transcriptID == entry.id { modelContext.delete(card) }
+        }
+        entry.coachAnalyzedAt = nil
+
+        let now = Date()
+        let words = entry.text.split { $0.isWhitespace }.count
+        let durationSec = duration(forAudio: entry.audioFilename, fallbackWordCount: words)
+
+        // Too short to coach on — mark analyzed so it doesn't re-enter the backlog.
+        guard durationSec >= Self.minDurationSec else {
+            entry.coachAnalyzedAt = now
+            try? modelContext.save()
+            return
+        }
+
+        let pipeline = CoachPipeline(llm: GeminiCoachLLM(apiKey: apiKey))
+        var profile = profileStore.load()
+        let masteredBefore = Set(profile.patterns.filter { $0.status == .mastered }.map(\.key))
+        let audioClip = audio(for: entry.audioFilename)
+        let input = CoachTranscriptInput(
+            id: entry.id, text: entry.text, durationSec: durationSec, audio: audioClip
+        )
+        do {
+            let analysis = try await pipeline.analyze(input, profile: &profile, at: now)
+            recordSpend(Self.estimatedCost(chars: entry.text.count, audioSec: audioClip == nil ? 0 : durationSec))
+            entry.coachAnalyzedAt = now
+
+            let wins = profile.patterns.filter { $0.status == .mastered && !masteredBefore.contains($0.key) }
+            let merged = CoachAnalysis(insights: analysis.insights, focuses: [], signals: analysis.signals)
+            let cards = CoachCardCurator.curate(analysis: merged, wins: wins, profile: profile, now: now, limit: perRunCardLimit)
+            for card in cards { modelContext.insert(CoachCardEntity(card: card)) }
+            try? profileStore.save(profile)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        try? modelContext.save()
+    }
+
     /// Count of transcripts not yet analyzed — the activation bait + refresh badge.
     func backlogCount() -> Int {
         let descriptor = FetchDescriptor<TranscriptEntry>(predicate: #Predicate { $0.coachAnalyzedAt == nil })

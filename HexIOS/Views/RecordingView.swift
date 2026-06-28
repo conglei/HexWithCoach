@@ -3,15 +3,17 @@
 //  HexIOS
 //
 //  Recording modal: presented over Home while capturing an in-app note. Top bar
-//  (Cancel · timer · language), a LISTENING state with a gradient waveform, and a
-//  gradient stop button. Styled with HexTheme.
+//  (Cancel · timer · language), a LISTENING/PAUSED state with a gradient waveform,
+//  and a Pause/Resume + Done control pair. Pausing keeps the note open (and saves
+//  the audio so far) so the user can resume and add more; Done finalizes it.
 //
 
 import SwiftUI
 
 struct RecordingView: View {
     let model: DictationModel
-    @State private var dragOffset: CGFloat = 0
+
+    private var isPaused: Bool { model.phase == .paused }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,20 +32,12 @@ struct RecordingView: View {
             Spacer()
 
             if model.phase != .transcribing {
-                stopButton.padding(.bottom, 44)
+                controls.padding(.bottom, 44)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.systemGroupedBackground))
-        .offset(y: dragOffset)
-        .gesture(
-            DragGesture()
-                .onChanged { v in dragOffset = min(0, v.translation.height) }
-                .onEnded { v in
-                    if v.translation.height < -80 { model.cancelRecording() }
-                    withAnimation(.snappy) { dragOffset = 0 }
-                }
-        )
+        .animation(.easeInOut(duration: 0.18), value: model.phase)
     }
 
     private var topBar: some View {
@@ -62,7 +56,9 @@ struct RecordingView: View {
     private var timerPill: some View {
         TimelineView(.periodic(from: .now, by: 0.5)) { _ in
             HStack(spacing: 7) {
-                Circle().fill(HexTheme.gradient).frame(width: 8, height: 8)
+                Circle()
+                    .fill(isPaused ? AnyShapeStyle(Color.secondary) : AnyShapeStyle(HexTheme.gradient))
+                    .frame(width: 8, height: 8)
                 Text(elapsedString).monospacedDigit()
             }
             .font(.subheadline.weight(.medium))
@@ -73,22 +69,24 @@ struct RecordingView: View {
     }
 
     private var elapsedString: String {
-        let start = model.recordingStartedAt ?? Date()
-        let secs = max(0, Int(Date().timeIntervalSince(start)))
+        let secs = max(0, Int(model.currentElapsed))
         return String(format: "%d:%02d", secs / 60, secs % 60)
     }
 
     private var listening: some View {
         VStack(spacing: 28) {
             HStack(spacing: 7) {
-                Circle().fill(HexTheme.gradient).frame(width: 8, height: 8)
-                Text("LISTENING")
+                Circle()
+                    .fill(isPaused ? AnyShapeStyle(Color.secondary) : AnyShapeStyle(HexTheme.gradient))
+                    .frame(width: 8, height: 8)
+                Text(isPaused ? "PAUSED" : "LISTENING")
                     .font(.caption.weight(.semibold))
                     .tracking(1.5)
-                    .foregroundStyle(HexTheme.gradientColors[0])
+                    .foregroundStyle(isPaused ? AnyShapeStyle(Color.secondary) : AnyShapeStyle(HexTheme.gradientColors[0]))
             }
             waveform
-            Text("Tap to stop · swipe up to cancel")
+                .opacity(isPaused ? 0.3 : 1)
+            Text(isPaused ? "Paused · resume to keep dictating" : "Pause to take a break, Done when finished")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -106,18 +104,36 @@ struct RecordingView: View {
         .animation(.linear(duration: 0.05), value: model.levels)
     }
 
-    private var stopButton: some View {
-        Button {
-            Task { await model.toggleRecording() }
-        } label: {
-            Image(systemName: "stop.fill")
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 84, height: 84)
-                .background(HexTheme.gradient, in: .circle)
-                .shadow(color: HexTheme.gradientColors[1].opacity(0.35), radius: 16, y: 8)
+    private var controls: some View {
+        HStack(spacing: 40) {
+            // Pause / Resume — keeps the note open so the user can add more later.
+            Button {
+                if isPaused { model.resumeRecording() } else { model.pauseRecording() }
+            } label: {
+                Image(systemName: isPaused ? "mic.fill" : "pause.fill")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(HexTheme.gradientColors[0])
+                    .frame(width: 68, height: 68)
+                    .background(Color(.secondarySystemGroupedBackground), in: .circle)
+                    .overlay(Circle().strokeBorder(HexTheme.gradientColors[0].opacity(0.35), lineWidth: 1.5))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isPaused ? "Resume" : "Pause")
+
+            // Done — finalize and transcribe the note.
+            Button {
+                Task { await model.finishRecording() }
+            } label: {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 84, height: 84)
+                    .background(HexTheme.gradient, in: .circle)
+                    .shadow(color: HexTheme.gradientColors[1].opacity(0.35), radius: 16, y: 8)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Done")
         }
-        .buttonStyle(.plain)
     }
 
     private var transcribing: some View {
