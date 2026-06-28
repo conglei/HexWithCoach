@@ -9,12 +9,14 @@
 //
 
 import HexCore
+import os
 import SwiftData
 import SwiftUI
 
 struct TranscriptDetailView: View {
     let entry: TranscriptEntry
     @State private var audio = AudioPlayer()
+    @State private var showPronunciation = false
     @Environment(\.modelContext) private var modelContext
     @Environment(CoachService.self) private var coach
 
@@ -30,14 +32,31 @@ struct TranscriptDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 header
 
-                Text(entry.text)
-                    .font(.title3.weight(.semibold))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // When we have word timings + audio, render an interactive
+                // transcript: tap a word to jump there, and the spoken word
+                // highlights as it plays (bidirectional sync). Otherwise plain text.
+                if let words = entry.wordTimings, !words.isEmpty, audioURL != nil {
+                    SyncedTranscriptView(words: words, audio: audio)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text(entry.text)
+                        .font(.title3.weight(.semibold))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
                 if audioURL != nil {
                     PlayerBar(audio: audio)
                         .hexCard()
+                }
+
+                // Phoneme-grade pronunciation check (on-device forced alignment).
+                // Only shown when the model + dictionary assets are present.
+                if audioURL != nil, PronunciationAssets.ready {
+                    Button { showPronunciation = true } label: {
+                        Label("Check pronunciation", systemImage: "waveform")
+                    }
+                    .buttonStyle(HexGradientButtonStyle(compact: true))
                 }
 
                 coachCard
@@ -47,6 +66,11 @@ struct TranscriptDetailView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Transcript")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showPronunciation) {
+            if let audioURL {
+                PronunciationSheet(audioURL: audioURL, transcript: entry.text)
+            }
+        }
         .toolbar {
             if coach.isReady {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -170,6 +194,226 @@ private struct CoachRewriteCard: View {
     private func saveToPhrasebook() {
         card.status = .saved
         try? modelContext.save()
+    }
+}
+
+/// Interactive transcript with bidirectional audio↔text sync: tapping a word
+/// seeks the audio there (and starts playing); during playback the word currently
+/// being spoken is highlighted. Words + timings come from the ASR (Parakeet).
+private struct SyncedTranscriptView: View {
+    let words: [WordTiming]
+    let audio: AudioPlayer
+
+    /// Index of the word being spoken now — the last word whose start has passed.
+    /// Using "last started" keeps the highlight stable through the ~80ms gaps
+    /// between words instead of flickering off.
+    private var activeIndex: Int? {
+        let t = audio.currentTime
+        guard t > 0 || audio.isPlaying else { return nil }
+        return words.lastIndex { $0.start <= t + 0.02 }
+    }
+
+    var body: some View {
+        let active = activeIndex
+        FlowLayout(spacing: 6, lineSpacing: 8) {
+            ForEach(Array(words.enumerated()), id: \.offset) { index, word in
+                let isActive = index == active
+                Text(word.word)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(isActive ? Color.white : Color.primary)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(
+                        isActive ? AnyShapeStyle(HexTheme.gradient) : AnyShapeStyle(Color.clear),
+                        in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        audio.seek(toTime: word.start)
+                        if !audio.isPlaying { audio.play() }
+                    }
+                    .animation(.easeOut(duration: 0.1), value: isActive)
+            }
+        }
+    }
+}
+
+/// Minimal wrapping layout (words flow left-to-right, wrapping to new lines).
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+    var lineSpacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, lineHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth, x > 0 {
+                x = 0
+                y += lineHeight + lineSpacing
+                lineHeight = 0
+            }
+            x += size.width + spacing
+            lineHeight = max(lineHeight, size.height)
+        }
+        let width = maxWidth.isFinite ? maxWidth : x
+        return CGSize(width: width, height: y + lineHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) {
+        var x = bounds.minX, y = bounds.minY, lineHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX, x > bounds.minX {
+                x = bounds.minX
+                y += lineHeight + lineSpacing
+                lineHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            lineHeight = max(lineHeight, size.height)
+        }
+    }
+}
+
+// MARK: - Pronunciation check
+
+/// Locates the phoneme model + vocab + CMUdict. Looks in the app bundle first
+/// (Xcode compiles a bundled `.mlpackage` → `.mlmodelc`), then Application Support
+/// (`Pronunciation/`) for side-loaded assets during testing.
+nonisolated enum PronunciationAssets {
+    static var ready: Bool { model() != nil && vocab() != nil && cmudict() != nil }
+
+    static func model() -> URL? {
+        Bundle.main.url(forResource: "PhonemeCTC", withExtension: "mlmodelc") ?? sideloaded("PhonemeCTC.mlpackage")
+    }
+    static func vocab() -> URL? {
+        Bundle.main.url(forResource: "phoneme_vocab", withExtension: "json") ?? sideloaded("phoneme_vocab.json")
+    }
+    static func cmudict() -> URL? {
+        Bundle.main.url(forResource: "cmudict", withExtension: "dict") ?? sideloaded("cmudict.dict")
+    }
+
+    private static func sideloaded(_ name: String) -> URL? {
+        guard let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Pronunciation", isDirectory: true) else { return nil }
+        let url = dir.appendingPathComponent(name)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+}
+
+/// Runs the on-device pronunciation analyzer for a note and shows per-word /
+/// per-phoneme GOP scores. Tap a word to see its phonemes.
+private struct PronunciationSheet: View {
+    let audioURL: URL
+    let transcript: String
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var result: PronunciationResult?
+    @State private var errorText: String?
+    @State private var selectedWord: WordScore?
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let result {
+                    resultsView(result)
+                } else if let errorText {
+                    ContentUnavailableView("Couldn't analyze", systemImage: "waveform.slash", description: Text(errorText))
+                } else {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("Analyzing pronunciation…").font(.subheadline).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .navigationTitle("Pronunciation")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+        .task { await analyze() }
+    }
+
+    @ViewBuilder
+    private func resultsView(_ result: PronunciationResult) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Tap a word to see its sounds. Greener = closer to native.")
+                    .font(.footnote).foregroundStyle(.secondary)
+
+                FlowLayout(spacing: 8, lineSpacing: 10) {
+                    ForEach(Array(result.words.enumerated()), id: \.offset) { _, word in
+                        Button { selectedWord = word } label: {
+                            Text(word.word)
+                                .font(.title3.weight(.medium))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8).padding(.vertical, 4)
+                                .background(color(for: word.gop), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                if let word = selectedWord {
+                    Divider()
+                    Text(word.word).font(.headline)
+                    ForEach(Array(word.phonemes.enumerated()), id: \.offset) { _, p in
+                        HStack(spacing: 10) {
+                            Text(p.symbol).font(.title3.monospaced())
+                                .frame(minWidth: 40, alignment: .leading)
+                                .foregroundStyle(color(for: p.gop))
+                            Text(String(format: "%.2f–%.2fs", p.start, p.end))
+                                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            Spacer()
+                            Text(String(format: "GOP %.2f", p.gop))
+                                .font(.caption.monospacedDigit()).foregroundStyle(color(for: p.gop))
+                        }
+                    }
+                }
+            }
+            .padding()
+        }
+    }
+
+    /// GOP (≤0) → color. Thresholds are first-pass and tunable.
+    private func color(for gop: Double) -> Color {
+        if gop >= -0.3 { return .green }
+        if gop >= -1.0 { return .orange }
+        return .red
+    }
+
+    private enum Outcome: Sendable {
+        case success(PronunciationResult)
+        case failure(String)
+    }
+
+    private func analyze() async {
+        guard result == nil, errorText == nil else { return }
+        let url = audioURL
+        let text = transcript
+        let task = Task.detached(priority: .userInitiated) { () -> Outcome in
+            guard let modelURL = PronunciationAssets.model(),
+                  let vocabURL = PronunciationAssets.vocab(),
+                  let dictURL = PronunciationAssets.cmudict() else {
+                return .failure("Pronunciation model or dictionary missing.")
+            }
+            guard let analyzer = PronunciationAnalyzer(modelURL: modelURL, vocabURL: vocabURL, cmudictURL: dictURL) else {
+                HexLog.pronunciation.error("Analyzer init failed (model/vocab/dict load).")
+                return .failure("Couldn't load the pronunciation model.")
+            }
+            do {
+                let samples = try PhonemeRecognizer.loadSamples(url: url)
+                let result = try analyzer.analyze(samples: samples, transcript: text)
+                return .success(result)
+            } catch {
+                HexLog.pronunciation.error("analyze threw: \(error.localizedDescription, privacy: .public)")
+                return .failure(error.localizedDescription)
+            }
+        }
+        switch await task.value {
+        case .success(let r): result = r; selectedWord = r.words.first
+        case .failure(let message): errorText = message
+        }
     }
 }
 

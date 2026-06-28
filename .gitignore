@@ -21,3 +21,8 @@ node_modules/
 
 # Claude
 .claude/
+
+# On-device phoneme model (large; sideloaded, not committed)
+
+# On-device phoneme model (large; sideloaded for testing, not committed)
+tools/pronunciation-assets/PhonemeCTC.mlpackage/
