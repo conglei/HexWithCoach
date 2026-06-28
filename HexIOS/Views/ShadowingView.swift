@@ -8,6 +8,7 @@
 //  framed result.
 //
 
+import HexCore
 import SwiftUI
 
 struct ShadowingView: View {
@@ -140,6 +141,9 @@ struct ShadowingView: View {
                     .font(.footnote).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
+            if let comparison = model.gopComparison, !comparison.isEmpty {
+                gopDeltas(comparison)
+            }
             if model.isSuccess {
                 Button("Done") { onComplete(); dismiss() }
                     .buttonStyle(HexGradientButtonStyle())
@@ -154,5 +158,115 @@ struct ShadowingView: View {
             }
         }
         .hexCard(padding: 20)
+    }
+
+    // MARK: - CI-11 closed-loop GOP deltas
+
+    /// Per-phoneme progress since the previous attempt — the closed loop. Only shown
+    /// when the on-device pronunciation model produced a comparison; otherwise the
+    /// result is exactly today's ASR pass/fail.
+    @ViewBuilder
+    private func gopDeltas(_ comparison: ShadowingGOP.Comparison) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("SOUND-BY-SOUND vs. last try")
+                .font(.caption2.weight(.bold)).tracking(1)
+                .foregroundStyle(.secondary)
+
+            let improved = comparison.improved
+            if !improved.isEmpty {
+                deltaRow(
+                    icon: "arrow.up.right.circle.fill",
+                    tint: .green,
+                    text: "Cleaner: " + improved.map { "/\($0.symbol)/" }.joined(separator: " ")
+                )
+            }
+            let regressed = comparison.regressed
+            if !regressed.isEmpty {
+                deltaRow(
+                    icon: "arrow.down.right.circle.fill",
+                    tint: .orange,
+                    text: "Watch: " + regressed.map { "/\($0.symbol)/" }.joined(separator: " ")
+                )
+            }
+            if improved.isEmpty, regressed.isEmpty {
+                deltaRow(icon: "equal.circle.fill", tint: .secondary, text: "About the same as last time")
+            }
+
+            // The per-phoneme chips, colored by the attempt's quality band.
+            FlowChips(deltas: comparison.phonemes)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 4)
+    }
+
+    private func deltaRow(icon: String, tint: Color, text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).foregroundStyle(tint)
+            Text(text).font(.footnote.weight(.medium))
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+/// The attempt's phonemes as small colored chips: green = native-clean, orange =
+/// okay, red = still weak. Arrow marks a sound that crossed up since last try.
+private struct FlowChips: View {
+    let deltas: [ShadowingGOP.PhonemeDelta]
+
+    var body: some View {
+        FlowChipsLayout(spacing: 6, lineSpacing: 6) {
+            ForEach(Array(deltas.enumerated()), id: \.offset) { _, d in
+                HStack(spacing: 2) {
+                    if d.verdict == .improved { Image(systemName: "arrow.up").font(.system(size: 9, weight: .bold)) }
+                    Text(d.symbol).font(.caption.monospaced())
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 7).padding(.vertical, 3)
+                .background(color(for: d.attemptQuality), in: Capsule())
+            }
+        }
+    }
+
+    private func color(for quality: ShadowingGOP.Quality) -> Color {
+        switch quality {
+        case .good: return .green
+        case .okay: return .orange
+        case .weak: return .red
+        }
+    }
+}
+
+/// Minimal wrapping layout for the phoneme chips (kept local so this view doesn't
+/// depend on TranscriptDetailView's private FlowLayout).
+private struct FlowChipsLayout: Layout {
+    var spacing: CGFloat = 6
+    var lineSpacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, lineHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth, x > 0 {
+                x = 0; y += lineHeight + lineSpacing; lineHeight = 0
+            }
+            x += size.width + spacing
+            lineHeight = max(lineHeight, size.height)
+        }
+        let width = maxWidth.isFinite ? maxWidth : x
+        return CGSize(width: width, height: y + lineHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) {
+        var x = bounds.minX, y = bounds.minY, lineHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX, x > bounds.minX {
+                x = bounds.minX; y += lineHeight + lineSpacing; lineHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            lineHeight = max(lineHeight, size.height)
+        }
     }
 }
