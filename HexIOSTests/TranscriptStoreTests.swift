@@ -122,6 +122,8 @@ import HexCore
             detail: "‘she go’ → ‘she goes’",
             originalSpan: "she go",
             nativeRewrite: "she goes",
+            context: "Every morning she go to the gym.",
+            practiceText: "Every morning she goes to the gym.",
             transcriptID: tID,
             recurrenceNote: "3rd time this week",
             createdAt: created
@@ -135,6 +137,8 @@ import HexCore
         #expect(e.detail == "‘she go’ → ‘she goes’")
         #expect(e.originalSpan == "she go")
         #expect(e.nativeRewrite == "she goes")
+        #expect(e.context == "Every morning she go to the gym.")
+        #expect(e.practiceText == "Every morning she goes to the gym.")
         #expect(e.transcriptID == tID)
         #expect(e.recurrenceNote == "3rd time this week")
         #expect(e.createdAt == created)

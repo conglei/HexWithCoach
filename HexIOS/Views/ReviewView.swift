@@ -243,6 +243,35 @@ private struct CoachCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            cardText
+            actions
+        }
+        .hexCard()
+        .fullScreenCover(isPresented: $showShadow) {
+            ShadowingView(target: practiceTarget) { progress.recordReview() }
+        }
+    }
+
+    /// The textual region of the card. When the card came from a real note it taps
+    /// through to that note (with the flagged span highlighted in context);
+    /// otherwise it's just plain text.
+    @ViewBuilder
+    private var cardText: some View {
+        if let transcript {
+            NavigationLink {
+                TranscriptDetailView(entry: transcript, highlightSpan: card.originalSpan)
+            } label: {
+                cardTextBody
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.primary)
+        } else {
+            cardTextBody
+        }
+    }
+
+    private var cardTextBody: some View {
+        VStack(alignment: .leading, spacing: 12) {
             header
 
             if card.kind == .win {
@@ -252,8 +281,8 @@ private struct CoachCardView: View {
                     Text(card.detail).font(.footnote).foregroundStyle(.secondary)
                 }
             } else {
-                if let said = card.originalSpan {
-                    Text("“\(said)”").font(.body).foregroundStyle(.primary)
+                if !(card.originalSpan ?? "").isEmpty || !(card.context ?? "").isEmpty {
+                    Text(contextAttributed).font(.body)
                 }
                 if let better = card.nativeRewrite {
                     HStack(spacing: 4) {
@@ -269,13 +298,35 @@ private struct CoachCardView: View {
                     Text(card.detail).font(.footnote).foregroundStyle(.secondary)
                 }
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
-            actions
+    /// The flagged span shown inside its surrounding sentence, with the user's exact
+    /// words emphasized so the quote reads in context. Falls back to the bare span
+    /// for older cards that have no stored context.
+    private var contextAttributed: AttributedString {
+        let span = card.originalSpan ?? ""
+        let context = card.context ?? ""
+        if context.isEmpty {
+            var plain = AttributedString("“\(span)”")
+            plain.foregroundColor = .primary
+            return plain
         }
-        .hexCard()
-        .fullScreenCover(isPresented: $showShadow) {
-            ShadowingView(target: card.nativeRewrite ?? "") { progress.recordReview() }
+        var attributed = AttributedString("“\(context)”")
+        attributed.foregroundColor = .secondary
+        if !span.isEmpty, let range = attributed.range(of: span, options: .caseInsensitive) {
+            attributed[range].foregroundColor = .primary
+            attributed[range].font = .body.weight(.semibold)
         }
+        return attributed
+    }
+
+    /// A real, speakable sentence for shadowing — the practice text when present,
+    /// else the displayed rewrite (older cards / non-pronunciation lenses).
+    private var practiceTarget: String {
+        if let practice = card.practiceText, !practice.isEmpty { return practice }
+        return card.nativeRewrite ?? ""
     }
 
     private var header: some View {
@@ -311,7 +362,7 @@ private struct CoachCardView: View {
 
     private var actions: some View {
         HStack(spacing: 10) {
-            if card.kind == .improvement, let rewrite = card.nativeRewrite, !rewrite.isEmpty {
+            if card.kind == .improvement, !practiceTarget.isEmpty {
                 Button { showShadow = true } label: {
                     Label("Say it better", systemImage: "mic.fill")
                 }
@@ -321,9 +372,12 @@ private struct CoachCardView: View {
             if card.kind == .improvement {
                 iconButton("bookmark") { setStatus(.saved) }
             }
-            if transcript?.audioFilename != nil, let transcript {
-                NavigationLink { TranscriptDetailView(entry: transcript) } label: {
-                    Image(systemName: "play.fill")
+            // Always offer a way into the source note (not just when audio exists).
+            if let transcript {
+                NavigationLink { TranscriptDetailView(entry: transcript, highlightSpan: card.originalSpan) } label: {
+                    Image(systemName: "note.text")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                         .frame(width: 34, height: 34)
                         .background(Color(.tertiarySystemFill), in: .circle)
                 }

@@ -19,6 +19,10 @@ public struct CoachCard: Codable, Sendable, Equatable, Identifiable {
     public var detail: String
     public var originalSpan: String?
     public var nativeRewrite: String?
+    /// The verbatim sentence the span came from — surrounding context.
+    public var context: String?
+    /// A natural full sentence to say aloud (plain words, no phonetics) — for TTS/shadowing.
+    public var practiceText: String?
     public var transcriptID: UUID?
     /// e.g. "Came up 4× — here's the pattern." Shown when an issue recurs.
     public var recurrenceNote: String?
@@ -33,6 +37,8 @@ public struct CoachCard: Codable, Sendable, Equatable, Identifiable {
         detail: String,
         originalSpan: String? = nil,
         nativeRewrite: String? = nil,
+        context: String? = nil,
+        practiceText: String? = nil,
         transcriptID: UUID? = nil,
         recurrenceNote: String? = nil,
         createdAt: Date
@@ -45,6 +51,8 @@ public struct CoachCard: Codable, Sendable, Equatable, Identifiable {
         self.detail = detail
         self.originalSpan = originalSpan
         self.nativeRewrite = nativeRewrite
+        self.context = context
+        self.practiceText = practiceText
         self.transcriptID = transcriptID
         self.recurrenceNote = recurrenceNote
         self.createdAt = createdAt
@@ -80,6 +88,8 @@ public enum CoachCardCurator {
                     kind: .improvement, lens: insight.lens, key: insight.key,
                     title: insight.summary, detail: insight.rule,
                     originalSpan: insight.originalSpan, nativeRewrite: insight.nativeRewrite,
+                    context: insight.context.isEmpty ? nil : insight.context,
+                    practiceText: insight.practiceText.isEmpty ? nil : insight.practiceText,
                     transcriptID: insight.transcriptID, recurrenceNote: note, createdAt: now
                 )
             }

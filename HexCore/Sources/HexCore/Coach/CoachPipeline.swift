@@ -42,10 +42,13 @@ public struct ExtractionCandidate: Codable, Sendable, Equatable {
     public var nativeRewrite: String
     public var severity: Int        // 1...5
     public var needsAudio: Bool
+    public var context: String      // the verbatim sentence the span came from
+    public var practiceText: String // a natural full sentence to say aloud (plain words, no phonetics)
 
     public init(
         lens: Lens, key: String, summary: String, span: String,
-        rule: String, nativeRewrite: String, severity: Int, needsAudio: Bool = false
+        rule: String, nativeRewrite: String, severity: Int, needsAudio: Bool = false,
+        context: String = "", practiceText: String = ""
     ) {
         self.lens = lens
         self.key = key
@@ -55,6 +58,28 @@ public struct ExtractionCandidate: Codable, Sendable, Equatable {
         self.nativeRewrite = nativeRewrite
         self.severity = severity
         self.needsAudio = needsAudio
+        self.context = context
+        self.practiceText = practiceText
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case lens, key, summary, span, rule, nativeRewrite, severity, needsAudio, context, practiceText
+    }
+
+    // Tolerant decode so sparse/older LLM JSON (missing the newer fields) still
+    // decodes instead of throwing. Encoding stays synthesized via CodingKeys.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        lens = try c.decode(Lens.self, forKey: .lens)
+        key = try c.decode(String.self, forKey: .key)
+        summary = try c.decode(String.self, forKey: .summary)
+        span = try c.decode(String.self, forKey: .span)
+        rule = try c.decode(String.self, forKey: .rule)
+        nativeRewrite = try c.decode(String.self, forKey: .nativeRewrite)
+        severity = try c.decode(Int.self, forKey: .severity)
+        needsAudio = try c.decodeIfPresent(Bool.self, forKey: .needsAudio) ?? false
+        context = try c.decodeIfPresent(String.self, forKey: .context) ?? ""
+        practiceText = try c.decodeIfPresent(String.self, forKey: .practiceText) ?? ""
     }
 }
 
@@ -84,11 +109,14 @@ public struct CoachInsight: Codable, Sendable, Equatable, Identifiable {
     public var originalSpan: String
     public var nativeRewrite: String
     public var severity: Int
+    public var context: String      // the verbatim sentence the span came from
+    public var practiceText: String // a natural full sentence to say aloud (plain words, no phonetics)
 
     public init(
         id: UUID = UUID(), transcriptID: UUID, lens: Lens, key: String,
         summary: String, rule: String, originalSpan: String,
-        nativeRewrite: String, severity: Int
+        nativeRewrite: String, severity: Int,
+        context: String = "", practiceText: String = ""
     ) {
         self.id = id
         self.transcriptID = transcriptID
@@ -99,6 +127,8 @@ public struct CoachInsight: Codable, Sendable, Equatable, Identifiable {
         self.originalSpan = originalSpan
         self.nativeRewrite = nativeRewrite
         self.severity = severity
+        self.context = context
+        self.practiceText = practiceText
     }
 }
 
@@ -197,7 +227,8 @@ public struct CoachPipeline: Sendable {
                 transcriptID: input.id, lens: candidate.lens, key: candidate.key,
                 summary: candidate.summary, rule: candidate.rule,
                 originalSpan: candidate.span, nativeRewrite: candidate.nativeRewrite,
-                severity: candidate.severity
+                severity: candidate.severity,
+                context: candidate.context, practiceText: candidate.practiceText
             ))
             observations.append(VerifiedObservation(
                 lens: candidate.lens, key: candidate.key, summary: candidate.summary,
@@ -306,7 +337,13 @@ extension CoachPipeline {
     - For each candidate give: the exact `span` from the transcript, a short
       `summary`, the teachable `rule`, a meaning-preserving `nativeRewrite` (how a
       confident native would say it, same tone), `severity` 1–5 (impact on
-      intelligibility/naturalness), and `needsAudio` true for pronunciation/prosody.
+      intelligibility/naturalness), `needsAudio` true for pronunciation/prosody,
+      `context` (the full sentence VERBATIM from the transcript that the span came
+      from — surrounding words for the learner), and `practiceText` (a complete,
+      natural sentence the learner can SAY ALOUD to practice — plain words only, no
+      phonetic respelling/IPA/CAPS; for grammar/lexis/discourse this is the
+      corrected sentence in context, for pronunciation/prosody it is a natural
+      sentence that contains the target word(s)).
     - `key` must be a stable, canonical slug for the issue TYPE (e.g.
       "drop-articles-abstract-nouns", "overuse-very", "filler-like"), so the same
       habit dedupes across sessions. Reuse the learner's existing pattern keys when
@@ -324,7 +361,12 @@ extension CoachPipeline {
       "flat intonation on the question".
     - nativeRewrite: the TARGET as a phonetic respelling a learner can READ —
       stress syllable in CAPS, with optional IPA in brackets, e.g.
-      "THINK [θɪŋk]", "com-fort-uh-bul → COMF-tuh-bul".
+      "THINK [θɪŋk]", "com-fort-uh-bul → COMF-tuh-bul". This is a READING cue, not
+      something a text-to-speech voice should ever read out.
+    - practiceText: a natural, full sentence containing the target word(s) that a
+      text-to-speech voice can SPEAK and the learner can shadow — plain words only,
+      NEVER the phonetic respelling, no CAPS, no IPA, e.g. "I think we should leave
+      now." or "This chair is really comfortable."
     - rule: one concrete fix — articulator placement or a stress/rhythm cue, e.g.
       "put your tongue tip between your teeth for /θ/, not behind them",
       "stress the first syllable and reduce the others to 'uh'".
@@ -332,7 +374,7 @@ extension CoachPipeline {
     infer it from spelling. Prefer the 2–3 most impactful habits over many tiny ones.
 
     Respond with ONLY a JSON object, no prose, no code fences:
-    {"candidates":[{"lens":"...","key":"...","summary":"...","span":"...","rule":"...","nativeRewrite":"...","severity":3,"needsAudio":false}]}
+    {"candidates":[{"lens":"...","key":"...","summary":"...","span":"...","rule":"...","nativeRewrite":"...","severity":3,"needsAudio":false,"context":"...","practiceText":"..."}]}
     If there is nothing worth flagging, return {"candidates":[]}.
     """
 
