@@ -47,3 +47,46 @@ independently shippable). Phases 2 + 3 are tightly coupled. Phase 4 last.
 - **M2 — Dictation works:** P2-1..P2-4 (speak into any app).
 - **M3 — Wispr-style UX:** P3-1, P3-2, X-1 (sessions + Shortcuts + onboarding).
 - **M4 — Cross-device:** P4-1..P4-3 (Mac ↔ iOS sync).
+
+## Phase 2 — Review/Coach companion (the differentiator)
+
+The English-improvement layer that mines real daily speech. Design:
+[review-coach-companion-design.md](../review-coach-companion-design.md). Phase 1 substrate is built
+on `main`; this turns the accumulated corpus into coaching. **RC-7 is a delta to the locked iOS IA**
+— coordinate before editing [ios-ui-design-v1.md](../ios-ui-design-v1.md).
+
+| ID | Title | Depends on | Size | Status |
+|----|-------|-----------|------|--------|
+### Deep Coach Engine (CE series — the core IP)
+
+The existing macOS engine is a stateless one-shot tip generator and is **too superficial** to be the
+product's engine. It is **replaced** by a corpus-stateful pipeline. Design:
+[coach-engine-deep-design.md](../coach-engine-deep-design.md). This is the **critical path** — the
+surfaces are thin without it.
+
+| ID | Title | Depends on | Size | Status |
+|----|-------|-----------|------|--------|
+| [CE-1](CE-1-engine-foundation.md) | Engine foundation + provider transport in HexCore + iOS BYOK | — | L | TODO |
+| [CE-2](CE-2-learner-profile.md) | Learner Profile: model, store, update logic (the moat) | CE-1 | L | TODO |
+| [CE-3](CE-3-multilens-verify-pipeline.md) | Multi-lens extract + critic verify + prioritize + integrate | CE-1, CE-2 | L | TODO |
+| [CE-4](CE-4-prosody-fluency-signals.md) | Objective prosody/fluency signals + multimodal pronunciation | CE-1 | M | TODO |
+| [CE-5](CE-5-cadence-cost-control.md) | Analysis cadence + cost control (curated/batched, model tiering) | CE-1 | M | TODO |
+
+### Review/Coach surfaces (RC series — consume the engine)
+
+| ID | Title | Depends on | Size | Status |
+|----|-------|-----------|------|--------|
+| [RC-0](RC-0-substrate-prereqs.md) | Substrate prereqs: audio retention + dictations persisted as `Transcript` | — | S | TODO |
+| ~~[RC-1](RC-1-coach-engine-to-hexcore.md)~~ | ~~Port Coach engine~~ → **SUPERSEDED by CE-1..CE-5** | — | — | SUPERSEDED |
+| [RC-2](RC-2-card-generation-curation.md) | Learnable-moment card generation + curation | CE-3, CE-2, RC-0 | M | TODO |
+| [RC-3](RC-3-review-tab-feed.md) | Review tab: feed + activation shell | RC-2 | L | TODO |
+| [RC-4](RC-4-shadowing-practice.md) | Shadowing practice (rephrase → TTS → repeat) | RC-3 | M | TODO |
+| [RC-5](RC-5-phrasebook.md) | Save / phrasebook | RC-3 | S | TODO |
+| [RC-6](RC-6-progress-rewards.md) | Progress & rewards (streak, deltas, wins, level, digest) | CE-2, CE-3 | L | TODO |
+| [RC-7](RC-7-ia-reshuffle.md) | IA reshuffle: Review home, History → search, capture off home | RC-3 | M | TODO |
+| [RC-8](RC-8-privacy-capture-controls.md) | Privacy & capture controls (per-app exclude, incognito) | RC-0 | M | TODO |
+
+- **M-Engine — Deep coach works:** RC-0, CE-1, CE-2, CE-3 (+CE-4/CE-5) — verified, personalized analysis.
+- **M-Review — Activation:** RC-2, RC-3 (curated cards → feed → BYOK activation).
+- **M-Coach — Loop closed:** RC-4, RC-5, RC-6 (shadow, save, progress/reward).
+- **M-Companion — Front door:** RC-7, RC-8 (Review as home; capture controls).

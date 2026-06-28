@@ -132,7 +132,8 @@ final class CoachService {
         let masteredBefore = Set(profile.patterns.filter { $0.status == .mastered }.map(\.key))
         let audioClip = audio(for: entry.audioFilename)
         let input = CoachTranscriptInput(
-            id: entry.id, text: entry.text, durationSec: durationSec, audio: audioClip
+            id: entry.id, text: entry.text, durationSec: durationSec, audio: audioClip,
+            wordTimings: entry.wordTimings
         )
         do {
             let analysis = try await pipeline.analyze(input, profile: &profile, at: now)
@@ -201,7 +202,8 @@ final class CoachService {
             // pronunciation/prosody, not just read the transcript.
             let audioClip = audio(for: entry.audioFilename)
             let input = CoachTranscriptInput(
-                id: entry.id, text: entry.text, durationSec: durationSec, audio: audioClip
+                id: entry.id, text: entry.text, durationSec: durationSec, audio: audioClip,
+                wordTimings: entry.wordTimings
             )
             do {
                 let analysis = try await pipeline.analyze(input, profile: &profile, at: now)
