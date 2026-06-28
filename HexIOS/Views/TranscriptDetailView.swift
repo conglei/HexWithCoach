@@ -16,6 +16,7 @@ struct TranscriptDetailView: View {
     let entry: TranscriptEntry
     @State private var audio = AudioPlayer()
     @Environment(\.modelContext) private var modelContext
+    @Environment(CoachService.self) private var coach
 
     /// Coach cards whose example is this transcript — the backlink from a note to
     /// the issues the Coach found in it.
@@ -46,6 +47,23 @@ struct TranscriptDetailView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Transcript")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if coach.isReady {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await coach.analyzeEntry(entry) }
+                    } label: {
+                        if coach.isAnalyzing {
+                            ProgressView()
+                        } else {
+                            Label(entry.coachAnalyzedAt == nil ? "Analyze" : "Re-analyze",
+                                  systemImage: "arrow.clockwise")
+                        }
+                    }
+                    .disabled(coach.isAnalyzing)
+                }
+            }
+        }
         .task { if let url = audioURL { audio.load(url) } }
         .onDisappear { audio.stop() }
     }

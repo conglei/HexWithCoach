@@ -13,9 +13,12 @@ import HexCore
 import os
 import WhisperKit
 
-private let transcriptionLogger = HexLog.transcription
-private let modelsLogger = HexLog.models
-private let parakeetLogger = HexLog.parakeet
+// `os.Logger` is Sendable and these are immutable, so opt them out of the
+// project's `MainActor` default isolation — otherwise the `actor` below (which
+// runs off the main actor) can't read them. (SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor)
+nonisolated let transcriptionLogger = HexLog.transcription
+nonisolated let modelsLogger = HexLog.models
+nonisolated let parakeetLogger = HexLog.parakeet
 
 /// A client that downloads and loads WhisperKit models, then transcribes audio files using the loaded model.
 /// Exposes progress callbacks to report overall download-and-load percentage and transcription progress.

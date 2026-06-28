@@ -51,6 +51,10 @@ struct HomeView: View {
                 }
                 .coordinateSpace(name: "home")
                 .scrollIndicators(.hidden)
+                // The content is exactly one screen tall, so without forcing bounce
+                // the ScrollView can't overscroll and the pull-to-dictate probe never
+                // fires. `.always` lets it rubber-band even when content fits.
+                .scrollBounceBehavior(.always)
                 .onPreferenceChange(ScrollOffsetKey.self) { handlePull($0) }
                 .overlay(alignment: .top) { pullIndicator }
             }
@@ -60,7 +64,9 @@ struct HomeView: View {
             .fullScreenCover(isPresented: Binding(
                 get: { model.phase != .idle },
                 set: { presented in
-                    if !presented && model.phase == .recording { model.cancelRecording() }
+                    if !presented, model.phase == .recording || model.phase == .paused {
+                        model.cancelRecording()
+                    }
                 }
             )) {
                 RecordingView(model: model)
@@ -226,6 +232,7 @@ struct HomeView: View {
         switch model.phase {
         case .idle: "mic.fill"
         case .recording: "stop.fill"
+        case .paused: "mic.fill"
         case .transcribing: "ellipsis"
         }
     }
@@ -234,6 +241,7 @@ struct HomeView: View {
         switch model.phase {
         case .idle: "Records and saves a note here"
         case .recording: "Listening… tap to stop"
+        case .paused: "Paused"
         case .transcribing: "Transcribing…"
         }
     }

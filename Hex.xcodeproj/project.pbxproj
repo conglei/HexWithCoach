@@ -29,6 +29,8 @@
 		4EFA06EF2FEF86F500A6BFA0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4EFA06EE2FEF86F500A6BFA0 /* SwiftUI.framework */; };
 		4EFA07002FEF86F600A6BFA0 /* HexWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4EFA06EB2FEF86F500A6BFA0 /* HexWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4EFA07062FEF882200A6BFA0 /* HexCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4EFA07052FEF882200A6BFA0 /* HexCore */; };
+		4EFA0D0F2FF0771000A6BFA0 /* KeyboardKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4EFA0D0E2FF0771000A6BFA0 /* KeyboardKit */; };
+		4EFA0D112FF0775F00A6BFA0 /* KeyboardKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4EFA0D102FF0775F00A6BFA0 /* KeyboardKit */; };
 		4F0D6A012F1A000100000001 /* HexCore in Frameworks */ = {isa = PBXBuildFile; productRef = 476316262E5FB31400913CDE /* HexCore */; };
 		4F0D6A022F1A000100000001 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = 47E05E012D444EE900D26DA6 /* ComposableArchitecture */; };
 		57F3BA759BCAE4382B151EA7 /* SessionLengthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 576F8B0BC68A98BFE7D3BF90 /* SessionLengthTests.swift */; };
@@ -163,8 +165,6 @@
 		};
 		4EAA000000000000000000E1 /* HexEngine */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = HexEngine;
 			sourceTree = "<group>";
 		};
@@ -194,8 +194,6 @@
 		};
 		4F0D6A032F1A000100000001 /* HexTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = HexTests;
 			sourceTree = "<group>";
 		};
@@ -243,6 +241,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4EF356232FEF3CEF00DCA9C2 /* WhisperKit in Frameworks */,
+				4EFA0D0F2FF0771000A6BFA0 /* KeyboardKit in Frameworks */,
 				4EF356252FEF3D0000DCA9C2 /* FluidAudio in Frameworks */,
 				4EF356F62FEF5ABF00DCA9C2 /* ComposableArchitecture in Frameworks */,
 				4EF356212FEF3CE300DCA9C2 /* HexCore in Frameworks */,
@@ -253,6 +252,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4EFA0D112FF0775F00A6BFA0 /* KeyboardKit in Frameworks */,
 				4EF356F02FEF434B00DCA9C2 /* HexCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -291,7 +291,6 @@
 			children = (
 				C5EEF22628FF169BD32E1946 /* KeyboardStateTests.swift */,
 			);
-			name = HexIOSKeyboardTests;
 			path = HexIOSKeyboardTests;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -301,7 +300,6 @@
 				576F8B0BC68A98BFE7D3BF90 /* SessionLengthTests.swift */,
 				CA55E77DF9B4266D2223256A /* TranscriptStoreTests.swift */,
 			);
-			name = HexIOSTests;
 			path = HexIOSTests;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -438,6 +436,7 @@
 				4EF356222FEF3CEF00DCA9C2 /* WhisperKit */,
 				4EF356242FEF3D0000DCA9C2 /* FluidAudio */,
 				4EF356F52FEF5ABF00DCA9C2 /* ComposableArchitecture */,
+				4EFA0D0E2FF0771000A6BFA0 /* KeyboardKit */,
 			);
 			productName = HexIOS;
 			productReference = 4EF356152FEF3C2100DCA9C2 /* HexIOS.app */;
@@ -461,6 +460,7 @@
 			name = HexIOSKeyboard;
 			packageProductDependencies = (
 				4EF356EF2FEF434B00DCA9C2 /* HexCore */,
+				4EFA0D102FF0775F00A6BFA0 /* KeyboardKit */,
 			);
 			productName = HexIOSKeyboard;
 			productReference = 4EF356E12FEF431A00DCA9C2 /* HexIOSKeyboard.appex */;
@@ -575,6 +575,7 @@
 				476316252E5FB31400913CDE /* XCLocalSwiftPackageReference "HexCore" */,
 				47E16A602EC6C9D300885CF7 /* XCRemoteSwiftPackageReference "FluidAudio" */,
 				7BA7464A2FBD689B00814C43 /* XCRemoteSwiftPackageReference "mlx-audio-swift" */,
+				4EFA0D0D2FF0771000A6BFA0 /* XCRemoteSwiftPackageReference "KeyboardKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 47E05DEF2D444EC600D26DA6 /* Products */;
@@ -1423,6 +1424,14 @@
 				kind = branch;
 			};
 		};
+		4EFA0D0D2FF0771000A6BFA0 /* XCRemoteSwiftPackageReference "KeyboardKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/KeyboardKit/KeyboardKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.6.0;
+			};
+		};
 		7BA7464A2FBD689B00814C43 /* XCRemoteSwiftPackageReference "mlx-audio-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Blaizzy/mlx-audio-swift.git";
@@ -1520,6 +1529,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 476316252E5FB31400913CDE /* XCLocalSwiftPackageReference "HexCore" */;
 			productName = HexCore;
+		};
+		4EFA0D0E2FF0771000A6BFA0 /* KeyboardKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4EFA0D0D2FF0771000A6BFA0 /* XCRemoteSwiftPackageReference "KeyboardKit" */;
+			productName = KeyboardKit;
+		};
+		4EFA0D102FF0775F00A6BFA0 /* KeyboardKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4EFA0D0D2FF0771000A6BFA0 /* XCRemoteSwiftPackageReference "KeyboardKit" */;
+			productName = KeyboardKit;
 		};
 		7BA7464B2FBD689B00814C43 /* MLXAudioSTT */ = {
 			isa = XCSwiftPackageProductDependency;

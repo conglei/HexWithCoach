@@ -17,6 +17,7 @@ struct HistoryView: View {
     @Binding var path: NavigationPath
     @Query(sort: \TranscriptEntry.date, order: .reverse) private var entries: [TranscriptEntry]
     @Query private var allCards: [CoachCardEntity]
+    @Environment(CoachService.self) private var coach
     @State private var query = ""
 
     /// Only annotate processed/pending once the Coach has actually run — otherwise
@@ -76,6 +77,17 @@ struct HistoryView: View {
                     card(entry)
                 }
                 .buttonStyle(.plain)
+                .contextMenu {
+                    if coach.isReady {
+                        Button {
+                            Task { await coach.analyzeEntry(entry) }
+                        } label: {
+                            Label(entry.coachAnalyzedAt == nil ? "Analyze" : "Re-analyze",
+                                  systemImage: "arrow.clockwise")
+                        }
+                        .disabled(coach.isAnalyzing)
+                    }
+                }
             }
         }
     }
@@ -109,11 +121,9 @@ struct HistoryView: View {
             }
 
             HStack(spacing: 6) {
-                Circle()
-                    .fill(HexTheme.gradientColors[0])
-                    .frame(width: 6, height: 6)
-                Text(entry.kind.label)
-                Text("·")
+                Image(systemName: entry.kind.systemImage)
+                    .foregroundStyle(HexTheme.gradientColors[0])
+                    .accessibilityLabel(entry.kind.label)
                 Text(entry.date, style: .time)
             }
             .font(.caption2)

@@ -1,5 +1,5 @@
 {
-  "originHash" : "239da350cac1e6c3c470a71d1b5b02a6953252029f5eb6b4f230841591c9a09d",
+  "originHash" : "329f02e26e3cc364b071573a8f7cff99e17ce79208d03a7c3b7846c70c33ea09",
   "pins" : [
     {
       "identity" : "combine-schedulers",
@@ -35,6 +35,24 @@
       "state" : {
         "revision" : "728c56639ecb3df441d51d5bc6747329afabcfc9",
         "version" : "1.5.2"
+      }
+    },
+    {
+      "identity" : "keyboardkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/KeyboardKit/KeyboardKit",
+      "state" : {
+        "revision" : "61139157b3b3365414db9236c870d774b5b73b26",
+        "version" : "10.6.0"
+      }
+    },
+    {
+      "identity" : "licensekit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/LicenseKit/LicenseKit.git",
+      "state" : {
+        "revision" : "f9bdcdc3472918c6da7566940a12936374f0faee",
+        "version" : "2.1.3"
       }
     },
     {

@@ -37,15 +37,19 @@ struct ReviewView: View {
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Review")
+            .safeAreaInset(edge: .top) {
+                if coach.isAnalyzing { reviewingBanner }
+            }
+            .animation(.easeInOut(duration: 0.2), value: coach.isAnalyzing)
             .toolbar {
                 if preferences.isReady {
                     ToolbarItem(placement: .topBarLeading) {
                         NavigationLink { PhrasebookView() } label: { Image(systemName: "bookmark") }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        if coach.isAnalyzing {
-                            ProgressView()
-                        } else if backlogCount > 0 {
+                        // The running state lives in the banner now; the toolbar only
+                        // offers the manual refresh when idle with a backlog.
+                        if !coach.isAnalyzing, backlogCount > 0 {
                             Button { Task { await coach.analyzeBacklog() } } label: {
                                 Image(systemName: "arrow.clockwise")
                             }
@@ -133,10 +137,36 @@ struct ReviewView: View {
                  : "New coaching appears here as you dictate.")
         } actions: {
             if backlogCount > 0 {
-                Button("Review now") { Task { await coach.analyzeBacklog() } }
-                    .buttonStyle(HexGradientButtonStyle(compact: true))
+                Button { Task { await coach.analyzeBacklog() } } label: {
+                    if coach.isAnalyzing {
+                        HStack(spacing: 8) {
+                            ProgressView().tint(.white)
+                            Text("Reviewing…")
+                        }
+                    } else {
+                        Text("Review now")
+                    }
+                }
+                .buttonStyle(HexGradientButtonStyle(compact: true))
+                .disabled(coach.isAnalyzing)
             }
         }
+    }
+
+    /// A clear, pinned indicator while a review run is in progress — more
+    /// informative than a bare toolbar spinner, and visible in every state.
+    private var reviewingBanner: some View {
+        HStack(spacing: 10) {
+            ProgressView().controlSize(.small)
+            Text("Reviewing your new dictations…")
+                .font(.subheadline.weight(.medium))
+            Spacer()
+        }
+        .padding(12)
+        .background(HexTheme.gradientSoft, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 
     private var activationShell: some View {

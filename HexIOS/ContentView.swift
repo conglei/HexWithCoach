@@ -53,7 +53,15 @@ struct ContentView: View {
                 .tag(AppTab.settings)
         }
         .tint(.accentColor)
-        .task { await model.prepare() }
+        // Make the coach reachable from pushed views (transcript detail, History
+        // rows) for the per-note re-analyze action.
+        .environment(coach)
+        .task {
+            await model.prepare()
+            // Auto-recover a note interrupted by a crash/kill (e.g. paused, then the
+            // app was terminated) — transcribes the saved spans and files it silently.
+            await model.recoverInterruptedNote()
+        }
         .onAppear { if !didOnboard { showOnboarding = true } }
         .fullScreenCover(isPresented: $showOnboarding, onDismiss: { didOnboard = true }) {
             OnboardingView(model: model)
@@ -92,4 +100,5 @@ struct ContentView: View {
         selectedTab: .constant(.review)
     )
     .modelContainer(container)
+    .environment(CoachService(modelContext: container.mainContext, preferences: prefs))
 }

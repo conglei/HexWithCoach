@@ -4,7 +4,10 @@ import HexCore
 import os
 import os.log
 
-struct ParakeetClipPreparationResult {
+// Pure audio/file utilities with no main-actor state — opt out of the project's
+// `MainActor` default isolation so the `TranscriptionClientLive` actor can use
+// them synchronously. (SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor)
+nonisolated struct ParakeetClipPreparationResult {
   let url: URL
   private let cleanupURL: URL?
 
@@ -19,7 +22,7 @@ struct ParakeetClipPreparationResult {
   }
 }
 
-enum ParakeetClipPreparer {
+nonisolated enum ParakeetClipPreparer {
   private enum Error: LocalizedError {
     case unsupportedFormat
     case bufferAllocationFailed
