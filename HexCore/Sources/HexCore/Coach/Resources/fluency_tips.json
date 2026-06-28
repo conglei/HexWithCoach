@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "tips": [
+    {
+      "dimension": "fillers",
+      "title": "Trade fillers for silence",
+      "tip": "When you feel an 'um' or 'uh' coming, pause silently instead — a brief quiet beat sounds far more confident than a filler and gives you time to find the word."
+    },
+    {
+      "dimension": "longPauses",
+      "title": "Chunk your sentences",
+      "tip": "Long mid-sentence pauses usually mean you're planning too far ahead; speak in shorter phrases and pause at natural boundaries (after commas) rather than in the middle of an idea."
+    },
+    {
+      "dimension": "restarts",
+      "title": "Finish the sentence you started",
+      "tip": "When you catch yourself restarting, try to complete the original sentence even if it's imperfect — it's better to finish a slightly clumsy sentence than to abandon several half-formed ones."
+    },
+    {
+      "dimension": "pace",
+      "title": "Aim for a steady, even pace",
+      "tip": "Pick a comfortable speed and keep it consistent; slowing down slightly on key words and adding tiny pauses for emphasis reads as clarity, not hesitation."
+    }
+  ]
+}
