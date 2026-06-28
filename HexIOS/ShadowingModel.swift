@@ -13,6 +13,7 @@ import Dependencies
 import Foundation
 import HexCore
 import Observation
+import os
 import WhisperKit
 
 @MainActor
@@ -25,6 +26,22 @@ final class ShadowingModel {
     private(set) var heard: String = ""
     private(set) var score: Double = 0
     var errorMessage: String?
+
+    // MARK: - CI-11 closed-loop GOP re-scoring
+
+    /// Per-phoneme comparison of the latest attempt against the previous one — the
+    /// closed loop. Non-nil only when the pronunciation model is present *and* the
+    /// learner has recorded at least a second attempt to compare against. UI shows
+    /// it on top of the ASR pass/fail; without it, today's behavior is unchanged.
+    private(set) var gopComparison: ShadowingGOP.Comparison?
+
+    /// The most recent attempt's per-phoneme GOP, kept as the reference for the
+    /// *next* attempt's deltas. Nil until the first model-scored attempt lands.
+    private var lastAttemptScores: PronunciationResult?
+
+    /// Whether the on-device pronunciation model + dictionary are available. When
+    /// false we skip GOP re-scoring entirely and keep the ASR-match result.
+    var pronunciationAvailable: Bool { PronunciationAssets.ready }
 
     private let modelName = ParakeetModel.multilingualV3.identifier
     private let recorder = AudioRecorder()
@@ -64,6 +81,7 @@ final class ShadowingModel {
         }
         heard = ""
         score = 0
+        gopComparison = nil
         do {
             _ = try recorder.start()
             phase = .recording
@@ -79,11 +97,47 @@ final class ShadowingModel {
             let text = try await transcription.transcribe(url, modelName, DecodingOptions()) { _ in }
             heard = text
             score = ShadowingScorer.match(target: target, spoken: text)
+            // CI-11: when the phoneme model is present, re-score this attempt and
+            // surface per-phoneme deltas vs. the previous attempt (the closed loop).
+            await rescoreGOP(attemptURL: url)
             phase = .done
         } catch {
             errorMessage = error.localizedDescription
             phase = .idle
         }
         try? FileManager.default.removeItem(at: url)
+    }
+
+    /// CI-11 — run the #57 pronunciation pipeline on the attempt audio against the
+    /// practiced phrase and compare it to the previous attempt, producing the
+    /// per-phoneme deltas (/θ/ red→green) shown on top of the ASR pass/fail.
+    ///
+    /// Gated on `PronunciationAssets.ready`: with no model, `gopComparison` stays
+    /// nil and the result keeps today's ASR-match behavior. The first scored attempt
+    /// only establishes the reference; deltas appear from the second attempt on.
+    private func rescoreGOP(attemptURL: URL) async {
+        guard PronunciationAssets.ready else { return }
+        let phrase = target
+        let reference = lastAttemptScores
+        let scored: PronunciationResult? = await Task.detached(priority: .userInitiated) {
+            guard let modelURL = PronunciationAssets.model(),
+                  let vocabURL = PronunciationAssets.vocab(),
+                  let dictURL = PronunciationAssets.cmudict(),
+                  let analyzer = PronunciationAnalyzer(modelURL: modelURL, vocabURL: vocabURL, cmudictURL: dictURL)
+            else { return nil }
+            do {
+                let samples = try PhonemeRecognizer.loadSamples(url: attemptURL)
+                return try analyzer.analyze(samples: samples, transcript: phrase)
+            } catch {
+                HexLog.pronunciation.error("shadowing GOP re-score failed: \(error.localizedDescription, privacy: .public)")
+                return nil
+            }
+        }.value
+
+        guard let scored else { return }
+        if let reference {
+            gopComparison = ShadowingGOP.compare(target: reference, attempt: scored)
+        }
+        lastAttemptScores = scored
     }
 }
