@@ -52,10 +52,12 @@ struct HomeView: View {
                 .coordinateSpace(name: "home")
                 .scrollIndicators(.hidden)
                 // The content is exactly one screen tall, so without forcing bounce
-                // the ScrollView can't overscroll and the pull-to-dictate probe never
-                // fires. `.always` lets it rubber-band even when content fits.
+                // the ScrollView can't overscroll and pull-to-dictate never fires.
+                // `.always` lets it rubber-band even when content fits.
                 .scrollBounceBehavior(.always)
-                .onPreferenceChange(ScrollOffsetKey.self) { handlePull($0) }
+                // Prefer the reliable iOS 18 scroll-geometry reporter; fall back to
+                // the GeometryReader-preference probe on iOS 17.
+                .modifier(PullDetect(onPull: handlePull))
                 .overlay(alignment: .top) { pullIndicator }
             }
             .background(Color(.systemGroupedBackground))
@@ -290,8 +292,30 @@ struct HomeView: View {
 }
 
 /// Reports the Home content's top offset within the scroll view so the pull-down
-/// gesture can detect an overscroll.
+/// gesture can detect an overscroll (iOS 17 fallback path).
 private struct ScrollOffsetKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+/// Reports pull-down overscroll amount (positive when dragging below the top).
+/// iOS 18's `onScrollGeometryChange` reports the true content offset even during a
+/// rubber-band, which the GeometryReader-preference probe misses when the content
+/// exactly fits the screen. Falls back to that probe on iOS 17.
+private struct PullDetect: ViewModifier {
+    let onPull: (CGFloat) -> Void
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geo in
+                // At rest (scrolled to top) contentOffset.y == -contentInsets.top;
+                // pulling down makes it more negative, so this is the overscroll.
+                -(geo.contentOffset.y + geo.contentInsets.top)
+            } action: { _, amount in
+                onPull(amount)
+            }
+        } else {
+            content.onPreferenceChange(ScrollOffsetKey.self) { onPull($0) }
+        }
+    }
 }
