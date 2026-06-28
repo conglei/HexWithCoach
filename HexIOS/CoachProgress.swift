@@ -45,4 +45,19 @@ final class CoachProgress {
             ?? FileManager.default.temporaryDirectory
         return LearnerProfileStore(url: dir.appendingPathComponent("profile.json")).load()
     }
+
+    /// The CI-12 cross-lens progress roll-up: per-lens levels + trends, a
+    /// pronunciation GOP summary, mastered-pattern "wins", and the streak.
+    ///
+    /// `pronunciationCorpus` is the set of per-note pronunciation summaries already
+    /// persisted with transcripts (CI-3); the caller (which holds the SwiftData
+    /// query) gathers them — we only READ existing data, never add persistence.
+    /// The trend/aggregation math lives in the pure `ProgressSummary` helper.
+    func summary(pronunciationCorpus: [PronunciationSignals] = []) -> ProgressSummary {
+        ProgressSummary.make(
+            profile: loadProfile(),
+            streak: streak,
+            pronunciationCorpus: pronunciationCorpus
+        )
+    }
 }
