@@ -182,7 +182,7 @@ Design: [macos-companion-phase3-reconcile.md](../macos-companion-phase3-reconcil
 | [MC-R0](MC-R0-window-shell-carryforward.md) | Companion window shell (from MC-7) | ✅ | MC-R1 | S | TODO |
 | [MC-R1](MC-R1-integrate-origin-main.md) | Integrate origin/main (re-found base) | ◐ | upstream DM-2 + PR-1 ✅ | L | DONE |
 | [MC-R2](MC-R2-refound-shared-layer.md) | Re-found MC-1's shared layer on Phase-3 model | ✅ | MC-R1 | L | DONE |
-| [MC-R3](MC-R3-macos-store-lean-windowed.md) | macOS store on lean row + windowed fetch (re-do MC-3) | ◐ | MC-R2 | M | IN-PROGRESS |
+| [MC-R3](MC-R3-macos-store-lean-windowed.md) | macOS store on lean row + windowed fetch (re-do MC-3) | ◐ | MC-R2 | M | DONE |
 | [MC-R4](MC-R4-macos-coach-observation-log.md) | macOS Coach v2 on observation log (re-do MC-5 + MC-6) | ◐ | MC-R2, MC-R3 | L | TODO |
 | [MC-R5](MC-R5-macos-coach-hub.md) | macOS Coach hub — Review feed + activation (was MC-8) | ◐ | MC-R0, MC-R4 | L | TODO |
 | [MC-R6](MC-R6-macos-practice-surface.md) | macOS Practice surface (PR-2 on Mac) | ➕ | MC-R2, MC-R5 | M | TODO |
