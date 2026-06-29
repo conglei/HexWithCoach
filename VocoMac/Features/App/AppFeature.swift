@@ -295,64 +295,9 @@ struct AppFeature {
 
 }
 
-struct AppView: View {
-  @Bindable var store: StoreOf<AppFeature>
-  @State private var columnVisibility = NavigationSplitViewVisibility.automatic
-
-  var body: some View {
-    NavigationSplitView(columnVisibility: $columnVisibility) {
-      List(selection: $store.activeTab) {
-        Button {
-          store.send(.setActiveTab(.settings))
-        } label: {
-          Label("Settings", systemImage: "gearshape")
-        }
-        .buttonStyle(.plain)
-        .tag(AppFeature.ActiveTab.settings)
-
-        Button {
-          store.send(.setActiveTab(.remappings))
-        } label: {
-          Label("Transforms", systemImage: "text.badge.plus")
-        }
-        .buttonStyle(.plain)
-        .tag(AppFeature.ActiveTab.remappings)
-
-        // History is now a top-level section of the companion window
-        // (`MacHistoryView`, backed by the synced SwiftData store) — it no longer
-        // lives in this legacy settings window. The `.history` reducer/state stays
-        // wired but unreachable from this UI; full removal rides with retiring the
-        // legacy `@Shared` JSON store (data-consolidation follow-up).
-
-        Button {
-          store.send(.setActiveTab(.about))
-        } label: {
-          Label("About", systemImage: "info.circle")
-        }
-        .buttonStyle(.plain)
-        .tag(AppFeature.ActiveTab.about)
-      }
-    } detail: {
-      switch store.state.activeTab {
-      case .settings:
-        SettingsView(
-          store: store.scope(state: \.settings, action: \.settings),
-          microphonePermission: store.microphonePermission,
-          accessibilityPermission: store.accessibilityPermission,
-          inputMonitoringPermission: store.inputMonitoringPermission
-        )
-        .navigationTitle("Settings")
-      case .remappings:
-        WordRemappingsView(store: store.scope(state: \.settings, action: \.settings))
-          .navigationTitle("Transforms")
-      case .history:
-        HistoryView(store: store.scope(state: \.history, action: \.history))
-          .navigationTitle("History")
-      case .about:
-        AboutView(store: store.scope(state: \.settings, action: \.settings))
-          .navigationTitle("About")
-      }
-    }
-    .enableInjection()
-  }
-}
+// The legacy nested-sidebar `AppView` (Settings/Transforms/History/About) was
+// retired in MC-R11. The macOS Settings surface is now the HIG-standard tabbed
+// `SettingsWindowView` (icon tabs in a dedicated ⌘, window); History is a
+// top-level section of the companion main window (`MacHistoryView`). The
+// `activeTab` / `setActiveTab` state stays wired (the reducer still nudges it on
+// `modelMissing` / `navigateToSettings`) but no longer drives any UI.
