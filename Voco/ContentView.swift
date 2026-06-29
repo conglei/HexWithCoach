@@ -101,7 +101,7 @@ struct ContentView: View {
 #Preview {
     let container = try! ModelContainer(
         for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
-        CoachObservation.self,
+        CoachObservation.self, PracticeItem.self, PracticeAttempt.self,
         configurations: ModelConfiguration(isStoredInMemoryOnly: true)
     )
     let prefs = CoachPreferences()

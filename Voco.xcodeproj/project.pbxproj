@@ -43,6 +43,7 @@
 		B5045C972D78DED500D0A119 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = B5045C962D78DED500D0A119 /* MarkdownUI */; };
 		B53356002D7B8D4900E5F542 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = B53355FF2D7B8D4900E5F542 /* Localizable.xcstrings */; };
 		BEEA5EF1AF21DD225F48CE3F /* TranscriptStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA55E77DF9B4266D2223256A /* TranscriptStoreTests.swift */; };
+		PR1PracticeTests000000002 /* PracticeStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = PR1PracticeTests000000001 /* PracticeStoreTests.swift */; };
 		F2A7C08EA0320211D3412EBD /* KeyboardStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5EEF22628FF169BD32E1946 /* KeyboardStateTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -127,6 +128,7 @@
 		C1408FD4F795F2464BB81846 /* VocoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VocoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C5EEF22628FF169BD32E1946 /* KeyboardStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeyboardStateTests.swift; sourceTree = "<group>"; };
 		CA55E77DF9B4266D2223256A /* TranscriptStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TranscriptStoreTests.swift; sourceTree = "<group>"; };
+		PR1PracticeTests000000001 /* PracticeStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PracticeStoreTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -310,6 +312,7 @@
 				576F8B0BC68A98BFE7D3BF90 /* SessionLengthTests.swift */,
 				DM20CObservLog0000000001 /* CoachObservationLogTests.swift */,
 				CA55E77DF9B4266D2223256A /* TranscriptStoreTests.swift */,
+				PR1PracticeTests000000001 /* PracticeStoreTests.swift */,
 				DM3HSDeletion000000001 /* TranscriptDeletionTests.swift */,
 			);
 			path = VocoTests;
@@ -668,6 +671,7 @@
 				57F3BA759BCAE4382B151EA7 /* SessionLengthTests.swift in Sources */,
 				DM20CObservLog0000000002 /* CoachObservationLogTests.swift in Sources */,
 				BEEA5EF1AF21DD225F48CE3F /* TranscriptStoreTests.swift in Sources */,
+				PR1PracticeTests000000002 /* PracticeStoreTests.swift in Sources */,
 				DM3HSDeletion000000002 /* TranscriptDeletionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -408,14 +408,14 @@ enum TranscriptStore {
         if SyncPreferences.iCloudEnabled,
            let cloud = try? ModelContainer(
                for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
-               CoachObservation.self,
+               CoachObservation.self, PracticeItem.self, PracticeAttempt.self,
                configurations: ModelConfiguration(cloudKitDatabase: .automatic)
            ) {
             return cloud
         }
         if let local = try? ModelContainer(
             for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
-            CoachObservation.self,
+            CoachObservation.self, PracticeItem.self, PracticeAttempt.self,
             configurations: ModelConfiguration(cloudKitDatabase: .none)
         ) {
             return local
@@ -423,7 +423,7 @@ enum TranscriptStore {
         // In-memory last resort so the app still runs.
         return try! ModelContainer(
             for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
-            CoachObservation.self,
+            CoachObservation.self, PracticeItem.self, PracticeAttempt.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
     }
