@@ -53,6 +53,16 @@ public struct PhonemeGuide: Codable, Equatable, Sendable {
         self.language = language
         self.phonemes = phonemes
     }
+
+    /// The guide entry for an eSpeak-IPA symbol, or nil if the symbol isn't
+    /// covered. A pure, self-contained lookup on the decoded guide itself — handy
+    /// for callers that already hold a `PhonemeGuide` (e.g. the UI's
+    /// `TeachingContent.default.phonemeGuide`) and want a single sound's teaching
+    /// content without indexing the whole table. `TeachingContent.phoneme(_:)`
+    /// offers the same lookup, O(1), when the indexed container is available.
+    public func entry(for ipa: String) -> PhonemeGuideEntry? {
+        phonemes.first { $0.ipa == ipa }
+    }
 }
 
 /// The fluency dimension a tip addresses. Mirrors the objective fluency signals

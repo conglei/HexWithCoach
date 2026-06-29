@@ -39,6 +39,14 @@ final class ShadowingModel {
     /// *next* attempt's deltas. Nil until the first model-scored attempt lands.
     private var lastAttemptScores: PronunciationResult?
 
+    /// The latest scored attempt's full per-phoneme GOP — "your pronunciation" of
+    /// the practiced phrase. Non-nil whenever the pronunciation model produced a
+    /// result, *including the very first attempt* (when `gopComparison` is still
+    /// nil because there's nothing to compare against yet). Lets the result screen
+    /// show a per-sound breakdown from the first try, with progress deltas layered
+    /// on from the second try onward.
+    private(set) var attemptScores: PronunciationResult?
+
     /// Whether the on-device pronunciation model + dictionary are available. When
     /// false we skip GOP re-scoring entirely and keep the ASR-match result.
     var pronunciationAvailable: Bool { PronunciationAssets.ready }
@@ -82,6 +90,7 @@ final class ShadowingModel {
         heard = ""
         score = 0
         gopComparison = nil
+        attemptScores = nil
         do {
             _ = try recorder.start()
             phase = .recording
@@ -135,6 +144,8 @@ final class ShadowingModel {
         }.value
 
         guard let scored else { return }
+        // "Your pronunciation" for this attempt — available from the first try.
+        attemptScores = scored
         if let reference {
             gopComparison = ShadowingGOP.compare(target: reference, attempt: scored)
         }
