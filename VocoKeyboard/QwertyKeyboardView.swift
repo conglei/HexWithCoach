@@ -45,8 +45,9 @@ struct HexToolbar: View {
         ToolbarPill(
             title: state.hasFullAccess ? "Tap to dictate" : "Enable Full Access to dictate",
             imageName: "DictateGlyph",
-            fill: state.hasFullAccess ? Color.accentColor : Color.gray,
+            fill: state.hasFullAccess ? AnyShapeStyle(KeyStyle.brandGradient) : AnyShapeStyle(Color.gray),
             enabled: state.hasFullAccess,
+            glow: state.hasFullAccess ? KeyStyle.brand[1].opacity(0.32) : .clear,
             action: actions.onMic
         )
 
@@ -60,8 +61,9 @@ struct HexToolbar: View {
 
         ToolbarPill(
             title: "Tap to stop",
-            fill: KeyStyle.recordRed,
+            fill: AnyShapeStyle(KeyStyle.recordGradient),
             enabled: true,
+            glow: KeyStyle.recordPink.opacity(0.30),
             leading: { AnyView(
                 WaveformView(isActive: true, tint: .white, barWidth: 2.5, maxHeight: 18, levels: state.levels)
                     .fixedSize()
@@ -81,8 +83,9 @@ private struct ToolbarPill: View {
     /// Name of a template asset (in the keyboard's asset catalog) to use as the
     /// leading glyph, e.g. the Hex dictation mark. Tinted white like `systemImage`.
     var imageName: String? = nil
-    let fill: Color
+    let fill: AnyShapeStyle
     let enabled: Bool
+    var glow: Color = .clear
     var leading: () -> AnyView = { AnyView(EmptyView()) }
     let action: () -> Void
 
@@ -90,8 +93,9 @@ private struct ToolbarPill: View {
         title: String,
         systemImage: String? = nil,
         imageName: String? = nil,
-        fill: Color,
+        fill: AnyShapeStyle,
         enabled: Bool,
+        glow: Color = .clear,
         leading: @escaping () -> AnyView = { AnyView(EmptyView()) },
         action: @escaping () -> Void
     ) {
@@ -100,6 +104,7 @@ private struct ToolbarPill: View {
         self.imageName = imageName
         self.fill = fill
         self.enabled = enabled
+        self.glow = glow
         self.leading = leading
         self.action = action
     }
@@ -119,15 +124,15 @@ private struct ToolbarPill: View {
                     Image(systemName: systemImage).font(.system(size: 15, weight: .semibold))
                 }
                 leading()
-                Text(title).font(.system(size: 16, weight: .semibold))
+                Text(title).font(.system(size: 16, weight: .medium))
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .frame(height: toolbarHeight)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous).fill(fill)
-            )
+            .background(Capsule(style: .continuous).fill(fill))
+            .shadow(color: glow, radius: 8, y: 3)
             .scaleEffect(isPressed ? 0.98 : 1)
+            .opacity(isPressed ? 0.92 : 1)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -151,11 +156,11 @@ private struct ToolbarIconButton: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 17, weight: .regular))
-                .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
-                .frame(width: 44, height: toolbarHeight)
+                .foregroundStyle(KeyStyle.neutralText(colorScheme))
+                .frame(width: 46, height: toolbarHeight)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(KeyStyle.specialFill(colorScheme))
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(KeyStyle.neutralFill(colorScheme))
                 )
         }
         .buttonStyle(.plain)
@@ -172,12 +177,12 @@ private struct ToolbarTextButton: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 16, weight: .regular))
-                .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+                .foregroundStyle(KeyStyle.neutralText(colorScheme))
                 .padding(.horizontal, 18)
                 .frame(height: toolbarHeight)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(KeyStyle.specialFill(colorScheme))
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(KeyStyle.neutralFill(colorScheme))
                 )
         }
         .buttonStyle(.plain)
@@ -187,16 +192,35 @@ private struct ToolbarTextButton: View {
 // MARK: - Shared style
 
 /// Height of the Hex toolbar strip and its controls.
-private let toolbarHeight: CGFloat = 40
+private let toolbarHeight: CGFloat = 42
 
 private enum KeyStyle {
-    /// Neutral fill for the flanking toolbar buttons — close to a system special key.
-    static func specialFill(_ scheme: ColorScheme) -> Color {
-        scheme == .dark
-            ? Color(red: 0.20, green: 0.20, blue: 0.22)
-            : Color(red: 0.68, green: 0.70, blue: 0.73)
-    }
+    /// Voco brand gradient — matches the app's primary buttons (HexTheme): vivid
+    /// blue (top-leading) → violet (bottom-trailing). Defined locally because the
+    /// keyboard extension can't import the app target's HexTheme.
+    static let brand = [
+        Color(red: 0.24, green: 0.45, blue: 0.96),
+        Color(red: 0.58, green: 0.36, blue: 0.97),
+    ]
+    static let brandGradient = LinearGradient(
+        colors: brand, startPoint: .topLeading, endPoint: .bottomTrailing
+    )
 
-    /// Recording pill — a softened red, not the alarming system candy red.
-    static let recordRed = Color(red: 0.83, green: 0.31, blue: 0.29)
+    /// Recording pill — a clean red→pink, not the old muddy brick.
+    static let recordPink = Color(red: 0.88, green: 0.21, blue: 0.42)
+    static let recordGradient = LinearGradient(
+        colors: [Color(red: 0.94, green: 0.27, blue: 0.36), recordPink],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+
+    /// Quiet, light neutral for the flanking buttons (settings / Cancel) — lighter and
+    /// cleaner than a system special key so the gradient pill stays the hero.
+    static func neutralFill(_ scheme: ColorScheme) -> Color {
+        scheme == .dark
+            ? Color(red: 0.26, green: 0.26, blue: 0.28)
+            : Color(red: 0.925, green: 0.933, blue: 0.945)
+    }
+    static func neutralText(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color.white.opacity(0.92) : Color(red: 0.29, green: 0.31, blue: 0.34)
+    }
 }
