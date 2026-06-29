@@ -223,4 +223,99 @@ struct CoachPipelineTests {
         _ = try await CoachPipeline(llm: mockAudio).analyze(inpAudio, profile: &profileAudio, at: t0)
         #expect(mockAudio.sawAudioOnCritic)
     }
+
+    // MARK: - CI-6: LLM lane scoping (meaning lenses + intonation only)
+
+    @Test
+    func extractScopesLensesToMeaningPlusIntonation() throws {
+        // The lens list the LLM is asked to detect must include the meaning lenses
+        // and the prosody (intonation/stress) lens, but NOT segmental pronunciation
+        // or the timing-fluency facets — the objective lane owns those (CI-6).
+        let lenses = CoachPipeline.lensList
+        #expect(lenses.contains("grammar"))
+        #expect(lenses.contains("lexis"))
+        #expect(lenses.contains("discourse"))
+        #expect(lenses.contains("intonation"))
+        // No standalone "pronunciation" lens offered for detection.
+        #expect(!lenses.contains("pronunciation"))
+    }
+
+    @Test
+    func extractSystemPromptExcludesObjectiveLenses() throws {
+        // The system prompt must tell the model NOT to detect segmental
+        // pronunciation or timing-fluency (pace/pauses/fillers).
+        let prompt = CoachPipeline.extractSystemPrompt
+        #expect(prompt.contains("NEVER emit a `pronunciation` candidate"))
+        #expect(prompt.contains("DO NOT detect segmental pronunciation"))
+        #expect(prompt.contains("DO NOT detect timing-fluency"))
+        // And still keeps the meaning + intonation lenses in scope.
+        #expect(prompt.contains("intonation"))
+        #expect(prompt.contains("grammar"))
+    }
+
+    @Test
+    func extractPromptCarriesObjectivePronunciationGrounding() async throws {
+        // Objective GOP findings ride into the extract prompt as established facts.
+        let mock = MockCoachLLM(extractJSON: #"{"candidates":[]}"#, criticJSON: "{}")
+        let pipeline = CoachPipeline(llm: mock)
+        var profile = LearnerProfile()
+
+        let signals = PronunciationSignals(
+            overallGOP: -2.5,
+            perPhoneme: [.init(symbol: "θ", meanGOP: -6.0, count: 3)],
+            worstWords: [.init(word: "think", worstPhoneme: "θ", gop: -6.0)]
+        )
+        var inp = input()
+        inp.pronunciationSignals = signals
+
+        _ = try await pipeline.analyze(inp, profile: &profile, at: t0)
+        let prompt = try #require(mock.lastExtractUserPrompt)
+        // Framed as established facts, not something to re-detect.
+        #expect(prompt.contains("ESTABLISHED FACTS"))
+        #expect(prompt.contains("Pronunciation (segmental GOP)"))
+        // The actual measured finding is present as grounding.
+        #expect(prompt.contains("think"))
+        #expect(prompt.contains("θ"))
+        // Fluency timing facts are present as grounding too (always fed, design §2).
+        #expect(prompt.contains("fillers/min"))
+    }
+
+    @Test
+    func extractPromptStatesPronunciationUnavailableWhenNoSignals() async throws {
+        // With no GOP run for the note, the grounding section says so explicitly so
+        // the model never silently re-detects pronunciation to fill the gap.
+        let mock = MockCoachLLM(extractJSON: #"{"candidates":[]}"#, criticJSON: "{}")
+        let pipeline = CoachPipeline(llm: mock)
+        var profile = LearnerProfile()
+        _ = try await pipeline.analyze(input(), profile: &profile, at: t0)
+        let prompt = try #require(mock.lastExtractUserPrompt)
+        #expect(prompt.contains("not available for this note"))
+    }
+
+    @Test
+    func pronunciationSummaryRendersWeakestWords() {
+        let signals = PronunciationSignals(
+            overallGOP: -1.2,
+            perPhoneme: [.init(symbol: "r", meanGOP: -4.0, count: 2)],
+            worstWords: [.init(word: "world", worstPhoneme: "r", gop: -4.0)]
+        )
+        let summary = CoachPipeline.pronunciationSummary(signals)
+        #expect(summary.contains("world"))
+        #expect(summary.contains("/r/"))
+        #expect(summary.contains("overall GOP"))
+
+        // Nil / empty → an explicit not-available line.
+        #expect(CoachPipeline.pronunciationSummary(nil).contains("not available"))
+        #expect(CoachPipeline.pronunciationSummary(PronunciationSignals()).contains("not available"))
+    }
+
+    @Test
+    func criticSystemPromptDeclaresObjectiveLensesOutOfScope() {
+        // The critic verifies only the LLM's candidates; if a pronunciation/timing
+        // candidate slips through it must be rejected as out of scope.
+        let prompt = CoachPipeline.criticSystemPrompt
+        #expect(prompt.contains("Segmental"))
+        #expect(prompt.contains("timing-fluency"))
+        #expect(prompt.contains("out of scope"))
+    }
 }
