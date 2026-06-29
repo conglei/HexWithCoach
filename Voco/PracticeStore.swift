@@ -13,6 +13,7 @@
 
 import Foundation
 import SwiftData
+import VocoCore
 
 /// A unit of practice: target text (split into speakable `segments`) plus its
 /// provenance and the learner's recorded `attempts`. Persisted in the shared
@@ -30,6 +31,12 @@ final class PracticeItem {
     var segments: [String] = []
     /// Backing store for `origin`; see `Origin`. Stored as a String for CloudKit.
     var originRaw: String = Origin.pasted.rawValue
+    /// Backing store for `kind` (CF-2) — which typed drill this item is practiced
+    /// with. Stored as a String for CloudKit; defaulted to `.shadow` so every
+    /// existing persisted item (PR-1/PR-3, all shadowing) decodes unchanged. NOT a
+    /// new `@Model` — this is an additive attribute, so the canonical schema stays
+    /// at six model types (GUARD's `SchemaRegistrationTests`).
+    var kindRaw: String = PracticeKind.shadow.rawValue
     /// Links back to the coach card / insight or phrasebook entry this item came
     /// from. nil when the target was pasted/typed (no source to link to).
     var sourceID: UUID?
@@ -47,12 +54,21 @@ final class PracticeItem {
         set { originRaw = newValue.rawValue }
     }
 
+    /// Which typed drill (CF-2) this item is practiced with. Decoded from
+    /// `kindRaw`; an unknown raw value falls back to `.shadow` (the original
+    /// behavior) rather than trapping.
+    var kind: PracticeKind {
+        get { PracticeKind(rawValue: kindRaw) ?? .shadow }
+        set { kindRaw = newValue.rawValue }
+    }
+
     init(
         id: UUID = UUID(),
         title: String? = nil,
         sourceText: String = "",
         segments: [String] = [],
         origin: Origin = .pasted,
+        kind: PracticeKind = .shadow,
         sourceID: UUID? = nil,
         createdAt: Date = Date()
     ) {
@@ -61,6 +77,7 @@ final class PracticeItem {
         self.sourceText = sourceText
         self.segments = segments
         self.originRaw = origin.rawValue
+        self.kindRaw = kind.rawValue
         self.sourceID = sourceID
         self.createdAt = createdAt
     }
@@ -115,14 +132,20 @@ final class PracticeAttempt {
 /// model + container registration is the PR-1 deliverable; the UI (PR-2) and the
 /// paste flow (PR-3) build on top of this.
 enum PracticeStore {
-    /// Build a practice item from raw pasted/typed text.
+    /// Build a practice item from raw pasted/typed text. Pasted text is always a
+    /// shadowing target (no source insight to drive another drill kind).
     static func pasted(_ text: String, segments: [String], title: String? = nil) -> PracticeItem {
-        PracticeItem(title: title, sourceText: text, segments: segments, origin: .pasted)
+        PracticeItem(title: title, sourceText: text, segments: segments, origin: .pasted, kind: .shadow)
     }
 
-    /// Build a practice item sourced from a coach card / insight.
-    static func coachInsight(_ text: String, segments: [String], sourceID: UUID, title: String? = nil) -> PracticeItem {
-        PracticeItem(title: title, sourceText: text, segments: segments, origin: .coachInsight, sourceID: sourceID)
+    /// Build a practice item sourced from a coach card / insight. `kind` defaults to
+    /// `.shadow` to preserve every existing caller; CF-2's lens→drill wiring passes
+    /// `.wordSwap` for lexis cards so the attempt persists tagged with its drill.
+    static func coachInsight(
+        _ text: String, segments: [String], sourceID: UUID,
+        kind: PracticeKind = .shadow, title: String? = nil
+    ) -> PracticeItem {
+        PracticeItem(title: title, sourceText: text, segments: segments, origin: .coachInsight, kind: kind, sourceID: sourceID)
     }
 
     /// Build a practice item sourced from a phrasebook entry.

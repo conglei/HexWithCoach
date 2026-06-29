@@ -24,6 +24,8 @@ import SwiftData
 import SwiftUI
 
 struct PracticeView: View {
+    @Environment(\.modelContext) private var modelContext
+
     /// Coach-generated drills: cards that carry a speakable `practiceText`. Only
     /// improvement cards still in the feed (`new`) — saved ones surface under the
     /// Phrasebook section below so a drill never appears twice.
@@ -46,9 +48,10 @@ struct PracticeView: View {
     /// Shared streak/progress, mirroring the Review feed's header.
     @State private var progress = CoachProgress()
 
-    /// The target currently being shadowed (drives the full-screen drill cover).
-    /// A non-nil value presents `ShadowingView` with that phrase.
-    @State private var activeTarget: ShadowTarget?
+    /// The drill currently launched from a card (drives the full-screen cover).
+    /// CF-2: the card's lens picks the drill kind — lexis → word-swap, everything
+    /// else → shadowing — so the user never chooses a drill type.
+    @State private var activeDrill: ActiveDrill?
 
     var body: some View {
         ScrollView {
@@ -62,10 +65,55 @@ struct PracticeView: View {
             .frame(maxWidth: .infinity)
         }
         .background(Color(.systemGroupedBackground))
-        .fullScreenCover(item: $activeTarget) { target in
-            // Reuse the exact shadowing entry point Review's "Say it better" uses.
-            ShadowingView(target: target.text) { progress.recordReview() }
+        #if DEBUG
+        // DEBUG-only: auto-present the first word-swap (lexis) drill for a seeded
+        // screenshot / QA run (`-VOCOAutoWordSwap`), so the word-swap surface is
+        // reachable headlessly. No effect in release.
+        .onAppear {
+            guard ProcessInfo.processInfo.arguments.contains("-VOCOAutoWordSwap"),
+                  activeDrill == nil,
+                  let card = (coachDrills + phrasebook).first(where: { PracticeKind.forLens($0.lens) == .wordSwap }),
+                  !practiceTarget(for: card).isEmpty
+            else { return }
+            activeDrill = ActiveDrill(card: card, kind: .wordSwap, content: drillContent(for: card, kind: .wordSwap))
         }
+        #endif
+        .fullScreenCover(item: $activeDrill) { drill in
+            switch drill.kind {
+            case .wordSwap:
+                // The vocabulary drill: produce the native choice, judged on-device.
+                WordSwapView(
+                    drill: WordSwapDrill(content: drill.content),
+                    onScored: { persistAttempt(card: drill.card, kind: .wordSwap, score: $0.score) },
+                    onComplete: { progress.recordReview() }
+                )
+            case .shadow:
+                // Reuse the exact shadowing entry point Review's "Say it better" uses.
+                ShadowingView(
+                    target: drill.content.target,
+                    onScored: { persistAttempt(card: drill.card, kind: .shadow, score: $0.score) },
+                    onComplete: { progress.recordReview() }
+                )
+            }
+        }
+    }
+
+    /// Persist one `PracticeAttempt` for a card-launched drill, tagged with its
+    /// `kind` (feeds CF-3). The `PracticeItem` is created lazily, `.coachInsight`
+    /// origin pointing back at the card. A single-score drill (word-swap) stores a
+    /// one-element `perSegmentScores`, mirroring how shadowing stores per-segment.
+    private func persistAttempt(card: CoachCardEntity, kind: PracticeKind, score: Double) {
+        let item = PracticeStore.coachInsight(
+            practiceTarget(for: card),
+            segments: SentenceSegmenter.segments(from: practiceTarget(for: card)),
+            sourceID: card.id,
+            kind: kind,
+            title: card.title
+        )
+        modelContext.insert(item)
+        let attempt = PracticeAttempt(perSegmentScores: [score], gopDelta: nil, item: item)
+        modelContext.insert(attempt)
+        try? modelContext.save()
     }
 
     // MARK: - Streak header
@@ -137,11 +185,7 @@ struct PracticeView: View {
                 sectionHeader("Continue", subtitle: "from your coach")
                 VStack(spacing: 0) {
                     ForEach(Array(coachDrills.enumerated()), id: \.element.id) { index, card in
-                        drillRow(
-                            title: drillTitle(for: card),
-                            subtitle: lensLabel(card.lens),
-                            phrase: practiceTarget(for: card)
-                        )
+                        drillRow(card: card)
                         if index < coachDrills.count - 1 { Divider() }
                     }
                 }
@@ -159,11 +203,7 @@ struct PracticeView: View {
                 sectionHeader("Phrasebook", subtitle: "saved phrasings")
                 VStack(spacing: 0) {
                     ForEach(Array(phrasebook.enumerated()), id: \.element.id) { index, card in
-                        drillRow(
-                            title: drillTitle(for: card),
-                            subtitle: lensLabel(card.lens),
-                            phrase: practiceTarget(for: card)
-                        )
+                        drillRow(card: card)
                         if index < phrasebook.count - 1 { Divider() }
                     }
                 }
@@ -174,34 +214,58 @@ struct PracticeView: View {
 
     // MARK: - Shared row
 
-    /// A single drill: the rule/summary + a play button that launches shadowing
-    /// with `phrase`. Disabled (no play) when there's no speakable phrase.
+    /// A single drill row: the rule/summary + the lens-chosen drill it launches.
+    /// CF-2 — the launch button's icon reflects the *kind* the lens selects
+    /// (word-swap vs. shadow), so the surface signals what kind of practice this is
+    /// without the user ever choosing one. Disabled when there's no speakable
+    /// content to drill.
     @ViewBuilder
-    private func drillRow(title: String, subtitle: String, phrase: String) -> some View {
+    private func drillRow(card: CoachCardEntity) -> some View {
+        let kind = PracticeKind.forLens(card.lens)
+        let phrase = practiceTarget(for: card)
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(title)
+                Text(drillTitle(for: card))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
-                Text(subtitle)
+                Text(drillSubtitle(card: card, kind: kind))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
             if !phrase.isEmpty {
                 Button {
-                    activeTarget = ShadowTarget(text: phrase)
+                    activeDrill = ActiveDrill(card: card, kind: kind, content: drillContent(for: card, kind: kind))
                 } label: {
-                    Image(systemName: "play.circle.fill")
+                    Image(systemName: kind == .wordSwap ? "character.bubble.fill" : "play.circle.fill")
                         .font(.title)
                         .foregroundStyle(HexTheme.gradient)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Practice this phrase")
+                .accessibilityLabel(kind == .wordSwap ? "Practice the word choice" : "Practice this phrase")
             }
         }
         .padding(16)
+    }
+
+    /// The row subtitle: the lens label, plus a hint of the drill kind for the one
+    /// kind that differs from plain shadowing (word-swap).
+    private func drillSubtitle(card: CoachCardEntity, kind: PracticeKind) -> String {
+        kind == .wordSwap ? "\(lensLabel(card.lens)) · say it naturally" : lensLabel(card.lens)
+    }
+
+    /// Build the typed drill content from a card. Shared by both drill kinds; the
+    /// word-swap drill uses `originalSpan → nativeRewrite`, shadowing uses `target`.
+    private func drillContent(for card: CoachCardEntity, kind: PracticeKind) -> PracticeDrillContent {
+        PracticeDrillContent(
+            title: card.title,
+            target: practiceTarget(for: card),
+            originalSpan: card.originalSpan,
+            nativeRewrite: card.nativeRewrite,
+            context: card.context,
+            lens: card.lens
+        )
     }
 
     private func sectionHeader(_ title: String, subtitle: String) -> some View {
@@ -241,10 +305,14 @@ struct PracticeView: View {
     }
 }
 
-/// Identifiable wrapper so a target phrase can drive a `.fullScreenCover(item:)`.
-private struct ShadowTarget: Identifiable {
+/// Identifiable wrapper so a lens-chosen drill can drive a `.fullScreenCover(item:)`.
+/// Carries the source `card` (for persistence) plus the resolved `kind` + typed
+/// `content`, so the cover just switches on `kind` to pick the right drill view.
+private struct ActiveDrill: Identifiable {
     let id = UUID()
-    let text: String
+    let card: CoachCardEntity
+    let kind: PracticeKind
+    let content: PracticeDrillContent
 }
 
 // MARK: - Paste destination (PR-3)

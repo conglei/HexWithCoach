@@ -47,6 +47,7 @@
 		B53356002D7B8D4900E5F542 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = B53355FF2D7B8D4900E5F542 /* Localizable.xcstrings */; };
 		BEEA5EF1AF21DD225F48CE3F /* TranscriptStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA55E77DF9B4266D2223256A /* TranscriptStoreTests.swift */; };
 		PR1PracticeTests000000002 /* PracticeStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = PR1PracticeTests000000001 /* PracticeStoreTests.swift */; };
+		CF2PracticeKind00000002 /* PracticeKindTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF2PracticeKind00000001 /* PracticeKindTests.swift */; };
 		F2A7C08EA0320211D3412EBD /* KeyboardStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5EEF22628FF169BD32E1946 /* KeyboardStateTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -135,6 +136,7 @@
 		C5EEF22628FF169BD32E1946 /* KeyboardStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeyboardStateTests.swift; sourceTree = "<group>"; };
 		CA55E77DF9B4266D2223256A /* TranscriptStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TranscriptStoreTests.swift; sourceTree = "<group>"; };
 		PR1PracticeTests000000001 /* PracticeStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PracticeStoreTests.swift; sourceTree = "<group>"; };
+		CF2PracticeKind00000001 /* PracticeKindTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PracticeKindTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -321,6 +323,7 @@
 				SEEDDebug0000000001 /* DebugSeedTests.swift */,
 				CA55E77DF9B4266D2223256A /* TranscriptStoreTests.swift */,
 				PR1PracticeTests000000001 /* PracticeStoreTests.swift */,
+				CF2PracticeKind00000001 /* PracticeKindTests.swift */,
 				DM3HSDeletion000000001 /* TranscriptDeletionTests.swift */,
 				GUARDSchemaReg000000001 /* SchemaRegistrationTests.swift */,
 			);
@@ -683,6 +686,7 @@
 				SEEDDebug0000000002 /* DebugSeedTests.swift in Sources */,
 				BEEA5EF1AF21DD225F48CE3F /* TranscriptStoreTests.swift in Sources */,
 				PR1PracticeTests000000002 /* PracticeStoreTests.swift in Sources */,
+				CF2PracticeKind00000002 /* PracticeKindTests.swift in Sources */,
 				DM3HSDeletion000000002 /* TranscriptDeletionTests.swift in Sources */,
 				GUARDSchemaReg000000002 /* SchemaRegistrationTests.swift in Sources */,
 			);

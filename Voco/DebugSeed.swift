@@ -288,14 +288,16 @@ enum DebugSeed {
         context.insert(attempt1a)
         context.insert(attempt1b)
 
-        let practice2 = PracticeStore.pasted(
-            "I overuse the word basically in meetings and I want to cut it.",
-            segments: ["I overuse the word basically in meetings", "and I want to cut it."],
-            title: "Cut \u{201C}basically\u{201D}")
+        // CF-2: a word-swap (lexis) practice item, tagged `.wordSwap`, so the
+        // kind-aware progress surfaces (CF-3) and browsing show a non-shadow drill.
+        let practice2 = PracticeStore.coachInsight(
+            "I overuse basically in meetings",
+            segments: ["I overuse basically in meetings"],
+            sourceID: note(5).id, kind: .wordSwap, title: "A crisper word than \u{201C}basically\u{201D}")
         practice2.createdAt = daysAgo(0, hour: 19)
         context.insert(practice2)
         let attempt2 = PracticeAttempt(
-            date: daysAgo(0, hour: 19), perSegmentScores: [0.88, 0.79], gopDelta: nil, item: practice2)
+            date: daysAgo(0, hour: 19), perSegmentScores: [0.82], gopDelta: nil, item: practice2)
         context.insert(attempt2)
 
         do {
