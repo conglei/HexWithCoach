@@ -16,7 +16,7 @@ struct HexIOSApp: App {
     @State private var model: DictationModel
     @State private var coachPreferences: CoachPreferences
     @State private var coach: CoachService
-    @State private var selectedTab: AppTab = .review
+    @State private var selectedTab: AppTab = .coach
     @Environment(\.scenePhase) private var scenePhase
 
     @MainActor

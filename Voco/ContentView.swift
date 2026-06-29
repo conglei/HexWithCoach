@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  HexIOS
 //
-//  Root tab bar (locked design §2): Home / History / Settings. On iOS 26 this
+//  Root tab bar (locked design §2, IA-1): Home / History / Coach / Settings. On iOS 26 this
 //  renders as the floating pill tab bar automatically. Owns model lifecycle
 //  (prepare) and the global error alert.
 //
@@ -12,7 +12,7 @@ import SwiftUI
 
 /// The root tabs, used as TabView selection tags so deep links can switch.
 enum AppTab: Hashable {
-    case review, home, history, settings
+    case coach, home, history, settings
 }
 
 struct ContentView: View {
@@ -33,9 +33,9 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            ReviewView(coach: coach, preferences: coachPreferences, selectedTab: $selectedTab)
-                .tabItem { Label("Review", systemImage: "sparkles") }
-                .tag(AppTab.review)
+            CoachView(coach: coach, preferences: coachPreferences, selectedTab: $selectedTab)
+                .tabItem { Label("Coach", systemImage: "graduationcap") }
+                .tag(AppTab.coach)
 
             HomeView(model: model, selectedTab: $selectedTab, onShowAllHistory: {
                 historyPath = NavigationPath()
@@ -109,7 +109,7 @@ struct ContentView: View {
         model: DictationModel(modelContext: container.mainContext),
         coach: CoachService(modelContext: container.mainContext, preferences: prefs),
         coachPreferences: prefs,
-        selectedTab: .constant(.review)
+        selectedTab: .constant(.coach)
     )
     .modelContainer(container)
     .environment(CoachService(modelContext: container.mainContext, preferences: prefs))
