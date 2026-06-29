@@ -56,14 +56,49 @@ final class ShadowingModel {
     /// false we skip GOP re-scoring entirely and keep the ASR-match result.
     var pronunciationAvailable: Bool { PronunciationAssets.ready }
 
+    /// The learner's most-recent recorded clip, retained for "Hear yours" on the
+    /// result screen (SR-2). The recorder writes to a temp file; we move it to a
+    /// stable per-model temp URL after scoring (instead of deleting it) so playback
+    /// has something to load, and replace/clean it on the next attempt + on deinit.
+    /// No persistence — a temp file is enough.
+    @ObservationIgnored private(set) var lastRecordingURL: URL?
+    /// Whether a recorded clip is available to play back.
+    var hasRecording: Bool { lastRecordingURL != nil }
+
     private let modelName = ParakeetModel.multilingualV3.identifier
     private let recorder = AudioRecorder()
     private let synthesizer = AVSpeechSynthesizer()
+    private let player = AudioPlayer()
     @ObservationIgnored @Dependency(\.transcription) private var transcription
 
     init(target: String) { self.target = target }
 
+    deinit {
+        if let url = lastRecordingURL { try? FileManager.default.removeItem(at: url) }
+    }
+
     var isSuccess: Bool { score >= ShadowingScorer.matchThreshold }
+
+    // MARK: - SR-2 dual-signal result model (pure)
+
+    /// The honest dual-signal verdict for the latest attempt — the ASR word match and
+    /// the GOP issue count kept separate. `soundIssueCount` is nil when no GOP result
+    /// was produced (no model / out-of-dictionary), so the screen rests on the ASR
+    /// match alone and hides the sound signal.
+    var verdict: ShadowingResult.Verdict {
+        ShadowingResult.verdict(score: score, issueCount: attemptScores == nil ? nil : resultIssues.count)
+    }
+
+    /// The target phrase split into render tokens, each tinted by its per-word GOP
+    /// (good / close / off) when scored; nil-quality words render plain.
+    var resultWords: [ShadowingResult.Word] {
+        ShadowingResult.words(target: target, result: attemptScores)
+    }
+
+    /// The top sound issues to surface, phrased with `PhonemeAnchor`, severity-ordered.
+    var resultIssues: [ShadowingResult.Issue] {
+        ShadowingResult.issues(from: attemptScores)
+    }
 
     /// Speak the target phrase (on-device synthesizer).
     func speak() {
@@ -96,6 +131,9 @@ final class ShadowingModel {
         score = 0
         gopComparison = nil
         attemptScores = nil
+        // Drop any previously-retained clip — we're about to record a fresh one.
+        player.stop()
+        if let old = lastRecordingURL { try? FileManager.default.removeItem(at: old); lastRecordingURL = nil }
         do {
             _ = try recorder.start()
             phase = .recording
@@ -116,12 +154,36 @@ final class ShadowingModel {
             // CI-11: when the phoneme model is present, re-score this attempt and
             // surface per-phoneme deltas vs. the previous attempt (the closed loop).
             await rescoreGOP(attemptURL: url)
+            // SR-2: retain the clip for "Hear yours" on the result screen instead of
+            // discarding it. Keep the recorder's temp file as-is and remember its URL;
+            // it's cleaned on the next attempt and on deinit.
+            retainRecording(url)
             phase = .done
         } catch {
             errorMessage = error.localizedDescription
+            try? FileManager.default.removeItem(at: url)
             phase = .idle
         }
-        try? FileManager.default.removeItem(at: url)
+    }
+
+    /// Keep `url` as the playable clip for "Hear yours" and load it into the player.
+    private func retainRecording(_ url: URL) {
+        if let old = lastRecordingURL, old != url { try? FileManager.default.removeItem(at: old) }
+        lastRecordingURL = url
+        player.load(url)
+    }
+
+    // MARK: - SR-2 "Hear yours" playback
+
+    /// Whether the retained clip is currently playing back.
+    var isPlayingRecording: Bool { player.isPlaying }
+
+    /// Play (or restart) the learner's retained recording out the main speaker.
+    func playRecording() {
+        guard lastRecordingURL != nil else { return }
+        if player.isPlaying { player.stop() }
+        player.seek(toFraction: 0)
+        player.play()
     }
 
     /// CI-11 — run the #57 pronunciation pipeline on the attempt audio against the
