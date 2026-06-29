@@ -54,13 +54,24 @@ struct ContentView: View {
         }
         .tint(.accentColor)
         // Make the coach reachable from pushed views (transcript detail, History
-        // rows) for the per-note re-analyze action.
+        // rows) for the manual LLM override action.
         .environment(coach)
         .task {
+            // Automatic two-lane analysis (CI-7): every saved transcript runs the
+            // always-on objective lane (and the gated LLM lane) in the background —
+            // no manual button. Wire the capture hook before recovery so recovered
+            // notes are coached too.
+            model.onTranscriptSaved = { [coach] entry in
+                await coach.autoAnalyzeOnCapture(entry)
+            }
             await model.prepare()
             // Auto-recover a note interrupted by a crash/kill (e.g. paused, then the
             // app was terminated) — transcribes the saved spans and files it silently.
             await model.recoverInterruptedNote()
+            // Backfill the free objective lane over notes captured before always-on
+            // analysis existed, then auto-batch the LLM lane if it's enabled + funded.
+            await coach.backfillObjectiveBacklog()
+            await coach.maybeAutoRunLLMBacklog()
         }
         .onAppear { if !didOnboard { showOnboarding = true } }
         .fullScreenCover(isPresented: $showOnboarding, onDismiss: { didOnboard = true }) {

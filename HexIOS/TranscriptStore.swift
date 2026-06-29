@@ -44,8 +44,16 @@ final class TranscriptEntry {
     /// Portable audio identity — a filename inside the App Group Audio dir, not an
     /// absolute path (RC-0 / data-model §4). nil if audio wasn't retained.
     var audioFilename: String?
-    /// When the Coach analyzed this transcript. nil = still in the backlog (RC-2).
+    /// When the **LLM lane** (paid, BYOK) analyzed this transcript. nil = still in
+    /// the LLM backlog (RC-2). Named for the LLM lane specifically; the free
+    /// objective lane tracks its own idempotency via `objectiveAnalyzedAt`.
     var coachAnalyzedAt: Date?
+    /// When the free **objective lane** (GOP + fluency) last ran for this note
+    /// (CI-7). nil = it hasn't run yet, so the note is eligible to run
+    /// automatically at capture. Distinct from `coachAnalyzedAt` because the lanes
+    /// run independently: the objective lane is always-on + keyless, the LLM lane
+    /// is gated by key + toggle + budget. Defaulted for CloudKit.
+    var objectiveAnalyzedAt: Date?
     /// Word-level timings (JSON-encoded `[WordTiming]`) for audio↔text sync in the
     /// detail view. Populated for Parakeet notes; nil when the model didn't expose
     /// timings (older notes, Whisper/Qwen). Stored as JSON so CloudKit can sync it.

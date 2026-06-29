@@ -312,8 +312,9 @@ enum TranscriptDecorator {
 
 // MARK: - Detail sheets (reuse the existing GOP coloring + card shape)
 
-/// Tap a word → its phonemes with per-phoneme GOP. Mirrors the phoneme list the
-/// shipped "Check pronunciation" sheet showed, kept read-only.
+/// Tap a word → its phonemes with per-phoneme GOP. Renders the persisted GOP
+/// result inline, read-only — no on-demand analysis (the objective lane runs
+/// automatically at capture; CI-7).
 private struct PhonemeDetailSheet: View {
     let word: WordScore
     @Environment(\.dismiss) private var dismiss

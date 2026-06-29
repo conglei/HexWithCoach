@@ -17,7 +17,6 @@ struct HistoryView: View {
     @Binding var path: NavigationPath
     @Query(sort: \TranscriptEntry.date, order: .reverse) private var entries: [TranscriptEntry]
     @Query private var allCards: [CoachCardEntity]
-    @Environment(CoachService.self) private var coach
     @State private var query = ""
 
     /// Only annotate processed/pending once the Coach has actually run — otherwise
@@ -72,22 +71,13 @@ struct HistoryView: View {
                 .foregroundStyle(.secondary)
                 .padding(.leading, 4)
 
+            // CI-7: no per-note "Analyze" context menu — coaching runs
+            // automatically at capture (objective) and over the backlog (LLM).
             ForEach(group.entries, id: \.persistentModelID) { entry in
                 NavigationLink(value: entry) {
                     card(entry)
                 }
                 .buttonStyle(.plain)
-                .contextMenu {
-                    if coach.isReady {
-                        Button {
-                            Task { await coach.analyzeEntry(entry) }
-                        } label: {
-                            Label(entry.coachAnalyzedAt == nil ? "Analyze" : "Re-analyze",
-                                  systemImage: "arrow.clockwise")
-                        }
-                        .disabled(coach.isAnalyzing)
-                    }
-                }
             }
         }
     }
