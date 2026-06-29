@@ -1,5 +1,5 @@
 import Testing
-@testable import HexIOS
+@testable import Voco
 
 /// Sanity coverage for the iOS app target's pure value logic. Mostly this proves
 /// the HexIOSTests bundle compiles, links the HexIOS app module, and runs — the

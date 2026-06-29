@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 import Testing
 import VocoCore
-@testable import HexIOS
+@testable import Voco
 
 /// Behavior spec for the iOS persistence layer: the `ensureUniqueIDs` dedup
 /// migration and the `CoachCardEntity` ⇄ `CoachCard` mapping.

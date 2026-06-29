@@ -22,12 +22,12 @@
 		4EF356212FEF3CE300DCA9C2 /* VocoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4EF356202FEF3CE300DCA9C2 /* VocoCore */; };
 		4EF356232FEF3CEF00DCA9C2 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4EF356222FEF3CEF00DCA9C2 /* WhisperKit */; };
 		4EF356252FEF3D0000DCA9C2 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 4EF356242FEF3D0000DCA9C2 /* FluidAudio */; };
-		4EF356E82FEF431A00DCA9C2 /* HexIOSKeyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4EF356E12FEF431A00DCA9C2 /* HexIOSKeyboard.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4EF356E82FEF431A00DCA9C2 /* VocoKeyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4EF356E12FEF431A00DCA9C2 /* VocoKeyboard.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4EF356F02FEF434B00DCA9C2 /* VocoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4EF356EF2FEF434B00DCA9C2 /* VocoCore */; };
 		4EF356F62FEF5ABF00DCA9C2 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = 4EF356F52FEF5ABF00DCA9C2 /* ComposableArchitecture */; };
 		4EFA06ED2FEF86F500A6BFA0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4EFA06EC2FEF86F500A6BFA0 /* WidgetKit.framework */; };
 		4EFA06EF2FEF86F500A6BFA0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4EFA06EE2FEF86F500A6BFA0 /* SwiftUI.framework */; };
-		4EFA07002FEF86F600A6BFA0 /* HexWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4EFA06EB2FEF86F500A6BFA0 /* HexWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4EFA07002FEF86F600A6BFA0 /* VocoWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4EFA06EB2FEF86F500A6BFA0 /* VocoWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4EFA07062FEF882200A6BFA0 /* VocoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4EFA07052FEF882200A6BFA0 /* VocoCore */; };
 		4EFA0D0F2FF0771000A6BFA0 /* KeyboardKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4EFA0D0E2FF0771000A6BFA0 /* KeyboardKit */; };
 		4EFA0D112FF0775F00A6BFA0 /* KeyboardKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4EFA0D102FF0775F00A6BFA0 /* KeyboardKit */; };
@@ -48,42 +48,42 @@
 			containerPortal = 47E05DE62D444EC600D26DA6 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 4EF356142FEF3C2100DCA9C2;
-			remoteInfo = HexIOS;
+			remoteInfo = Voco;
 		};
 		478637A92D48725900319BFA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 47E05DE62D444EC600D26DA6 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 47E05DED2D444EC600D26DA6;
-			remoteInfo = Hex;
+			remoteInfo = VocoMac;
 		};
 		4EF356E62FEF431A00DCA9C2 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 47E05DE62D444EC600D26DA6 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 4EF356E02FEF431A00DCA9C2;
-			remoteInfo = HexIOSKeyboard;
+			remoteInfo = VocoKeyboard;
 		};
 		4EFA06FE2FEF86F600A6BFA0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 47E05DE62D444EC600D26DA6 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 4EFA06EA2FEF86F500A6BFA0;
-			remoteInfo = HexWidgetsExtension;
+			remoteInfo = VocoWidgetsExtension;
 		};
 		594849DEA988844315198671 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 47E05DE62D444EC600D26DA6 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 4EF356E02FEF431A00DCA9C2;
-			remoteInfo = HexIOSKeyboard;
+			remoteInfo = VocoKeyboard;
 		};
 		DE7FB3D21710F6453FC9A92A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 47E05DE62D444EC600D26DA6 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 4EF356142FEF3C2100DCA9C2;
-			remoteInfo = HexIOS;
+			remoteInfo = Voco;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -94,8 +94,8 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				4EFA07002FEF86F600A6BFA0 /* HexWidgetsExtension.appex in Embed Foundation Extensions */,
-				4EF356E82FEF431A00DCA9C2 /* HexIOSKeyboard.appex in Embed Foundation Extensions */,
+				4EFA07002FEF86F600A6BFA0 /* VocoWidgetsExtension.appex in Embed Foundation Extensions */,
+				4EF356E82FEF431A00DCA9C2 /* VocoKeyboard.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -103,22 +103,22 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		2465117C0ED75475C64F9BD0 /* HexIOSKeyboardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HexIOSKeyboardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		28A2C51A566F778F0C01018E /* KeyboardState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeyboardState.swift; path = HexIOSKeyboard/KeyboardState.swift; sourceTree = "<group>"; };
+		2465117C0ED75475C64F9BD0 /* VocoKeyboardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VocoKeyboardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		28A2C51A566F778F0C01018E /* KeyboardState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = KeyboardState.swift; path = VocoKeyboard/KeyboardState.swift; sourceTree = "<group>"; };
 		31CB50E41AA5E1941B7A1281 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		473544502D445936001FBCB5 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		473544542D445959001FBCB5 /* Testing.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Testing.framework; path = Platforms/MacOSX.platform/Developer/Library/Frameworks/Testing.framework; sourceTree = DEVELOPER_DIR; };
-		478637A52D48725900319BFA /* HexTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HexTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		47E05DEE2D444EC600D26DA6 /* Hex Debug.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Hex Debug.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		4EF356152FEF3C2100DCA9C2 /* HexIOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HexIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		4EF356E12FEF431A00DCA9C2 /* HexIOSKeyboard.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HexIOSKeyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		4EFA06EB2FEF86F500A6BFA0 /* HexWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HexWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		478637A52D48725900319BFA /* VocoMacTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VocoMacTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		47E05DEE2D444EC600D26DA6 /* VocoMac Debug.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "VocoMac Debug.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4EF356152FEF3C2100DCA9C2 /* Voco.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Voco.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4EF356E12FEF431A00DCA9C2 /* VocoKeyboard.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VocoKeyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4EFA06EB2FEF86F500A6BFA0 /* VocoWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VocoWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		4EFA06EC2FEF86F500A6BFA0 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		4EFA06EE2FEF86F500A6BFA0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		576F8B0BC68A98BFE7D3BF90 /* SessionLengthTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionLengthTests.swift; sourceTree = "<group>"; };
 		B53355FF2D7B8D4900E5F542 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
-		B5A1C7E22E6A1C5B00AB1234 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.icon; name = AppIcon.icon; path = Hex/AppIcon.icon; sourceTree = "<group>"; };
-		C1408FD4F795F2464BB81846 /* HexIOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HexIOSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B5A1C7E22E6A1C5B00AB1234 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.icon; name = AppIcon.icon; path = VocoMac/AppIcon.icon; sourceTree = "<group>"; };
+		C1408FD4F795F2464BB81846 /* VocoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VocoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C5EEF22628FF169BD32E1946 /* KeyboardStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeyboardStateTests.swift; sourceTree = "<group>"; };
 		CA55E77DF9B4266D2223256A /* TranscriptStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TranscriptStoreTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -341,13 +341,13 @@
 		47E05DEF2D444EC600D26DA6 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				47E05DEE2D444EC600D26DA6 /* Hex Debug.app */,
-				478637A52D48725900319BFA /* HexTests.xctest */,
-				4EF356152FEF3C2100DCA9C2 /* HexIOS.app */,
-				4EF356E12FEF431A00DCA9C2 /* HexIOSKeyboard.appex */,
-				4EFA06EB2FEF86F500A6BFA0 /* HexWidgetsExtension.appex */,
-				C1408FD4F795F2464BB81846 /* HexIOSTests.xctest */,
-				2465117C0ED75475C64F9BD0 /* HexIOSKeyboardTests.xctest */,
+				47E05DEE2D444EC600D26DA6 /* VocoMac Debug.app */,
+				478637A52D48725900319BFA /* VocoMacTests.xctest */,
+				4EF356152FEF3C2100DCA9C2 /* Voco.app */,
+				4EF356E12FEF431A00DCA9C2 /* VocoKeyboard.appex */,
+				4EFA06EB2FEF86F500A6BFA0 /* VocoWidgetsExtension.appex */,
+				C1408FD4F795F2464BB81846 /* VocoTests.xctest */,
+				2465117C0ED75475C64F9BD0 /* VocoKeyboardTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -376,8 +376,8 @@
 				47E05E012D444EE900D26DA6 /* ComposableArchitecture */,
 				476316262E5FB31400913CDE /* VocoCore */,
 			);
-			productName = HexTests;
-			productReference = 478637A52D48725900319BFA /* HexTests.xctest */;
+			productName = VocoMacTests;
+			productReference = 478637A52D48725900319BFA /* VocoMacTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		47E05DED2D444EC600D26DA6 /* VocoMac */ = {
@@ -411,8 +411,8 @@
 				47E16A612EC6C9D300885CF7 /* FluidAudio */,
 				7BA7464B2FBD689B00814C43 /* MLXAudioSTT */,
 			);
-			productName = Hex;
-			productReference = 47E05DEE2D444EC600D26DA6 /* Hex Debug.app */;
+			productName = VocoMac;
+			productReference = 47E05DEE2D444EC600D26DA6 /* VocoMac Debug.app */;
 			productType = "com.apple.product-type.application";
 		};
 		4EF356142FEF3C2100DCA9C2 /* Voco */ = {
@@ -442,8 +442,8 @@
 				4EF356F52FEF5ABF00DCA9C2 /* ComposableArchitecture */,
 				4EFA0D0E2FF0771000A6BFA0 /* KeyboardKit */,
 			);
-			productName = HexIOS;
-			productReference = 4EF356152FEF3C2100DCA9C2 /* HexIOS.app */;
+			productName = Voco;
+			productReference = 4EF356152FEF3C2100DCA9C2 /* Voco.app */;
 			productType = "com.apple.product-type.application";
 		};
 		4EF356E02FEF431A00DCA9C2 /* VocoKeyboard */ = {
@@ -466,8 +466,8 @@
 				4EF356EF2FEF434B00DCA9C2 /* VocoCore */,
 				4EFA0D102FF0775F00A6BFA0 /* KeyboardKit */,
 			);
-			productName = HexIOSKeyboard;
-			productReference = 4EF356E12FEF431A00DCA9C2 /* HexIOSKeyboard.appex */;
+			productName = VocoKeyboard;
+			productReference = 4EF356E12FEF431A00DCA9C2 /* VocoKeyboard.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		4EFA06EA2FEF86F500A6BFA0 /* VocoWidgetsExtension */ = {
@@ -489,8 +489,8 @@
 			packageProductDependencies = (
 				4EFA07052FEF882200A6BFA0 /* VocoCore */,
 			);
-			productName = HexWidgetsExtension;
-			productReference = 4EFA06EB2FEF86F500A6BFA0 /* HexWidgetsExtension.appex */;
+			productName = VocoWidgetsExtension;
+			productReference = 4EFA06EB2FEF86F500A6BFA0 /* VocoWidgetsExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		C8032FE288C965FD8B99B58E /* VocoKeyboardTests */ = {
@@ -508,8 +508,8 @@
 				3916CE2DC8DF80685CA4EC96 /* PBXTargetDependency */,
 			);
 			name = VocoKeyboardTests;
-			productName = HexIOSKeyboardTests;
-			productReference = 2465117C0ED75475C64F9BD0 /* HexIOSKeyboardTests.xctest */;
+			productName = VocoKeyboardTests;
+			productReference = 2465117C0ED75475C64F9BD0 /* VocoKeyboardTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		DF72E1BC1207AEDFC58AB4E1 /* VocoTests */ = {
@@ -526,8 +526,8 @@
 				93566040171926AF47FB3035 /* PBXTargetDependency */,
 			);
 			name = VocoTests;
-			productName = HexIOSTests;
-			productReference = C1408FD4F795F2464BB81846 /* HexIOSTests.xctest */;
+			productName = VocoTests;
+			productReference = C1408FD4F795F2464BB81846 /* VocoTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -709,13 +709,13 @@
 /* Begin PBXTargetDependency section */
 		1077FF1133E0B4121EEC41AA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			name = HexIOS;
+			name = Voco;
 			target = 4EF356142FEF3C2100DCA9C2 /* Voco */;
 			targetProxy = 3EC8A34B0AC4F9F0E7CBBF78 /* PBXContainerItemProxy */;
 		};
 		3916CE2DC8DF80685CA4EC96 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			name = HexIOSKeyboard;
+			name = VocoKeyboard;
 			target = 4EF356E02FEF431A00DCA9C2 /* VocoKeyboard */;
 			targetProxy = 594849DEA988844315198671 /* PBXContainerItemProxy */;
 		};
@@ -736,7 +736,7 @@
 		};
 		93566040171926AF47FB3035 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			name = HexIOS;
+			name = Voco;
 			target = 4EF356142FEF3C2100DCA9C2 /* Voco */;
 			targetProxy = DE7FB3D21710F6453FC9A92A /* PBXContainerItemProxy */;
 		};

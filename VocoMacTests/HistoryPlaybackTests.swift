@@ -2,7 +2,7 @@ import ComposableArchitecture
 import Foundation
 import Testing
 
-@testable import Hex
+@testable import VocoMac
 
 @Suite(.serialized)
 @MainActor
