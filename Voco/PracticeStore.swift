@@ -15,19 +15,26 @@
 
 import Foundation
 import SwiftData
+import VocoCore
 
 /// Minimal creation helpers for `PracticeItem`. Kept intentionally small — the
 /// model + container registration is the PR-1 deliverable; the UI (PR-2) and the
 /// paste flow (PR-3) build on top of this.
 enum PracticeStore {
-    /// Build a practice item from raw pasted/typed text.
+    /// Build a practice item from raw pasted/typed text. Pasted text is always a
+    /// shadowing target (no source insight to drive another drill kind).
     static func pasted(_ text: String, segments: [String], title: String? = nil) -> PracticeItem {
-        PracticeItem(title: title, sourceText: text, segments: segments, origin: .pasted)
+        PracticeItem(title: title, sourceText: text, segments: segments, origin: .pasted, kind: .shadow)
     }
 
-    /// Build a practice item sourced from a coach card / insight.
-    static func coachInsight(_ text: String, segments: [String], sourceID: UUID, title: String? = nil) -> PracticeItem {
-        PracticeItem(title: title, sourceText: text, segments: segments, origin: .coachInsight, sourceID: sourceID)
+    /// Build a practice item sourced from a coach card / insight. `kind` defaults to
+    /// `.shadow` to preserve every existing caller; CF-2's lens→drill wiring passes
+    /// `.wordSwap` for lexis cards so the attempt persists tagged with its drill.
+    static func coachInsight(
+        _ text: String, segments: [String], sourceID: UUID,
+        kind: PracticeKind = .shadow, title: String? = nil
+    ) -> PracticeItem {
+        PracticeItem(title: title, sourceText: text, segments: segments, origin: .coachInsight, kind: kind, sourceID: sourceID)
     }
 
     /// Build a practice item sourced from a phrasebook entry.

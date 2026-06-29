@@ -33,7 +33,15 @@ struct CoachView: View {
         var id: Self { self }
     }
 
-    @State private var surface: Surface = .feedback
+    @State private var surface: Surface = {
+        #if DEBUG
+        // DEBUG-only: a seeded screenshot / QA run can open straight onto Practice
+        // with the `-VOCOCoachPractice` launch argument, so the word-swap drill is
+        // reachable without driving the segmented control. No effect in release.
+        if ProcessInfo.processInfo.arguments.contains("-VOCOCoachPractice") { return .practice }
+        #endif
+        return .feedback
+    }()
 
     var body: some View {
         NavigationStack {

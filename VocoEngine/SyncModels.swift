@@ -329,6 +329,11 @@ final class PracticeItem {
     var segments: [String] = []
     /// Backing store for `origin`; see `Origin`. Stored as a String for CloudKit.
     var originRaw: String = Origin.pasted.rawValue
+    /// Backing store for `kind` (CF-2) — which typed drill this item is practiced
+    /// with. Stored as a String for CloudKit; defaulted to `.shadow` so every
+    /// existing persisted item decodes unchanged. NOT a new `@Model` — an additive
+    /// attribute, so the canonical schema stays at six types (GUARD invariant).
+    var kindRaw: String = PracticeKind.shadow.rawValue
     /// Links back to the coach card / insight or phrasebook entry this item came
     /// from. nil when the target was pasted/typed (no source to link to).
     var sourceID: UUID?
@@ -346,12 +351,20 @@ final class PracticeItem {
         set { originRaw = newValue.rawValue }
     }
 
+    /// Which typed drill (CF-2) this item is practiced with. Decoded from
+    /// `kindRaw`; an unknown raw value falls back to `.shadow`.
+    var kind: PracticeKind {
+        get { PracticeKind(rawValue: kindRaw) ?? .shadow }
+        set { kindRaw = newValue.rawValue }
+    }
+
     init(
         id: UUID = UUID(),
         title: String? = nil,
         sourceText: String = "",
         segments: [String] = [],
         origin: Origin = .pasted,
+        kind: PracticeKind = .shadow,
         sourceID: UUID? = nil,
         createdAt: Date = Date()
     ) {
@@ -360,6 +373,7 @@ final class PracticeItem {
         self.sourceText = sourceText
         self.segments = segments
         self.originRaw = origin.rawValue
+        self.kindRaw = kind.rawValue
         self.sourceID = sourceID
         self.createdAt = createdAt
     }
