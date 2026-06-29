@@ -318,13 +318,11 @@ struct AppView: View {
         .buttonStyle(.plain)
         .tag(AppFeature.ActiveTab.remappings)
 
-        Button {
-          store.send(.setActiveTab(.history))
-        } label: {
-          Label("History", systemImage: "clock")
-        }
-        .buttonStyle(.plain)
-        .tag(AppFeature.ActiveTab.history)
+        // History is now a top-level section of the companion window
+        // (`MacHistoryView`, backed by the synced SwiftData store) — it no longer
+        // lives in this legacy settings window. The `.history` reducer/state stays
+        // wired but unreachable from this UI; full removal rides with retiring the
+        // legacy `@Shared` JSON store (data-consolidation follow-up).
 
         Button {
           store.send(.setActiveTab(.about))

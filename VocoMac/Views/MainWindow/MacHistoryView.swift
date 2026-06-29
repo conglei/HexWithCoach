@@ -34,7 +34,10 @@ import VocoCore
 
 struct MacHistoryView: View {
     /// Persisted so History reopens on the segment the user last browsed (HS-1).
-    @AppStorage("voco.mac.history.segment") private var segment: MacHistorySegment = .notes
+    /// Defaults to **Dictation** on macOS: the Mac's primary capture is the
+    /// always-on hotkey (cross-app dictation), so opening on Notes would show an
+    /// empty list for most users. (iOS defaults to Notes, where in-app notes lead.)
+    @AppStorage("voco.mac.history.segment") private var segment: MacHistorySegment = .dictation
     /// Active date-scope chip; bounds the windowed fetch (HS-2). Default This week.
     @State private var scope: MacHistoryScope = .week
     /// How many rows the current window may materialize. "Load older" raises this;
