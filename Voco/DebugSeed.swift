@@ -372,21 +372,16 @@ enum DebugSeed {
 
     // MARK: - File-backed stores
 
-    /// Locate the App Group `Coach` directory the live stores read from. Falls back
-    /// to a temp dir (still functional) when the App Group is unavailable.
-    private static var coachDirectory: URL {
-        let base = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: HexAppGroup.identifier)
-            ?? FileManager.default.temporaryDirectory
-        return base.appendingPathComponent("Coach", isDirectory: true)
-    }
-
+    /// The seeded profile/snapshot files MUST land where the live readers look, so
+    /// resolve through the single source of truth (`CoachPaths`) — never an inline
+    /// copy of the path logic, which is exactly how the drift this guards against
+    /// crept in.
     private static var profileStore: LearnerProfileStore {
-        LearnerProfileStore(url: coachDirectory.appendingPathComponent("profile.json"))
+        LearnerProfileStore(url: CoachPaths.profileURL())
     }
 
     private static var snapshotStore: CoachSnapshotStore {
-        CoachSnapshotStore(url: coachDirectory.appendingPathComponent("snapshots.json"))
+        CoachSnapshotStore(url: CoachPaths.snapshotsURL())
     }
 
     /// Seed a LearnerProfile with per-lens levels and a set of RecurringPatterns

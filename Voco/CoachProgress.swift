@@ -31,12 +31,10 @@ final class CoachProgress {
     }
 
     /// The LearnerProfile the engine maintains (levels + mastered patterns).
+    /// Resolves the path through `CoachPaths` so this reader and the engine's writer
+    /// can't drift (matters on the no-entitlement / nil-container branch).
     func loadProfile() -> LearnerProfile {
-        let dir = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: HexAppGroup.identifier)?
-            .appendingPathComponent("Coach", isDirectory: true)
-            ?? FileManager.default.temporaryDirectory
-        return LearnerProfileStore(url: dir.appendingPathComponent("profile.json")).load()
+        LearnerProfileStore(url: CoachPaths.profileURL()).load()
     }
 
     /// The CI-12 cross-lens progress roll-up: per-lens levels + trends, a
