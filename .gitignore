@@ -12,7 +12,7 @@ bin
 scripts
 tools
 ExportOptions.plist
-HexCore/.build
+VocoCore/.build
 **/.swiftpm/xcode/xcuserdata/
 FluidAudio/
 node_modules/
@@ -26,4 +26,3 @@ node_modules/
 
 # On-device phoneme model (large; sideloaded for testing, not committed)
 tools/pronunciation-assets/PhonemeCTC.mlpackage/
-VocoCore/.build/

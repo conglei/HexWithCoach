@@ -16,7 +16,7 @@ import Foundation
 /// match the `group.*` identifier configured (identically) on both targets in
 /// Xcode (Signing & Capabilities ▸ App Groups).
 public enum HexAppGroup {
-    public static let identifier = "group.stonefrontier.hex"
+    public static let identifier = "group.co.stonefrontier.voco"
 }
 
 /// A transcription result handed from the host app to the keyboard.
