@@ -13,6 +13,20 @@
 
 import Foundation
 
+/// One observed (actually-produced) sound for a weak phoneme, with how often the
+/// recognizer heard it across the note's weak instances. Most-common first.
+public struct ObservedSound: Sendable, Equatable {
+    /// The IPA the recognizer actually heard (always differs from the expected sound).
+    public let symbol: String
+    /// How many of the expected sound's weak instances came out as this sound.
+    public let count: Int
+
+    public init(symbol: String, count: Int) {
+        self.symbol = symbol
+        self.count = count
+    }
+}
+
 /// One "sound to work on" for a note: an expected phoneme that came out weak,
 /// what it most often turned into, how bad/often, and example words.
 public struct PronunciationLesson: Sendable, Equatable, Identifiable {
@@ -22,6 +36,12 @@ public struct PronunciationLesson: Sendable, Equatable, Identifiable {
     /// differed from `expected`. `nil` when the right sound was attempted but came
     /// out unclear (no dominant substitution) — then it's "unclear", not "you said X".
     public let actual: String?
+    /// Everything the recognizer actually heard for this sound's weak instances, most
+    /// common first (excludes instances that hit the expected sound but scored weakly).
+    /// Even when no single substitution dominated enough to set `actual`, this still
+    /// tells the learner what their attempts *came out as* — e.g. "/ə/ … sounded more
+    /// like /ɛ/". Empty when the model couldn't pin down any substitute.
+    public let observed: [ObservedSound]
     /// Mean GOP across this sound's weak instances (≤ 0, more negative = worse).
     public let meanGOP: Double
     /// How many weak instances of this sound occurred in the note.
@@ -31,9 +51,27 @@ public struct PronunciationLesson: Sendable, Equatable, Identifiable {
 
     public var id: String { expected }
 
-    public init(expected: String, actual: String?, meanGOP: Double, count: Int, exampleWords: [String]) {
+    /// The single observed sound worth naming in the soft "unclear → sounded more like
+    /// /X/" framing: the most common production when it didn't already dominate enough
+    /// to be the `actual` substitution, and it still accounts for a meaningful share
+    /// (≥ 30%) of the weak instances. `nil` when productions were too scattered to name
+    /// one honestly — then the sound is just "unclear".
+    public var leadingObserved: String? {
+        guard actual == nil, let top = observed.first else { return nil }
+        return Double(top.count) >= Double(count) * 0.3 ? top.symbol : nil
+    }
+
+    public init(
+        expected: String,
+        actual: String?,
+        observed: [ObservedSound] = [],
+        meanGOP: Double,
+        count: Int,
+        exampleWords: [String]
+    ) {
         self.expected = expected
         self.actual = actual
+        self.observed = observed
         self.meanGOP = meanGOP
         self.count = count
         self.exampleWords = exampleWords
@@ -81,16 +119,20 @@ public enum PronunciationSummary {
 
         let lessons = byExpected.map { expected, acc -> PronunciationLesson in
             let mean = acc.gops.reduce(0, +) / Double(acc.gops.count)
-            // Most common substitution; only call it a substitution if it happened
-            // in at least half the weak instances (otherwise the sound was attempted
-            // but just unclear). Ties broken toward the smaller symbol for determinism.
-            let topSub = acc.substitutions.max { lhs, rhs in
-                lhs.value != rhs.value ? lhs.value < rhs.value : lhs.key > rhs.key
-            }
-            let actual = (topSub.map { Double($0.value) >= Double(acc.gops.count) / 2 } ?? false) ? topSub?.key : nil
+            // The full distribution of what came out, most common first (ties broken
+            // toward the smaller symbol for determinism).
+            let observed = acc.substitutions
+                .map { ObservedSound(symbol: $0.key, count: $0.value) }
+                .sorted { $0.count != $1.count ? $0.count > $1.count : $0.symbol < $1.symbol }
+            // Only call it a substitution ("you said /X/") if one sound dominated at
+            // least half the weak instances; otherwise the sound was attempted but came
+            // out unclear, and `observed` carries the softer "sounded more like" detail.
+            let actual = (observed.first.map { Double($0.count) >= Double(acc.gops.count) / 2 } ?? false)
+                ? observed.first?.symbol : nil
             return PronunciationLesson(
                 expected: expected,
                 actual: actual,
+                observed: observed,
                 meanGOP: mean,
                 count: acc.gops.count,
                 exampleWords: Array(acc.words.prefix(exampleLimit))

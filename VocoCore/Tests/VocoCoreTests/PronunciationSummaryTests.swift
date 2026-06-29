@@ -100,6 +100,60 @@ struct PronunciationSummaryTests {
         #expect(lessons[1].actual == nil)
     }
 
+    @Test func keepsObservedDistributionForDominantSubstitution() {
+        let result = PronunciationResult(words: [
+            WordScore(word: "implement", phonemes: [ph("m", gop: -9.3, actual: "n")]),
+            WordScore(word: "moment", phonemes: [ph("m", gop: -8.0, actual: "n")]),
+        ])
+        let m = PronunciationSummary.lessons(from: result)[0]
+        #expect(m.actual == "n")
+        #expect(m.observed == [ObservedSound(symbol: "n", count: 2)])
+        // When a dominant substitution is named, there's no separate "sounded more like".
+        #expect(m.leadingObserved == nil)
+    }
+
+    @Test func surfacesLeadingObservedForUnclearWhenOneSoundLeads() {
+        // 5 weak /ə/: heard as /ɛ/ twice (40%, below the 50% substitution bar),
+        // /ʌ/ once, and attempted (actual == expected) twice.
+        let result = PronunciationResult(words: [
+            WordScore(word: "about", phonemes: [
+                ph("ə", gop: -5.0, actual: "ɛ"), ph("ə", gop: -5.0, actual: "ɛ"),
+                ph("ə", gop: -5.0, actual: "ʌ"), ph("ə", gop: -5.0, actual: "ə"),
+                ph("ə", gop: -5.0, actual: "ə"),
+            ]),
+        ])
+        let l = PronunciationSummary.lessons(from: result)[0]
+        #expect(l.actual == nil)                  // no sound hit 50%
+        #expect(l.count == 5)
+        #expect(l.observed == [ObservedSound(symbol: "ɛ", count: 2),
+                               ObservedSound(symbol: "ʌ", count: 1)])
+        #expect(l.leadingObserved == "ɛ")          // 2/5 = 40% ≥ 30% threshold
+    }
+
+    @Test func noLeadingObservedWhenProductionsAreScattered() {
+        // 5 weak /ə/ with no production reaching 30%: stays plainly "unclear".
+        let result = PronunciationResult(words: [
+            WordScore(word: "about", phonemes: [
+                ph("ə", gop: -5.0, actual: "ɛ"), ph("ə", gop: -5.0, actual: "ʌ"),
+                ph("ə", gop: -5.0, actual: "ɑ"), ph("ə", gop: -5.0, actual: "ə"),
+                ph("ə", gop: -5.0, actual: "ə"),
+            ]),
+        ])
+        let l = PronunciationSummary.lessons(from: result)[0]
+        #expect(l.actual == nil)
+        #expect(l.leadingObserved == nil)          // top is only 1/5 = 20%
+        #expect(l.observed.count == 3)             // distribution still preserved
+    }
+
+    @Test func noObservedWhenSoundAttemptedButUnclear() {
+        let result = PronunciationResult(words: [
+            WordScore(word: "think", phonemes: [ph("θ", gop: -4.0, actual: "θ")]),
+        ])
+        let l = PronunciationSummary.lessons(from: result)[0]
+        #expect(l.observed.isEmpty)                // only ever heard the right sound
+        #expect(l.leadingObserved == nil)
+    }
+
     @Test func emptyWhenNothingWeak() {
         let result = PronunciationResult(words: [
             WordScore(word: "clear", phonemes: [ph("k", gop: 0.0), ph("l", gop: -0.2)]),
