@@ -1,42 +1,53 @@
-# Hex — Voice → Text
+# Voco
 
-Press-and-hold a hotkey to transcribe your voice and paste the result wherever you're typing.
+**Voco** is an on-device dictation and English-coaching app by **StoneFrontier**.
+Speak naturally and Voco transcribes locally, then helps you sound more fluent —
+pronunciation and fluency are analyzed on-device, with an optional bring-your-own-key
+AI lane for deeper review.
 
-**[Download Hex for macOS](https://hex-updates.s3.us-east-1.amazonaws.com/hex-latest.dmg)**
+> Voco is a closed-source, proprietary application. It is **not** open source.
 
-> **Note:** Hex is currently only available for **Apple Silicon** Macs.
+## What's in this repo
 
-Or download via homebrew:
-```bash
-brew install --cask kitlangton-hex
-```
+This repository contains the Voco app and its components:
 
-I've opened-sourced the project in the hopes that others will find it useful! Hex supports both [Parakeet TDT v3](https://github.com/FluidInference/FluidAudio) via the awesome [FluidAudio](https://github.com/FluidInference/FluidAudio) (the default—it's frickin' unbelievable: fast, multilingual, and cloud-optimized) and the awesome [WhisperKit](https://github.com/argmaxinc/WhisperKit) for on-device transcription. We use the incredible [Swift Composable Architecture](https://github.com/pointfreeco/swift-composable-architecture) for structuring the app. Please open issues with any questions or feedback! ❤️
+- **macOS app** (`Hex/`) — the menu-bar voice-to-text app, derived from Hex.
+- **iOS app** (`HexIOS/`) — the on-device dictation app with the English Coach
+  (Review, Shadowing, Phrasebook, Progress).
+- **Custom keyboard extension** (`HexIOSKeyboard/`) — a Wispr-style on-device
+  dictation keyboard.
+- **Shared core** (`HexCore/`, `HexEngine/`) — cross-platform transcription and
+  Coach engine logic (LearnerProfile, FluencySignals, CoachPipeline, etc.).
 
-## Instructions
+Transcription runs fully on-device via [Parakeet TDT v3](https://github.com/FluidInference/FluidAudio)
+(through [FluidAudio](https://github.com/FluidInference/FluidAudio), the default)
+and [WhisperKit](https://github.com/argmaxinc/WhisperKit). The app is structured
+with the [Swift Composable Architecture](https://github.com/pointfreeco/swift-composable-architecture).
 
-Once you open Hex, you'll need to grant it microphone and accessibility permissions—so it can record your voice and paste the transcribed text into any application, respectively.
+## Built on Hex
 
-Once you've configured a global hotkey, there are **two recording modes**:
+Voco is built on **[Hex](https://github.com/kitlangton/Hex)** by Kit Langton,
+used under the **MIT License**. Hex is a wonderful on-device voice-to-text app
+for macOS, and Voco extends it into a cross-platform dictation + coaching
+product.
 
-1. **Press-and-hold** the hotkey to begin recording, say whatever you want, and then release the hotkey to start the transcription process. 
-2. **Double-tap** the hotkey to *lock recording*, say whatever you want, and then **tap** the hotkey once more to start the transcription process.
+See [`LICENSE`](LICENSE) for the Hex MIT license and
+[`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) for the full attribution of
+all third-party components. The same attributions are reproduced in-app under
+**Settings ▸ About ▸ Acknowledgements**.
 
-## Contributing
+## Credits
 
-**Issue reports are welcome!** If you encounter bugs or have feature requests, please [open an issue](https://github.com/kitlangton/Hex/issues).
-
-**Note on Pull Requests:** At this stage, I'm not actively reviewing code contributions for significant features or core logic changes. The project is evolving rapidly and it's easier for me to work directly from issue reports. Bug fixes and documentation improvements are still appreciated, but please open an issue first to discuss before investing time in a large PR. Thanks for understanding!
-
-### Changelog workflow
-
-- **For AI agents:** Run `bun run changeset:add-ai <type> "summary"` (e.g., `bun run changeset:add-ai patch "Fix clipboard timing"`) to create a changeset non-interactively.
-- **For humans:** Run `bunx changeset` when your PR needs release notes. Pick `patch`, `minor`, or `major` and write a short summary—this creates a `.changeset/*.md` fragment.
-- Check what will ship with `bunx changeset status --verbose`.
-- `npm run sync-changelog` (or `bun run tools/scripts/sync-changelog.ts`) mirrors the root `CHANGELOG.md` into `Hex/Resources/changelog.md` so the in-app sheet always matches GitHub releases.
-- The release tool consumes the pending fragments, bumps `package.json` + `Info.plist`, regenerates `CHANGELOG.md`, and feeds the resulting section to GitHub + Sparkle automatically. Releases fail fast if no changesets are queued, so you can't forget.
-- If you truly need to ship without pending Changesets (for example, re-running a failed publish), the release script will now prompt you to confirm and choose a `patch`/`minor`/`major` bump interactively before continuing.
+- **Hex** by Kit Langton — MIT (<https://github.com/kitlangton/Hex>)
+- **FluidAudio / Parakeet TDT v3** — on-device ASR
+- **WhisperKit** — on-device ASR
+- **Swift Composable Architecture** — app architecture
+- and the many other open-source and licensed components listed in
+  [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
 
 ## License
 
-This project is licensed under the MIT License. See `LICENSE` for details.
+Voco is proprietary software © StoneFrontier. All rights reserved. The bundled
+upstream Hex code is licensed under the MIT License (see [`LICENSE`](LICENSE));
+third-party components retain their own licenses (see
+[`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md)).
