@@ -13,6 +13,24 @@ of notes/day, that's hundreds of items — and most are the same few problems re
 user's words, "really not usable." A professional coach never hands you a list of 30; they give a
 short summary and **one thing to start on**.
 
+## Target user (drives the whole calibration — applies to CF-1/CF-2/CF-3)
+The user is **already comfortable speaking English** ("you already speak English for hours a day").
+This is a **polish tool for competent speakers, not a learn-English tool.** It changes *what* we
+surface and *how* we speak, not the structure:
+- **Naturalness over correctness.** Their gaps aren't errors — they're "correct but non-native /
+  circuitous / imprecise." The value is *"here's how a native would say what you just said,"* not
+  "you made a mistake."
+- **Re-weight the lenses.** HIGH value: lexis (word choice / idiom / precision), discourse (clarity /
+  concision / directness), prosody (fillers / pace / executive presence). LOW / subtle-only: basic
+  grammar (flag only genuine nuance) and pronunciation (only persistent accent features that affect
+  how they're *perceived* — never "how to say /θ/"). The ranking must weight accordingly.
+- **Respect their competence — raise the precision bar further.** Flagging trivia to a fluent
+  speaker is insulting and kills trust. The voice is an **expert peer** ("your next 5%"), never a
+  teacher correcting a student. No condescension, no over-explaining basics, no kindergarten
+  gamification (think speaking-coach / Grammarly-for-pros, not Duolingo).
+- **Frame progress as refinement, not remediation** ("you're below a native filler baseline," "20%
+  more direct"), not "errors fixed."
+
 ## Principles (this is a professional coaching tool — must be right, reliable, immediately useful)
 1. **Summary, not a list.** The default surface is a plain-language coach's recap + a single
    prioritized focus. Enumerable lists are opt-in *depth*, never the front door.
@@ -44,8 +62,10 @@ short summary and **one thing to start on**.
    Glanceable landscape; tappable → lens detail.
 3. **Today's focus** — ONE (occasionally up to 3) prioritized focus area: title, **evidence**
    ("12× this week" + an example span), trend, and a one-tap **Practice** that routes to the
-   *matched* drill (CF-2). Chosen by `priority = frequency × severity × trend × learnability`, above
-   an evidence threshold.
+   *matched* drill (CF-2). Chosen by `priority = frequency × severity × trend × learnability ×
+   lensWeight`, above an evidence threshold — where `lensWeight` is tuned for the comfortable speaker
+   (lexis / discourse / prosody high; basic grammar & pronunciation low). The evidence bar is
+   deliberately high so a fluent user is never shown trivia.
 4. **Depth on demand** — tap a lens → its specific patterns; **"browse all findings"** demoted to
    here. The old flat list lives in depth — nothing is lost, it just stops being the default.
 
