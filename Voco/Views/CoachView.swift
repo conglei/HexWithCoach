@@ -41,11 +41,12 @@ struct CoachView: View {
                 switch surface {
                 case .feedback:
                     // Reuse the Review feed verbatim (cards, streak header,
-                    // upsell, detail navigation). `ReviewView` exposes its inner
-                    // content via `feedContent` so we can host it under our own
-                    // NavigationStack/title without a nested stack or doubled
-                    // title.
-                    review.feedContent
+                    // upsell, detail navigation, and the manual-review toolbar).
+                    // `embedded: true` drops Review's own NavigationStack/title
+                    // so it lives under our nav bar — but it's a *real installed
+                    // view*, so its `@Query`/`@State` bind to the environment's
+                    // modelContext and the feed actually shows its cards (FX-1).
+                    ReviewView(coach: coach, preferences: preferences, selectedTab: $selectedTab, embedded: true)
                 case .practice:
                     PracticeView()
                 }
@@ -64,17 +65,7 @@ struct CoachView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     NavigationLink { PhrasebookView() } label: { Image(systemName: "bookmark") }
                 }
-                // Manual "Review now" override, shared with standalone ReviewView.
-                if surface == .feedback {
-                    review.feedToolbar
-                }
             }
         }
-    }
-
-    /// A single `ReviewView` instance reused for both its embeddable `feedContent`
-    /// and its `feedToolbar`, so the feed's `@Query`/`@State` are shared.
-    private var review: ReviewView {
-        ReviewView(coach: coach, preferences: preferences, selectedTab: $selectedTab)
     }
 }
