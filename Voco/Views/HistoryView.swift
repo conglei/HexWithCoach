@@ -18,14 +18,34 @@ struct HistoryView: View {
     @Query(sort: \TranscriptEntry.date, order: .reverse) private var entries: [TranscriptEntry]
     @Query private var allCards: [CoachCardEntity]
     @State private var query = ""
+    /// Persisted so the History tab reopens on the segment the user last browsed.
+    @AppStorage("hex.history.segment") private var segment: HistorySegment = .notes
+
+    /// Which `kind` the selected segment surfaces. HS-1: Notes and Dictation read
+    /// as distinct surfaces even though they share one underlying query.
+    private enum HistorySegment: String, CaseIterable, Identifiable {
+        case notes
+        case dictation
+
+        var id: String { rawValue }
+        var title: String { self == .notes ? "Notes" : "Dictation" }
+        var kind: TranscriptKind { self == .notes ? .note : .dictation }
+    }
 
     /// Only annotate processed/pending once the Coach has actually run — otherwise
     /// every row would show a confusing "pending" badge when coaching is off.
     private var coachActive: Bool { entries.contains { $0.coachAnalyzedAt != nil } }
 
+    /// Entries for the selected segment only — filtered in-memory over the full
+    /// `@Query` for now (HS-2 will add a windowed fetch).
+    private var segmentEntries: [TranscriptEntry] {
+        entries.filter { $0.kind == segment.kind }
+    }
+
     private var filtered: [TranscriptEntry] {
-        guard !query.isEmpty else { return entries }
-        return entries.filter { $0.text.localizedCaseInsensitiveContains(query) }
+        let scoped = segmentEntries
+        guard !query.isEmpty else { return scoped }
+        return scoped.filter { $0.text.localizedCaseInsensitiveContains(query) }
     }
 
     private var grouped: [(day: Date, entries: [TranscriptEntry])] {
@@ -36,29 +56,57 @@ struct HistoryView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            Group {
-                if entries.isEmpty {
-                    ContentUnavailableView(
-                        "No transcripts yet",
-                        systemImage: "text.bubble",
-                        description: Text("Notes and keyboard dictations show up here.")
-                    )
-                } else {
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 24) {
-                            ForEach(grouped, id: \.day) { group in
-                                section(group)
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 16)
+            VStack(spacing: 0) {
+                Picker("Transcript kind", selection: $segment) {
+                    ForEach(HistorySegment.allCases) { segment in
+                        Text(segment.title).tag(segment)
                     }
                 }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+
+                Group {
+                    if segmentEntries.isEmpty {
+                        emptyState
+                    } else {
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 24) {
+                                ForEach(grouped, id: \.day) { group in
+                                    section(group)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 16)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("History")
             .searchable(text: $query, prompt: "Search transcripts")
             .navigationDestination(for: TranscriptEntry.self) { TranscriptDetailView(entry: $0) }
+        }
+    }
+
+    /// Per-segment empty state — distinguishes "no notes" from "no dictations".
+    @ViewBuilder
+    private var emptyState: some View {
+        switch segment {
+        case .notes:
+            ContentUnavailableView(
+                "No notes yet",
+                systemImage: "note.text",
+                description: Text("In-app captures show up here.")
+            )
+        case .dictation:
+            ContentUnavailableView(
+                "No dictations yet",
+                systemImage: "keyboard",
+                description: Text("Keyboard dictations across your apps show up here.")
+            )
         }
     }
 
