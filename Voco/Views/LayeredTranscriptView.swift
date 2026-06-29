@@ -124,22 +124,30 @@ struct LayeredTranscriptView: View {
         }
     }
 
-    /// Soft GOP tint behind a word — warmer = worse. `neutral` (no data) is clear,
-    /// so an unanalyzed note reads as the plain transcript.
+    /// Whether the "slight" (`.fair`) tier also gets a tint. Off by default: only sounds
+    /// that actually need work are colored, so the transcript highlights the few problems
+    /// instead of painting every word. Flip to `true` to also surface slightly-off sounds.
+    static let tintSlightlyOff = false
+
+    /// Soft GOP tint behind a word — warmer = worse. Clear words (and, by default,
+    /// slightly-off ones) stay plain so the eye goes to what genuinely needs work.
     private func tint(for bucket: GOPColoring.Bucket) -> Color {
         switch bucket {
-        case .good: return Color.green.opacity(0.16)
-        case .fair: return Color.orange.opacity(0.22)
         case .weak: return Color.red.opacity(0.24)
-        case .neutral: return .clear
+        case .fair: return Self.tintSlightlyOff ? Color.orange.opacity(0.22) : .clear
+        case .good, .neutral: return .clear
         }
     }
 
     // MARK: - Legend
 
+    /// Only list buckets that actually get a visible tint — i.e. those `tint(for:)`
+    /// doesn't render `.clear`. `.weak` is always tinted; `.fair` only when
+    /// `tintSlightlyOff`; `.good`/`.neutral` stay plain, so they never appear here.
     private var legendBuckets: [GOPColoring.Bucket] {
         let present = Set(decorated.map(\.bucket)).subtracting([.neutral])
-        return [.good, .fair, .weak].filter { present.contains($0) }
+        let tinted: [GOPColoring.Bucket] = Self.tintSlightlyOff ? [.fair, .weak] : [.weak]
+        return tinted.filter { present.contains($0) }
     }
 
     private var hasMarkers: Bool { decorated.contains { $0.marker != nil } || decorated.contains { $0.card != nil } }

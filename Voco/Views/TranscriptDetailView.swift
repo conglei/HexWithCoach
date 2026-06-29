@@ -19,6 +19,18 @@ struct TranscriptDetailView: View {
     /// transcript so the learner can find it in context.
     var highlightSpan: String? = nil
     @State private var audio = AudioPlayer()
+
+    /// Two reading modes for a note. **Note** is the calm default: a plain
+    /// transcript + audio with no per-word coloring and no coaching cards, so a
+    /// note isn't a wall of color you have to decode. **Coaching** opts in to the
+    /// teaching layer — the GOP-tinted transcript plus the structure/word-choice
+    /// and pronunciation feedback. Arriving from a Coach card jumps straight to
+    /// Coaching so the flagged span shows in context.
+    private enum DetailLens: String, CaseIterable { case note = "Note", coaching = "Coaching" }
+    @State private var lens: DetailLens = .note
+    /// Set the lens from `highlightSpan` only on first appear — never clobber a
+    /// switch the user made by hand.
+    @State private var didInit = false
     /// Which underlined meaning issue the Coach panel is currently showing. Set by
     /// tapping an underline in the transcript; defaults to the first issue.
     @State private var focusedCardPID: PersistentIdentifier?
@@ -37,12 +49,21 @@ struct TranscriptDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     header
 
-                    // When we have word timings + audio, render the layered coaching
-                    // transcript (CI-9): bidirectional audio↔text sync PLUS the
-                    // persisted objective signals (per-word GOP tint, pause/filler
-                    // markers) and any keyed meaning spans, all inline. Read-only — it
-                    // never triggers analysis. Otherwise plain text.
-                    if let words = entry.wordTimings, !words.isEmpty, audioURL != nil {
+                    // Calm-by-default vs. coaching-detail (see `DetailLens`): Note
+                    // shows a plain transcript, Coaching reveals the teaching layer.
+                    Picker("View", selection: $lens) {
+                        ForEach(DetailLens.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+
+                    // Coaching mode (with word timings + audio) renders the layered
+                    // coaching transcript (CI-9): bidirectional audio↔text sync PLUS
+                    // the persisted objective signals (selective per-word GOP tint,
+                    // pause/filler markers) and any keyed meaning spans, all inline.
+                    // Read-only — never triggers analysis. Otherwise (Note mode, or no
+                    // word timings) the calm plain transcript.
+                    if lens == .coaching, let words = entry.wordTimings, !words.isEmpty, audioURL != nil {
                         LayeredTranscriptView(
                             words: words,
                             pronunciation: entry.pronunciationResult,
@@ -63,17 +84,15 @@ struct TranscriptDetailView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
+                    // Audio playback stays in both modes.
                     if audioURL != nil {
                         PlayerBar(audio: audio)
                             .hexCard()
                     }
 
-                    // CI-7 / ADR-0004: the objective lane (GOP + fluency) runs
-                    // automatically at capture and persists per note. The summary +
-                    // panel below render those persisted results — no manual trigger.
-                    pronunciationSummary
-
-                    coachPanel.id("coachPanel")
+                    // The coaching layer — meaning/structure first (prominent), then
+                    // the pronunciation summary — only in Coaching mode.
+                    coachingSections
                 }
                 .padding()
             }
@@ -82,7 +101,38 @@ struct TranscriptDetailView: View {
         .navigationTitle("Transcript")
         .navigationBarTitleDisplayMode(.inline)
         .task { if let url = audioURL { audio.load(url) } }
+        .onAppear {
+            // Open straight into Coaching when we arrived from a Coach card, but
+            // only once — respect any later manual switch.
+            guard !didInit else { return }
+            didInit = true
+            if highlightSpan != nil { lens = .coaching }
+        }
         .onDisappear { audio.stop() }
+    }
+
+    /// The coaching layer, shown only in Coaching mode (CI-7 / ADR-0004: the
+    /// objective lane runs automatically at capture and persists per note; this just
+    /// renders the persisted results — no manual trigger). Structure / word-choice
+    /// feedback leads because it's the most actionable, with the pronunciation
+    /// summary below. `PronunciationSummaryCard` already titles itself "Sounds to
+    /// work on", so we don't add a section header above it (that would double the
+    /// label); only the "Structure & word choice" header is added here.
+    @ViewBuilder
+    private var coachingSections: some View {
+        if lens == .coaching {
+            sectionHeader("Structure & word choice")
+            coachPanel.id("coachPanel")
+            pronunciationSummary
+        }
+    }
+
+    /// A small uppercased caption header, matching the caption headers used
+    /// elsewhere in the detail (e.g. the pronunciation card's own title).
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(.caption.weight(.bold)).tracking(1)
+            .foregroundStyle(.secondary)
     }
 
     /// The transcript with the Coach-flagged span emphasized (when we arrived here
