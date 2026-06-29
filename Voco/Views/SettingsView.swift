@@ -18,6 +18,10 @@ struct SettingsView: View {
     /// Re-presents the first-run onboarding flow (owned by ContentView).
     @Binding var showOnboarding: Bool
     @Environment(\.openURL) private var openURL
+    #if DEBUG
+    @Environment(\.modelContext) private var modelContext
+    @State private var seedState = "Seed sample data"
+    #endif
 
     @State private var account = CloudAccountStatus()
     @State private var iCloudEnabled = SyncPreferences.iCloudEnabled
@@ -95,6 +99,10 @@ struct SettingsView: View {
                 Section("About") {
                     NavigationLink("Acknowledgements") { AcknowledgementsView() }
                 }
+
+                #if DEBUG
+                developerSection
+                #endif
             }
             .navigationTitle("Settings")
             .onAppear { incognito = CapturePreferences.incognito }
@@ -331,4 +339,24 @@ struct SettingsView: View {
             description: Text("Custom words and replacements will live here.")
         )
     }
+
+    // MARK: - Developer (DEBUG-only sample-data harness — SEED)
+
+    #if DEBUG
+    @ViewBuilder
+    private var developerSection: some View {
+        Section {
+            Button {
+                DebugSeed.seed(into: modelContext)
+                seedState = "Seeded \u{2014} restart Coach/History tabs"
+            } label: {
+                Label(seedState, systemImage: "wand.and.stars")
+            }
+        } header: {
+            Text("Developer")
+        } footer: {
+            Text("Injects a realistic sample corpus (notes, coach cards across all five lenses, observations, profile, snapshots, practice) so screens can be developed and QA'd with data. DEBUG builds only. Also runs at launch when VOCO_SEED=1.")
+        }
+    }
+    #endif
 }
