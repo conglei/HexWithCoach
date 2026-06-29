@@ -300,8 +300,7 @@ struct OnboardingView: View {
 
 #Preview {
     let container = try! ModelContainer(
-        for: TranscriptEntry.self, TranscriptAnalysis.self, CoachObservation.self,
-        PracticeItem.self, PracticeAttempt.self,
+        for: TranscriptStore.schema,
         configurations: ModelConfiguration(isStoredInMemoryOnly: true)
     )
     return OnboardingView(model: DictationModel(modelContext: container.mainContext))

@@ -24,8 +24,7 @@ import VocoCore
 
         init() {
             container = try! ModelContainer(
-                for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
-                CoachObservation.self,
+                for: TranscriptStore.schema,
                 configurations: ModelConfiguration(isStoredInMemoryOnly: true)
             )
             context = container.mainContext

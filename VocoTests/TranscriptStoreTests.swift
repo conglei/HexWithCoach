@@ -21,8 +21,7 @@ import VocoCore
 
     private func makeContext() -> ModelContext {
         let container = try! ModelContainer(
-            for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
-            CoachObservation.self, PracticeItem.self, PracticeAttempt.self,
+            for: TranscriptStore.schema,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         return ModelContext(container)
@@ -181,8 +180,7 @@ import VocoCore
     /// guard), and return both so the model graph stays alive while we query.
     private func makeContainerAndContext() -> (ModelContainer, ModelContext) {
         let container = try! ModelContainer(
-            for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
-            CoachObservation.self, PracticeItem.self, PracticeAttempt.self,
+            for: TranscriptStore.schema,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         return (container, ModelContext(container))
