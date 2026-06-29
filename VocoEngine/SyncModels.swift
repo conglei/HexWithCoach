@@ -55,6 +55,14 @@ final class TranscriptEntry {
     /// Host app for a cross-app dictation, when known. (Keyboard extensions can't
     /// read the host app, so this is usually nil for dictations for now.)
     var sourceAppName: String?
+    /// Bundle identifier of the host app for a cross-app dictation, when known.
+    /// Populated by the macOS app (which can read the frontmost app); used to
+    /// resolve an app icon/name in History. Additive + defaulted for CloudKit (MC-R3).
+    var sourceAppBundleID: String?
+    /// Length of the captured audio in seconds. Carried from the macOS `Transcript`
+    /// so History can show a duration without faulting the heavy sidecar. Additive +
+    /// defaulted for CloudKit (MC-R3); 0 when unknown.
+    var duration: TimeInterval = 0
     /// Portable audio identity — a filename inside the App Group Audio dir, not an
     /// absolute path (RC-0 / data-model §4). nil if audio wasn't retained.
     var audioFilename: String?
@@ -119,12 +127,22 @@ final class TranscriptEntry {
         return created
     }
 
-    init(text: String, date: Date, kind: TranscriptKind, sourceAppName: String? = nil, audioFilename: String? = nil) {
+    init(
+        text: String,
+        date: Date,
+        kind: TranscriptKind,
+        sourceAppName: String? = nil,
+        sourceAppBundleID: String? = nil,
+        audioFilename: String? = nil,
+        duration: TimeInterval = 0
+    ) {
         self.text = text
         self.date = date
         self.kindRaw = kind.rawValue
         self.sourceAppName = sourceAppName
+        self.sourceAppBundleID = sourceAppBundleID
         self.audioFilename = audioFilename
+        self.duration = duration
     }
 }
 

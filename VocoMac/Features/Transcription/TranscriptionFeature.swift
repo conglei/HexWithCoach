@@ -927,17 +927,29 @@ private extension TranscriptionFeature {
         sourceAppName
       )
 
+      var trimmedTranscripts: [Transcript] = []
       transcriptionHistory.withLock { history in
         history.history.insert(transcript, at: 0)
 
         if let maxEntries = hexSettings.maxHistoryEntries, maxEntries > 0 {
           while history.history.count > maxEntries {
             if let removedTranscript = history.history.popLast() {
+              trimmedTranscripts.append(removedTranscript)
               Task {
                  try? await transcriptPersistence.deleteAudio(removedTranscript)
               }
             }
           }
+        }
+      }
+
+      // Mirror the capture into the shared SwiftData store (MC-R3) so it survives
+      // relaunch and syncs via CloudKit. Trimmed entries are removed from the store
+      // too, keeping it in step with the in-memory `maxHistoryEntries` window.
+      await MainActor.run {
+        MacTranscriptStore.shared.insert(transcript)
+        for removed in trimmedTranscripts {
+          MacTranscriptStore.shared.delete(id: removed.id)
         }
       }
     } else {
