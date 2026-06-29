@@ -19,7 +19,15 @@ struct HexIOSApp: App {
     // Capture-first front door (IA-2): the app opens into Home so a new user
     // can dictate immediately. Coaching is opt-in / likely paid, so it's a
     // baited second tab plus a first-run nudge rather than the landing screen.
-    @State private var selectedTab: AppTab = .home
+    @State private var selectedTab: AppTab = {
+        #if DEBUG
+        // DEBUG-only: a seeded screenshot / QA run can land on the Coach tab with
+        // the `-VOCOCoachPractice` launch argument (paired with CoachView opening on
+        // Practice) so the word-swap drill is reachable headlessly. No release effect.
+        if ProcessInfo.processInfo.arguments.contains("-VOCOCoachPractice") { return .coach }
+        #endif
+        return .home
+    }()
     @Environment(\.scenePhase) private var scenePhase
 
     @MainActor
@@ -55,6 +63,10 @@ struct HexIOSApp: App {
                     case "settings":
                         // Keyboard toolbar settings icon → Settings tab.
                         selectedTab = .settings
+                    case "coach":
+                        // Open the Coach hub (Review + Practice) — used by Shortcuts /
+                        // widgets that want to drop the user straight into coaching.
+                        selectedTab = .coach
                     case "enableKeyboard":
                         // Home widget tapped while the keyboard isn't set up yet:
                         // iOS won't let us enable it programmatically, so jump
