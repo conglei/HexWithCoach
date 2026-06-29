@@ -222,6 +222,70 @@ final class CoachCardEntity {
     }
 }
 
+/// Append-only, dated record of a single coaching finding (DM-2). Every insight the
+/// LLM lane verifies and every objective per-word GOP finding is persisted here
+/// *before* curation, so cross-note coaching (frequency over time, regression,
+/// evidence trails, per-word GOP trends) becomes a query rather than something
+/// reconstructed from transient insights. Curation and the LearnerProfile are
+/// unchanged — this only ADDS persistence.
+///
+/// All fields are defaulted/optional so the model is CloudKit-compatible.
+@Model
+final class CoachObservation {
+    var id: UUID = UUID()
+    /// The note this finding came from.
+    var noteID: UUID = UUID()
+    /// The note's capture date — trends bucket by speaking day, not analysis time.
+    var date: Date = Date()
+    var lensRaw: String = ""
+    var originRaw: String = ""
+    /// The canonical pattern slug (LLM lane) — stable across runs for dedupe.
+    var patternKey: String?
+    /// The word this finding is about (objective per-word GOP lane).
+    var word: String?
+    /// Goodness-of-pronunciation score for `word` (≤ 0; closer to 0 = better).
+    var gop: Double?
+    var severity: Int = 0
+    /// The learner's exact words being flagged (LLM lane). Sensitive — never log plainly.
+    var span: String?
+
+    init(
+        id: UUID = UUID(),
+        noteID: UUID = UUID(),
+        date: Date = Date(),
+        lensRaw: String = "",
+        originRaw: String = "",
+        patternKey: String? = nil,
+        word: String? = nil,
+        gop: Double? = nil,
+        severity: Int = 0,
+        span: String? = nil
+    ) {
+        self.id = id
+        self.noteID = noteID
+        self.date = date
+        self.lensRaw = lensRaw
+        self.originRaw = originRaw
+        self.patternKey = patternKey
+        self.word = word
+        self.gop = gop
+        self.severity = severity
+        self.span = span
+    }
+}
+
+extension CoachObservation {
+    /// Which lane authored this observation. Kept out of the `@Model` body so the
+    /// SwiftData schema macro only sees stored properties.
+    enum Origin: String, Codable, Sendable {
+        case objective  // local, free signals (pronunciation GOP, fluency)
+        case llm        // verified LLM-lane insights
+    }
+
+    var lens: Lens { Lens(rawValue: lensRaw) ?? .grammar }
+    var origin: Origin { Origin(rawValue: originRaw) ?? .objective }
+}
+
 /// Persistent audio storage in the App Group container, so recordings survive
 /// (the prototype deleted them) and are available for playback / shadowing.
 enum AudioStore {
@@ -344,12 +408,14 @@ enum TranscriptStore {
         if SyncPreferences.iCloudEnabled,
            let cloud = try? ModelContainer(
                for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
+               CoachObservation.self,
                configurations: ModelConfiguration(cloudKitDatabase: .automatic)
            ) {
             return cloud
         }
         if let local = try? ModelContainer(
             for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
+            CoachObservation.self,
             configurations: ModelConfiguration(cloudKitDatabase: .none)
         ) {
             return local
@@ -357,6 +423,7 @@ enum TranscriptStore {
         // In-memory last resort so the app still runs.
         return try! ModelContainer(
             for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
+            CoachObservation.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
     }

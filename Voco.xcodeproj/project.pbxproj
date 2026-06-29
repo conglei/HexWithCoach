@@ -35,6 +35,7 @@
 		4F0D6A012F1A000100000001 /* VocoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 476316262E5FB31400913CDE /* VocoCore */; };
 		4F0D6A022F1A000100000001 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = 47E05E012D444EE900D26DA6 /* ComposableArchitecture */; };
 		57F3BA759BCAE4382B151EA7 /* SessionLengthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 576F8B0BC68A98BFE7D3BF90 /* SessionLengthTests.swift */; };
+		DM20CObservLog0000000002 /* CoachObservationLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DM20CObservLog0000000001 /* CoachObservationLogTests.swift */; };
 		6D7FF79DEE8D6EAE217DD00B /* voco.icon in Resources */ = {isa = PBXBuildFile; fileRef = 4C1B1586395136E1BA3BCA93 /* voco.icon */; };
 		75320C11A4C07BB3067CEA41 /* KeyboardState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28A2C51A566F778F0C01018E /* KeyboardState.swift */; };
 		7BA7464C2FBD689B00814C43 /* MLXAudioSTT in Frameworks */ = {isa = PBXBuildFile; productRef = 7BA7464B2FBD689B00814C43 /* MLXAudioSTT */; };
@@ -119,6 +120,7 @@
 		4EFA06EC2FEF86F500A6BFA0 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		4EFA06EE2FEF86F500A6BFA0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		576F8B0BC68A98BFE7D3BF90 /* SessionLengthTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionLengthTests.swift; sourceTree = "<group>"; };
+		DM20CObservLog0000000001 /* CoachObservationLogTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CoachObservationLogTests.swift; sourceTree = "<group>"; };
 		B53355FF2D7B8D4900E5F542 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		C1408FD4F795F2464BB81846 /* VocoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VocoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C5EEF22628FF169BD32E1946 /* KeyboardStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeyboardStateTests.swift; sourceTree = "<group>"; };
@@ -304,6 +306,7 @@
 			isa = PBXGroup;
 			children = (
 				576F8B0BC68A98BFE7D3BF90 /* SessionLengthTests.swift */,
+				DM20CObservLog0000000001 /* CoachObservationLogTests.swift */,
 				CA55E77DF9B4266D2223256A /* TranscriptStoreTests.swift */,
 			);
 			path = VocoTests;
@@ -660,6 +663,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				57F3BA759BCAE4382B151EA7 /* SessionLengthTests.swift in Sources */,
+				DM20CObservLog0000000002 /* CoachObservationLogTests.swift in Sources */,
 				BEEA5EF1AF21DD225F48CE3F /* TranscriptStoreTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
