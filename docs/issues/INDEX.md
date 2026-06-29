@@ -83,10 +83,54 @@ surfaces are thin without it.
 | [RC-4](RC-4-shadowing-practice.md) | Shadowing practice (rephrase → TTS → repeat) | RC-3 | M | TODO |
 | [RC-5](RC-5-phrasebook.md) | Save / phrasebook | RC-3 | S | TODO |
 | [RC-6](RC-6-progress-rewards.md) | Progress & rewards (streak, deltas, wins, level, digest) | CE-2, CE-3 | L | TODO |
-| [RC-7](RC-7-ia-reshuffle.md) | IA reshuffle: Review home, History → search, capture off home | RC-3 | M | TODO |
+| ~~[RC-7](RC-7-ia-reshuffle.md)~~ | ~~IA reshuffle: Review home, History → search~~ → **SUPERSEDED by [IA-1](IA-1-tab-restructure-coach.md)** | — | — | SUPERSEDED |
 | [RC-8](RC-8-privacy-capture-controls.md) | Privacy & capture controls (per-app exclude, incognito) | RC-0 | M | TODO |
 
 - **M-Engine — Deep coach works:** RC-0, CE-1, CE-2, CE-3 (+CE-4/CE-5) — verified, personalized analysis.
 - **M-Review — Activation:** RC-2, RC-3 (curated cards → feed → BYOK activation).
 - **M-Coach — Loop closed:** RC-4, RC-5, RC-6 (shadow, save, progress/reward).
-- **M-Companion — Front door:** RC-7, RC-8 (Review as home; capture controls).
+- **M-Companion — Front door:** ~~RC-7~~ → IA-1 (Phase 3), RC-8 (capture controls).
+
+## Phase 3 — Notebook & Coach v2
+
+A dedicated **Practice** experience (incl. paste-your-own), a scalable **History**
+(Notes/Dictation, pagination, delete), the **Coach** tab merge (Review + Practice), and the
+**data-model foundation** (lean row + analysis sidecar + observation log) that makes cross-note
+coaching durable. Data-model design:
+[transcript-analysis-split-plan.md](../transcript-analysis-split-plan.md). **IA-1 supersedes the
+RC-7 plan** — Home keeps capture, History stays primary, Review+Practice merge.
+
+### Foundation (data model) — do first
+| ID | Title | Depends on | Size | Status |
+|----|-------|-----------|------|--------|
+| [DM-1](DM-1-transcript-analysis-split.md) | Split TranscriptEntry + analysis sidecar | — | M | TODO |
+| [DM-2](DM-2-coach-observation-log.md) | CoachObservation log + curation/profile as projections | DM-1 | L | TODO |
+
+### History scaling
+| ID | Title | Depends on | Size | Status |
+|----|-------|-----------|------|--------|
+| [HS-1](HS-1-history-notes-dictation-segment.md) | History: Notes/Dictation segment | — | S | TODO |
+| [HS-2](HS-2-history-windowed-fetch.md) | History: windowed fetch + date-scope chips | DM-1, HS-1 | M | TODO |
+| [HS-3](HS-3-history-delete-cascade.md) | History: delete + cascade | DM-1, DM-2 | M | TODO |
+
+### Navigation
+| ID | Title | Depends on | Size | Status |
+|----|-------|-----------|------|--------|
+| [IA-1](IA-1-tab-restructure-coach.md) | Tab restructure: merge Review+Practice → Coach (supersedes RC-7) | — | M | TODO |
+| [IA-2](IA-2-coach-activation.md) | Coach activation: baited empty state + first-run nudge | IA-1, RC-3 | S | TODO |
+
+### Practice
+| ID | Title | Depends on | Size | Status |
+|----|-------|-----------|------|--------|
+| [PR-1](PR-1-practice-item-model.md) | PracticeItem model + store | — | S | TODO |
+| [PR-2](PR-2-practice-surface.md) | Practice surface in the Coach tab | IA-1, PR-1 | M | TODO |
+| [PR-3](PR-3-paste-ingest.md) | Paste-to-practice ingest → segment → shadowing | PR-1, PR-2 | M | TODO |
+
+### Future / not yet scoped
+- **PR-4** — Practice Share Extension ("Share → Voco: Practice") — depends PR-3.
+- **HS-4** — Dictation auto-expiry (prune dictations older than N days; keep notes) — depends DM-1.
+- **CT-1** — Per-word pronunciation trends UI (query `CoachObservation`) — depends DM-2.
+- **CT-2** — Pattern frequency/regression + evidence-trail UI — depends DM-2.
+
+**Suggested order:** DM-1 → DM-2 (foundation), alongside HS-1; then HS-2, HS-3, IA-1; then
+PR-1 → PR-2 → PR-3; CT-* after DM-2.
