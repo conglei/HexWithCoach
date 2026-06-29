@@ -40,6 +40,41 @@ public struct PronunciationResult: Sendable, Equatable, Codable {
     }
 }
 
+// MARK: - On-device model location (sideload / download target)
+
+/// The on-disk layout of the on-device pronunciation assets.
+///
+/// The phoneme CTC model is loaded from `<Application Support>/Pronunciation/`
+/// (the historical dev "sideload" directory). The download-on-demand delivery
+/// (CI-8) targets this same directory so runtime loading via `PronunciationAnalyzer`
+/// is unchanged whether the model was sideloaded or downloaded.
+public enum PronunciationModelLocation {
+    /// The model bundle name the runtime loads (an unpacked `.mlpackage`).
+    public static let modelFileName = "PhonemeCTC.mlpackage"
+
+    /// `<Application Support>/Pronunciation/`, created if needed.
+    public static func directory(fileManager: FileManager = .default) throws -> URL {
+        let appSupport = try fileManager.url(
+            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
+        )
+        let dir = appSupport.appendingPathComponent("Pronunciation", isDirectory: true)
+        try fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// The destination URL for the model inside the sideload directory.
+    public static func modelURL(fileManager: FileManager = .default) throws -> URL {
+        try directory(fileManager: fileManager).appendingPathComponent(modelFileName)
+    }
+
+    /// Whether the model is present on disk (downloaded or sideloaded). Does not
+    /// check the app bundle — a bundled model never needs a download.
+    public static func isInstalled(fileManager: FileManager = .default) -> Bool {
+        guard let url = try? modelURL(fileManager: fileManager) else { return false }
+        return fileManager.fileExists(atPath: url.path)
+    }
+}
+
 public enum PronunciationError: Error, LocalizedError {
     case noAudioFrames
     case noRecognizableWords
