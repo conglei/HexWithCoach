@@ -13,12 +13,19 @@ import AVFoundation
 /// score: `gop ≤ 0`, closer to 0 = the audio confidently matched the expected
 /// phoneme; very negative = likely mispronounced.
 public struct PhonemeScore: Sendable, Equatable, Codable {
-    public let symbol: String       // IPA
+    public let symbol: String       // expected IPA (what the word calls for)
     public let start: Double        // seconds
     public let end: Double
     public let gop: Double
-    public init(symbol: String, start: Double, end: Double, gop: Double) {
+    /// The most-likely *actually-pronounced* IPA over this phoneme's span (the mode
+    /// of the model's per-frame argmax, excluding blank). `nil` when undetermined.
+    /// Equal to `symbol` when the learner produced the expected sound; differs when
+    /// they substituted another sound — which is what makes "expected → you said"
+    /// feedback possible. Optional + `decodeIfPresent` keeps old persisted data valid.
+    public let actualSymbol: String?
+    public init(symbol: String, start: Double, end: Double, gop: Double, actualSymbol: String? = nil) {
         self.symbol = symbol; self.start = start; self.end = end; self.gop = gop
+        self.actualSymbol = actualSymbol
     }
 }
 
@@ -381,7 +388,10 @@ public final class PronunciationAnalyzer {
         ) else { throw PronunciationError.alignmentFailed }
 
         // Contrastive GOP per phoneme: mean over its frames of (logP(expected) − max logP).
+        // Alongside it, decode the actually-pronounced sound (mode of per-frame argmax)
+        // so we can show "expected /x/ → you said /y/".
         let stride = recognizer.vocab.frameStride
+        let blank = recognizer.vocab.blankId
         var scores: [PhonemeScore] = []
         for (i, span) in spans.enumerated() {
             let f0 = max(0, Int((span.start / stride).rounded()))
@@ -395,11 +405,34 @@ public final class PronunciationAnalyzer {
                 sum += (expected - best)
                 n += 1
             }
-            scores.append(PhonemeScore(symbol: symbols[i], start: span.start, end: span.end, gop: n > 0 ? sum / Double(n) : 0))
+            let actualSymbol = Self.dominantClass(in: emissions, frames: f0 ..< f1, blank: blank)
+                .flatMap { recognizer.vocab.idToSymbol[$0] }
+            scores.append(PhonemeScore(symbol: symbols[i], start: span.start, end: span.end,
+                                       gop: n > 0 ? sum / Double(n) : 0, actualSymbol: actualSymbol))
         }
 
         let wordScores = ranges.map { WordScore(word: $0.word, phonemes: Array(scores[$0.start ..< $0.end])) }
         return PronunciationResult(words: wordScores)
+    }
+
+    /// The most frequently dominant (per-frame argmax) non-blank class over a frame
+    /// range — i.e. the sound the model most often "heard" while the speaker was
+    /// producing this phoneme. Returns `nil` if every in-range frame is blank-dominated
+    /// or the range is empty. Pure and model-free so it's unit-testable.
+    static func dominantClass(in emissions: [[Float]], frames: Range<Int>, blank: Int) -> Int? {
+        var tally: [Int: Int] = [:]
+        for t in frames where t >= 0 && t < emissions.count {
+            let row = emissions[t]
+            guard !row.isEmpty else { continue }
+            var bestId = 0
+            var bestVal = -Float.infinity
+            for (c, v) in row.enumerated() where v > bestVal { bestVal = v; bestId = c }
+            if bestId != blank { tally[bestId, default: 0] += 1 }
+        }
+        // Highest tally wins; ties broken deterministically toward the smaller class id.
+        return tally.max { lhs, rhs in
+            lhs.value != rhs.value ? lhs.value < rhs.value : lhs.key > rhs.key
+        }?.key
     }
 }
 

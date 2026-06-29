@@ -28,6 +28,10 @@ struct LayeredTranscriptView: View {
     /// (keyed) meaning underlines. Empty when keyless / no LLM insights yet.
     let cards: [CoachCardEntity]
     let audio: AudioPlayer
+    /// Tapping a meaning underline reports its card to the host so the host can
+    /// focus it in the browsable Coach panel ("1 of N"). When nil, the tap opens a
+    /// standalone detail sheet instead.
+    var onSelectCard: ((CoachCardEntity) -> Void)? = nil
 
     /// Tap a word → its phoneme/GOP detail (objective lane).
     @State private var selectedWord: WordScore?
@@ -111,7 +115,7 @@ struct LayeredTranscriptView: View {
     /// word opens its phoneme detail; a plain word just seeks the audio.
     private func handleTap(_ item: DecoratedWord) {
         if let card = item.card {
-            selectedCard = card
+            if let onSelectCard { onSelectCard(card) } else { selectedCard = card }
         } else if let score = item.score {
             selectedWord = score
         } else {
@@ -319,26 +323,34 @@ private struct PhonemeDetailSheet: View {
     let word: WordScore
     @Environment(\.dismiss) private var dismiss
 
+    /// The single worst sound in this word — what to lead with.
+    private var weakest: PhonemeScore? {
+        word.phonemes
+            .filter { GOPColoring.bucket(forGOP: $0.gop) == .weak }
+            .min { $0.gop < $1.gop }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 16) {
                     Text(word.word).font(.largeTitle.weight(.bold))
-                    Text("Closer to 0 = closer to native. Tap-through is read-only.")
-                        .font(.footnote).foregroundStyle(.secondary)
 
-                    ForEach(Array(word.phonemes.enumerated()), id: \.offset) { _, p in
-                        HStack(spacing: 10) {
-                            Text(p.symbol).font(.title3.monospaced())
-                                .frame(minWidth: 44, alignment: .leading)
-                                .foregroundStyle(color(for: p.gop))
-                            Text(String(format: "%.2f–%.2fs", p.start, p.end))
-                                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                            Spacer()
-                            Text(String(format: "GOP %.2f", p.gop))
-                                .font(.caption.monospacedDigit()).foregroundStyle(color(for: p.gop))
-                        }
+                    if let w = weakest {
+                        weakestCallout(w)
+                    } else {
+                        Label("This sounded clear", systemImage: "checkmark.circle.fill")
+                            .font(.headline).foregroundStyle(.green)
                     }
+
+                    Text("EVERY SOUND")
+                        .font(.caption.weight(.semibold)).tracking(0.5).foregroundStyle(.secondary)
+                    ForEach(Array(word.phonemes.enumerated()), id: \.offset) { _, p in
+                        phonemeRow(p)
+                    }
+
+                    Text("Closer to 0 = closer to native. Read-only.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
@@ -346,6 +358,55 @@ private struct PhonemeDetailSheet: View {
             .navigationTitle("Pronunciation")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+    }
+
+    /// The hero: the expected sound vs. what the learner actually produced.
+    @ViewBuilder private func weakestCallout(_ p: PhonemeScore) -> some View {
+        let substituted = p.actualSymbol.map { $0 != p.symbol } ?? false
+        VStack(alignment: .leading, spacing: 8) {
+            Text("WORK ON THIS SOUND")
+                .font(.caption.weight(.bold)).tracking(0.5).foregroundStyle(color(for: p.gop))
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                ipa(p.symbol, label: "expected", color: color(for: p.gop))
+                if substituted, let actual = p.actualSymbol {
+                    Image(systemName: "arrow.right").foregroundStyle(.secondary)
+                    ipa(actual, label: "you said", color: .secondary)
+                }
+            }
+            Text(substituted
+                 ? "Aim for /\(p.symbol)/ — it came out closer to /\(p.actualSymbol ?? "")/."
+                 : "The /\(p.symbol)/ sound came out unclear.")
+                .font(.callout).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(color(for: p.gop).opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func ipa(_ symbol: String, label: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+            Text("/\(symbol)/").font(.system(.largeTitle, design: .monospaced).weight(.bold)).foregroundStyle(color)
+        }
+    }
+
+    @ViewBuilder private func phonemeRow(_ p: PhonemeScore) -> some View {
+        let showActual = (p.actualSymbol.map { $0 != p.symbol } ?? false)
+            && GOPColoring.bucket(forGOP: p.gop) != .good
+        HStack(spacing: 10) {
+            HStack(spacing: 4) {
+                Text(p.symbol).font(.title3.monospaced()).foregroundStyle(color(for: p.gop))
+                if showActual, let actual = p.actualSymbol {
+                    Text("→ \(actual)").font(.caption.monospaced()).foregroundStyle(.secondary)
+                }
+            }
+            .frame(minWidth: 64, alignment: .leading)
+            Text(String(format: "%.2f–%.2fs", p.start, p.end))
+                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+            Spacer()
+            Text(String(format: "GOP %.2f", p.gop))
+                .font(.caption.monospacedDigit()).foregroundStyle(color(for: p.gop))
         }
     }
 
