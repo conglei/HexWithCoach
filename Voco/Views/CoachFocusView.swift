@@ -445,13 +445,9 @@ struct LensDetailView: View {
     }
 
     private func reload() {
-        // Match `DebugSeed` / `CoachFocusModel`: append "Coach" to whichever base we
-        // get so the temp-dir fallback also lands in `<base>/Coach`.
-        let base = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: HexAppGroup.identifier)
-            ?? FileManager.default.temporaryDirectory
-        let dir = base.appendingPathComponent("Coach", isDirectory: true)
-        let profile = LearnerProfileStore(url: dir.appendingPathComponent("profile.json")).load()
+        // Single source of truth (`CoachPaths`) — same path the engine writes and
+        // the seed seeds, on both the entitled and the nil-container branch.
+        let profile = LearnerProfileStore(url: CoachPaths.profileURL()).load()
         patterns = profile.patterns
             .filter { $0.lens == lens }
             .sorted { $0.frequency > $1.frequency }

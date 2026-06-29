@@ -84,15 +84,11 @@ enum TranscriptDeletion {
         try? FileManager.default.removeItem(at: url)
     }
 
-    /// The growth-history snapshot log, resolved the same way `CoachService` does
-    /// (App Group `Coach/snapshots.json`, temp dir fallback) so both read/write the
-    /// same file.
+    /// The growth-history snapshot log. Resolved through the single source of truth
+    /// (`CoachPaths`) so the deletion path here targets exactly the file
+    /// `CoachService` writes — including on the no-entitlement / nil-container branch.
     @MainActor
     private static var snapshotStore: CoachSnapshotStore {
-        let dir = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: HexAppGroup.identifier)?
-            .appendingPathComponent("Coach", isDirectory: true)
-            ?? FileManager.default.temporaryDirectory
-        return CoachSnapshotStore(url: dir.appendingPathComponent("snapshots.json"))
+        CoachSnapshotStore(url: CoachPaths.snapshotsURL())
     }
 }

@@ -240,4 +240,33 @@ struct CoachFocusTests {
         #expect(result.source == .llm)
         #expect(result.text == "Tighten your sentences.")
     }
+
+    // MARK: - CoachPaths (single source of truth for the Coach directory)
+
+    @Test
+    func coachPathsAppendsCoachOnNilContainerBranch() {
+        // The bug this guards against: when the App Group container is nil
+        // (no-entitlement sim / tests), callers that drop "Coach" on the fallback
+        // branch land in `<temp>/` while others land in `<temp>/Coach`, so a writer
+        // and a reader silently disagree. `CoachPaths` must append "Coach" on BOTH
+        // branches. A bogus group id guarantees the container is nil.
+        let dir = CoachPaths.directory(appGroupIdentifier: "group.invalid.nonexistent")
+        #expect(dir.lastPathComponent == "Coach")
+        let profile = CoachPaths.profileURL(appGroupIdentifier: "group.invalid.nonexistent")
+        #expect(profile.lastPathComponent == "profile.json")
+        #expect(profile.deletingLastPathComponent().lastPathComponent == "Coach")
+        let snaps = CoachPaths.snapshotsURL(appGroupIdentifier: "group.invalid.nonexistent")
+        #expect(snaps.lastPathComponent == "snapshots.json")
+        #expect(snaps.deletingLastPathComponent().lastPathComponent == "Coach")
+    }
+
+    @Test
+    func coachPathsProfileAndSnapshotsShareOneDirectory() {
+        // Both files must live in the SAME directory so a single reader finds both —
+        // the whole point of one source of truth.
+        let profile = CoachPaths.profileURL(appGroupIdentifier: "group.invalid.nonexistent")
+        let snaps = CoachPaths.snapshotsURL(appGroupIdentifier: "group.invalid.nonexistent")
+        #expect(profile.deletingLastPathComponent() == snaps.deletingLastPathComponent())
+        #expect(profile.deletingLastPathComponent() == CoachPaths.directory(appGroupIdentifier: "group.invalid.nonexistent"))
+    }
 }

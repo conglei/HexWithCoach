@@ -47,25 +47,17 @@ final class CoachFocusModel {
         self.preferences = preferences
     }
 
-    // MARK: - File-backed stores (mirror CoachService / CoachProgress)
+    // MARK: - File-backed stores
 
-    private var coachDirectory: URL {
-        // Mirror `DebugSeed.coachDirectory`: append "Coach" to whichever base we
-        // get, so the App-Group path AND the temp-dir fallback (simulator / no
-        // entitlement) both resolve to `<base>/Coach` — the live readers and the
-        // seed must agree on the fallback path or seeded data is silently invisible.
-        let base = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: HexAppGroup.identifier)
-            ?? FileManager.default.temporaryDirectory
-        return base.appendingPathComponent("Coach", isDirectory: true)
-    }
-
+    /// Resolve through the single source of truth (`CoachPaths`) so this surface
+    /// reads exactly the files `CoachService` writes and `DebugSeed` seeds — on the
+    /// entitled device AND the no-entitlement (nil-container) simulator/test branch.
     private var profileStore: LearnerProfileStore {
-        LearnerProfileStore(url: coachDirectory.appendingPathComponent("profile.json"))
+        LearnerProfileStore(url: CoachPaths.profileURL())
     }
 
     private var snapshotStore: CoachSnapshotStore {
-        CoachSnapshotStore(url: coachDirectory.appendingPathComponent("snapshots.json"))
+        CoachSnapshotStore(url: CoachPaths.snapshotsURL())
     }
 
     // MARK: - Reload
