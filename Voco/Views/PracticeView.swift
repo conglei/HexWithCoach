@@ -247,24 +247,34 @@ private struct ShadowTarget: Identifiable {
     let text: String
 }
 
-// MARK: - Paste destination (PR-3 plugs in here)
+// MARK: - Paste destination (PR-3)
 
-/// PLACEHOLDER destination for the paste hero. PR-3 replaces this with the real
-/// paste → segment → shadow flow (building on `PracticeStore.pasted` /
-/// `PracticeItem.segments`). For PR-2 it's a minimal `TextEditor` + a disabled,
-/// clearly-marked "coming soon" Start so the entry point and navigation exist.
+/// "Practice your own" (PR-3): paste/type arbitrary text → segment it into
+/// speakable sentences → create a `.pasted` `PracticeItem` → drive the EXISTING
+/// shadowing drill (`ShadowingView`) over each segment in sequence → save a
+/// `PracticeAttempt` with the per-segment scores. Pasted text is just a new
+/// *source* for the shadowing engine — no new scoring here.
+///
+/// Nothing touches `TranscriptStore` / History: this is entirely `PracticeItem` /
+/// `PracticeAttempt` (PR-1 models).
 struct PastePracticeView: View {
+    @Environment(\.modelContext) private var modelContext
     @State private var text = ""
+    /// The live segment preview, recomputed as the learner edits.
+    @State private var segments: [String] = []
+    /// The persisted item + its segments, set when a session starts. Drives the
+    /// full-screen shadowing session over the segments.
+    @State private var session: PasteSession?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Paste a script, speech, or phrase you want to practice. We'll break it into speakable lines and drill them.")
+                Text("Paste a script, speech, or phrase you want to practice. We'll break it into speakable lines and drill them one at a time.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
                 TextEditor(text: $text)
-                    .frame(minHeight: 200)
+                    .frame(minHeight: 180)
                     .padding(8)
                     .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 12))
                     .overlay(alignment: .topLeading) {
@@ -275,26 +285,196 @@ struct PastePracticeView: View {
                                 .allowsHitTesting(false)
                         }
                     }
+                    .onChange(of: text) { _, newValue in
+                        segments = SentenceSegmenter.segments(from: newValue)
+                    }
 
-                // Intentionally disabled for PR-2 — PR-3 wires the ingest.
-                Button {
-                    // PR-3: segment `text` → PracticeItem → present ShadowingView.
-                } label: {
-                    Text("Start")
+                segmentPreview
+
+                Button { startSession() } label: {
+                    Text(segments.count <= 1 ? "Start" : "Practice \(segments.count) lines")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(HexGradientButtonStyle())
-                .disabled(true)
-
-                Label("Custom practice is coming soon.", systemImage: "hammer")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
+                .disabled(segments.isEmpty)
             }
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Practice your own")
         .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(item: $session) { session in
+            PasteShadowingSession(item: session.item, segments: session.segments)
+        }
+    }
+
+    // MARK: - Segment preview
+
+    @ViewBuilder
+    private var segmentPreview: some View {
+        if !segments.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("\(segments.count) line\(segments.count == 1 ? "" : "s") to practice")
+                    .font(.caption.weight(.bold)).tracking(0.5)
+                    .foregroundStyle(.secondary)
+                VStack(spacing: 0) {
+                    ForEach(Array(segments.enumerated()), id: \.offset) { index, sentence in
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text("\(index + 1)")
+                                .font(.caption.monospacedDigit().weight(.semibold))
+                                .foregroundStyle(HexTheme.gradient)
+                                .frame(minWidth: 18, alignment: .trailing)
+                            Text(sentence)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.vertical, 8).padding(.horizontal, 4)
+                        if index < segments.count - 1 { Divider() }
+                    }
+                }
+                .hexCard(padding: 12)
+            }
+        }
+    }
+
+    // MARK: - Start
+
+    /// Create + persist a `.pasted` `PracticeItem` from the current text/segments,
+    /// then present the shadowing session over those segments.
+    private func startSession() {
+        let sourceText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !segments.isEmpty else { return }
+        let item = PracticeStore.pasted(sourceText, segments: segments)
+        modelContext.insert(item)
+        try? modelContext.save()
+        session = PasteSession(item: item, segments: segments)
+    }
+}
+
+/// Identifiable wrapper so the persisted item + its frozen segment list can drive
+/// the session's `.fullScreenCover(item:)`.
+private struct PasteSession: Identifiable {
+    let id = UUID()
+    let item: PracticeItem
+    let segments: [String]
+}
+
+// MARK: - Multi-segment shadowing session
+
+/// Drives the EXISTING `ShadowingView` over each segment in sequence: present the
+/// drill for segment N, advance on its completion, collect the per-segment score,
+/// and at the end show a brief summary and save a `PracticeAttempt` onto the item.
+/// Reuses `ShadowingView`/`ShadowingModel` for all TTS/ASR/GOP — this is only the
+/// iterator + summary + persistence.
+private struct PasteShadowingSession: View {
+    let item: PracticeItem
+    let segments: [String]
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    /// Index of the segment currently being shadowed; == segments.count when done.
+    @State private var index = 0
+    /// Per-segment ASR match scores, appended as each segment finishes.
+    @State private var scores: [Double] = []
+    /// GOP deltas reported per segment (when the pronunciation model is present).
+    @State private var gopDeltas: [Double] = []
+    @State private var saved = false
+
+    var body: some View {
+        Group {
+            if index < segments.count {
+                // A fresh ShadowingView per segment (re-init resets its model).
+                ShadowingView(
+                    target: segments[index],
+                    onScored: { result in
+                        scores.append(result.score)
+                        if let delta = result.gopDelta { gopDeltas.append(delta) }
+                    },
+                    onComplete: { index += 1 }
+                )
+                .id(index)   // force a new ShadowingModel for each segment
+            } else {
+                summary
+            }
+        }
+    }
+
+    // MARK: - Summary
+
+    private var summary: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                HStack {
+                    Spacer()
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2).foregroundStyle(.secondary)
+                    }
+                }
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(HexTheme.gradient)
+                Text("Session complete")
+                    .font(.title2.weight(.bold))
+                Text(overallText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(segments.enumerated()), id: \.offset) { i, sentence in
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text(sentence)
+                                .font(.subheadline)
+                                .lineLimit(2)
+                            Spacer(minLength: 8)
+                            Text(scorePercent(at: i))
+                                .font(.subheadline.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(scoreColor(at: i))
+                        }
+                        .padding(.vertical, 10).padding(.horizontal, 4)
+                        if i < segments.count - 1 { Divider() }
+                    }
+                }
+                .hexCard(padding: 12)
+
+                Button("Done") { dismiss() }
+                    .buttonStyle(HexGradientButtonStyle())
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity)
+        }
+        .background(Color(.systemGroupedBackground))
+        .onAppear(perform: saveAttempt)
+    }
+
+    private var overallText: String {
+        guard !scores.isEmpty else { return "Practiced \(segments.count) line\(segments.count == 1 ? "" : "s")." }
+        let avg = scores.reduce(0, +) / Double(scores.count)
+        return "Overall \(Int((avg * 100).rounded()))% match across \(scores.count) line\(scores.count == 1 ? "" : "s")."
+    }
+
+    private func scorePercent(at index: Int) -> String {
+        guard index < scores.count else { return "—" }
+        return "\(Int((scores[index] * 100).rounded()))%"
+    }
+
+    private func scoreColor(at index: Int) -> Color {
+        guard index < scores.count else { return .secondary }
+        return scores[index] >= ShadowingScorer.matchThreshold ? .green : .orange
+    }
+
+    /// Save one `PracticeAttempt` for the whole session onto the item: the
+    /// per-segment scores plus the averaged GOP delta (when any was reported).
+    /// Idempotent — `.onAppear` can fire more than once.
+    private func saveAttempt() {
+        guard !saved else { return }
+        saved = true
+        let avgDelta = gopDeltas.isEmpty ? nil : gopDeltas.reduce(0, +) / Double(gopDeltas.count)
+        let attempt = PracticeAttempt(perSegmentScores: scores, gopDelta: avgDelta, item: item)
+        modelContext.insert(attempt)
+        try? modelContext.save()
     }
 }

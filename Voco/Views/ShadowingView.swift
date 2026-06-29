@@ -14,10 +14,20 @@ import SwiftUI
 struct ShadowingView: View {
     @State private var model: ShadowingModel
     let onComplete: () -> Void
+    /// Optional per-segment score sink for the multi-segment paste session (PR-3).
+    /// Reports the ASR match score and any GOP delta when the learner finishes a
+    /// segment. The default no-op keeps the single-phrase Review/coach callers
+    /// (which only need `onComplete`) untouched.
+    let onScored: (ShadowingResult) -> Void
     @Environment(\.dismiss) private var dismiss
 
-    init(target: String, onComplete: @escaping () -> Void) {
+    init(
+        target: String,
+        onScored: @escaping (ShadowingResult) -> Void = { _ in },
+        onComplete: @escaping () -> Void
+    ) {
         _model = State(initialValue: ShadowingModel(target: target))
+        self.onScored = onScored
         self.onComplete = onComplete
     }
 
@@ -154,7 +164,7 @@ struct ShadowingView: View {
                 progressSection(comparison)
             }
             if model.isSuccess {
-                Button("Done") { onComplete(); dismiss() }
+                Button("Done") { reportAndFinish() }
                     .buttonStyle(HexGradientButtonStyle())
                     .padding(.top, 4)
             } else {
@@ -164,9 +174,35 @@ struct ShadowingView: View {
                 .accessibilityLabel("Try again")
                 Text("Tap to try again")
                     .font(.footnote).foregroundStyle(.secondary)
+                // Let a multi-segment session move on without nailing every line —
+                // reading the rewrite is already valuable (never a forced gate).
+                Button("Continue anyway") { reportAndFinish() }
+                    .font(.footnote.weight(.medium))
+                    .padding(.top, 2)
             }
         }
         .hexCard(padding: 20)
+    }
+
+    /// Report this segment's score to the session sink, then run the legacy
+    /// completion hook and dismiss. Both callbacks fire exactly once per finish.
+    private func reportAndFinish() {
+        onScored(
+            ShadowingResult(
+                score: model.score,
+                gopDelta: model.gopComparison.map(Self.meanDelta)
+            )
+        )
+        onComplete()
+        dismiss()
+    }
+
+    /// Mean per-phoneme GOP delta for an attempt (positive = closer to native).
+    /// Persisted as `PracticeAttempt.gopDelta`. nil-comparison → no value.
+    private static func meanDelta(_ comparison: ShadowingGOP.Comparison) -> Double {
+        let deltas = comparison.phonemes.map(\.delta)
+        guard !deltas.isEmpty else { return 0 }
+        return deltas.reduce(0, +) / Double(deltas.count)
     }
 
     // MARK: - "Your pronunciation" breakdown
@@ -251,6 +287,16 @@ struct ShadowingView: View {
             Spacer(minLength: 0)
         }
     }
+}
+
+/// One finished segment's outcome, reported to the paste session (PR-3) so it can
+/// collect per-segment scores and the (optional) GOP delta for a `PracticeAttempt`.
+struct ShadowingResult {
+    /// ASR match score for the segment (0…1), mirroring `ShadowingModel.score`.
+    let score: Double
+    /// Mean per-phoneme GOP delta vs. the previous attempt, when the pronunciation
+    /// model produced a comparison; nil otherwise (first attempt / no model).
+    let gopDelta: Double?
 }
 
 /// The attempt's phonemes as small colored chips: green = native-clean, orange =
