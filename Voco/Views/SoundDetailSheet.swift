@@ -27,6 +27,15 @@ struct SoundLessonRow: View {
     let lesson: PronunciationLesson
     var showCount: Bool = true
 
+    /// What the sound came out as: a dominant substitution ("you said /X/ instead"),
+    /// or — for the unclear case — the recognizer's most common production when there
+    /// is one ("sounded more like /X/"), else a plain "came out unclear".
+    private var subtitle: String {
+        if let actual = lesson.actual { return "you said /\(actual)/ instead" }
+        if let lead = lesson.leadingObserved { return "came out unclear — sounded more like /\(lead)/" }
+        return "came out unclear"
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             HStack(spacing: 6) {
@@ -41,7 +50,7 @@ struct SoundLessonRow: View {
                 }
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(lesson.actual != nil ? "you said /\(lesson.actual!)/ instead" : "came out unclear")
+                Text(subtitle)
                     .font(.subheadline.weight(.medium))
                 if !lesson.exampleWords.isEmpty {
                     Text("in " + lesson.exampleWords.map { "“\($0)”" }.joined(separator: ", "))
@@ -76,6 +85,7 @@ struct SoundDetailSheet: View {
                 VStack(alignment: .leading, spacing: 20) {
                     header
                     exampleWordsSection
+                    observedSection
                     if let guide { guideSection(guide) }
                     practiceButton
                 }
@@ -106,14 +116,25 @@ struct SoundDetailSheet: View {
                     ipa(actual, label: "you said", color: .secondary)
                 }
             }
-            Text(lesson.actual != nil
-                 ? "Aim for /\(lesson.expected)/ — it came out closer to /\(lesson.actual!)/."
-                 : "The /\(lesson.expected)/ sound came out unclear.")
+            Text(headerExplanation)
                 .font(.callout).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(Color.red.opacity(0.12), in: RoundedRectangle(cornerRadius: HexTheme.cardRadius, style: .continuous))
+    }
+
+    /// One sentence under the big expected→actual row. Names the dominant substitution,
+    /// else the recognizer's most common production for the unclear case, else just says
+    /// the sound was unclear.
+    private var headerExplanation: String {
+        if let actual = lesson.actual {
+            return "Aim for /\(lesson.expected)/ — it came out closer to /\(actual)/."
+        }
+        if let lead = lesson.leadingObserved {
+            return "The /\(lesson.expected)/ sound came out unclear — it sounded more like /\(lead)/."
+        }
+        return "The /\(lesson.expected)/ sound came out unclear."
     }
 
     private func ipa(_ symbol: String, label: String, color: Color) -> some View {
@@ -134,6 +155,27 @@ struct SoundDetailSheet: View {
                     .font(.caption.weight(.bold)).tracking(1).foregroundStyle(.secondary)
                 Text(lesson.exampleWords.map { "“\($0)”" }.joined(separator: ", "))
                     .font(.body.weight(.medium))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .hexCard()
+        }
+    }
+
+    // MARK: What the learner's attempts actually sounded like
+
+    /// The recognizer's own read of what came out, shown only for the unclear case
+    /// (the substitution case already names it in the header). Distinct from the
+    /// guide's generic "Often swapped for" — this is *your* productions, not L1 priors.
+    @ViewBuilder private var observedSection: some View {
+        if lesson.actual == nil, !lesson.observed.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("WHAT IT SOUNDED LIKE")
+                    .font(.caption.weight(.bold)).tracking(1).foregroundStyle(.secondary)
+                Text(lesson.observed.prefix(3).map { "/\($0.symbol)/ ×\($0.count)" }.joined(separator: "   "))
+                    .font(.callout.monospaced())
+                Text("Your attempts landed closer to these than to /\(lesson.expected)/. The steps below get you back to /\(lesson.expected)/.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
