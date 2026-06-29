@@ -122,7 +122,9 @@ struct MacHistoryView: View {
             .id(MacWindowKey(segment: segment, scope: scope, search: query, limit: limit))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationTitle("History")
+        // No list-column nav title: the outer sidebar already labels this surface
+        // "History", and the Notes|Dictation segment names the list. A "Transcript"
+        // (singular) or duplicate "History" title here just mislabels the list (MC-R13).
     }
 
     /// A plain search field that sits in the list header — deliberately NOT
@@ -377,33 +379,45 @@ private struct MacHistoryList: View {
 
     // MARK: - List-wide actions (live with the list, not the window titlebar)
 
-    /// A compact bar above the list: the shown count plus copy-all / delete-all over
-    /// the current window. These are the *list-scoped* actions; per-note copy/delete
-    /// live in the detail's own toolbar.
+    /// A compact bar above the list: a quiet caption plus a `•••` menu of list-scoped
+    /// actions (copy-all / delete-all) with TEXT labels. Routing these through a menu
+    /// keeps them visually distinct from the per-note copy/delete (which live in the
+    /// detail's own toolbar) — no bare trash icon that could be mistaken for
+    /// "delete this" (MC-R13).
     private var listActionBar: some View {
         HStack(spacing: 8) {
-            Text("\(entries.count) shown")
+            Text(countCaption)
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
-            Button {
-                copyAll()
+            Menu {
+                Button {
+                    copyAll()
+                } label: {
+                    Label("Copy all", systemImage: "doc.on.doc")
+                }
+                Button(role: .destructive) {
+                    confirmingDeleteAll = true
+                } label: {
+                    Label("Delete all…", systemImage: "trash")
+                }
             } label: {
-                Image(systemName: "doc.on.doc")
+                Image(systemName: "ellipsis.circle")
             }
-            .buttonStyle(.borderless)
-            .help("Copy all shown transcripts")
-
-            Button(role: .destructive) {
-                confirmingDeleteAll = true
-            } label: {
-                Image(systemName: "trash")
-            }
-            .buttonStyle(.borderless)
-            .help("Delete all shown transcripts")
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("List actions")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
+    }
+
+    /// Humanized count — folds the window size into a quiet caption instead of the
+    /// dev-speak "N shown".
+    private var countCaption: String {
+        let noun = segment == .notes ? "note" : "dictation"
+        return "\(entries.count) \(noun)\(entries.count == 1 ? "" : "s")"
     }
 
     private func copyAll() {
@@ -422,22 +436,36 @@ private struct MacHistoryList: View {
 
     // MARK: - Rows
 
-    /// One transcript row — lean: text preview + kind icon + time. No `analysis`.
+    /// One transcript row — lean and decluttered (MC-R13): the transcript text
+    /// leads, then a quiet timestamp. The source app is demoted to an optional
+    /// subtle chip rather than a repeated icon + name on every row. No `analysis`.
     private func row(_ entry: TranscriptEntry) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(entry.text)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 6) {
-                Image(systemName: entry.kind.systemImage)
-                    .foregroundStyle(Color.accentColor)
-                if let app = entry.sourceAppName { Text(app); Text("·") }
                 Text(entry.date, style: .time)
+                if let app = entry.sourceAppName {
+                    sourceChip(app)
+                }
             }
             .font(.caption)
             .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
+    }
+
+    /// A subtle, low-noise source chip — quieter than the old icon + plain name.
+    private func sourceChip(_ app: String) -> some View {
+        Text(app)
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(
+                Capsule().fill(Color.secondary.opacity(0.12))
+            )
     }
 
     @ViewBuilder

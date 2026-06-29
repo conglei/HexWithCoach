@@ -89,7 +89,7 @@ struct MacTranscriptDetailView: View {
             }
             .padding(20)
         }
-        .navigationTitle("Transcript")
+        .navigationTitle(entry.kind == .note ? "Note" : "Dictation")
         // Re-render the lens subview (and its per-note @Query) when the open
         // transcript changes, and fall back to the calm Note lens.
         .id(entry.id)

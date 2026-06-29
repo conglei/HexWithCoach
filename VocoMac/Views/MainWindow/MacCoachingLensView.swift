@@ -14,12 +14,16 @@
 //  is faulted only when the detail view renders this lens — never in the list
 //  window (MC-R8 leanness is preserved).
 //
-//  Three layers, mirroring iOS:
-//    1. The GOP-tinted "layered" transcript (per-word color from `GOPColoring`).
-//    2. "Sounds to work on" — the `PronunciationSummary` lessons.
-//    3. This note's coach cards (`CoachCardEntity` filtered to `transcriptID ==
-//       entry.id`): you-said → more-natural → why → lens. Optionally the note's
-//       `CoachObservation` rows as an evidence trail.
+//  Layout (MC-R13 — coaching is the hero, not the debug trail):
+//    1. "Structure & word choice" — this note's coach cards (`CoachCardEntity`
+//       filtered to `transcriptID == entry.id`): you-said (quiet) → more-natural
+//       (the emphasis) → why. These lead; they are the product.
+//    2. A COMPACT GOP-tinted "What you said" transcript (per-word color from
+//       `GOPColoring`) as context below the cards — body size, not a display headline.
+//    3. "Sounds to work on" — the `PronunciationSummary` lessons.
+//
+//  The old raw-GOP "What the Coach noticed" debug list (signed goodness-of-
+//  pronunciation floats) is intentionally removed — meaningless/alarming to users.
 //
 //  When the note has no coaching yet, a friendly "Not reviewed yet" state shows.
 //
@@ -39,8 +43,6 @@ struct MacCoachingLensView: View {
     /// This note's coach cards, faulted only here. SwiftData predicates can't read
     /// a captured optional UUID cleanly, so we query the kind and filter in-memory.
     @Query private var allCards: [CoachCardEntity]
-    /// This note's append-only observations (objective + LLM evidence trail).
-    @Query private var allObservations: [CoachObservation]
 
     init(entry: TranscriptEntry) {
         self.entry = entry
@@ -48,11 +50,6 @@ struct MacCoachingLensView: View {
         _allCards = Query(
             filter: #Predicate<CoachCardEntity> { $0.transcriptID == noteID },
             sort: \.createdAt
-        )
-        _allObservations = Query(
-            filter: #Predicate<CoachObservation> { $0.noteID == noteID },
-            sort: \.severity,
-            order: .reverse
         )
     }
 
@@ -75,10 +72,12 @@ struct MacCoachingLensView: View {
             if !hasBeenReviewed {
                 notReviewedState
             } else {
-                layeredTranscript
+                // Coaching is the hero: the cards lead, the (now compact) transcript
+                // follows as context, then the pronunciation lessons. The raw GOP
+                // debug trail is intentionally gone (MC-R13).
                 structureSection
+                layeredTranscript
                 soundsToWorkOn
-                evidenceTrail
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -113,7 +112,8 @@ struct MacCoachingLensView: View {
                 cards: improvementCards
             )
             VStack(alignment: .leading, spacing: 10) {
-                MacFlowLayout(spacing: 6, lineSpacing: 8) {
+                sectionHeader("What you said")
+                MacFlowLayout(spacing: 5, lineSpacing: 6) {
                     ForEach(Array(decorated.enumerated()), id: \.offset) { _, item in
                         wordChip(item)
                     }
@@ -126,19 +126,24 @@ struct MacCoachingLensView: View {
             .padding(14)
             .background(card)
         } else {
-            // No word timings: just the plain transcript, calmly.
-            Text(entry.text)
-                .font(.title3.weight(.medium))
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-                .background(card)
+            // No word timings: just the plain transcript, calmly — body size, it's
+            // context here, not the hero (MC-R13).
+            VStack(alignment: .leading, spacing: 8) {
+                sectionHeader("What you said")
+                Text(entry.text)
+                    .font(.body)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(card)
         }
     }
 
     private func wordChip(_ item: MacDecoratedWord) -> some View {
         Text(item.text)
-            .font(.title3.weight(.medium))
+            .font(.body)
             .foregroundStyle(Color.primary)
             .padding(.horizontal, 4)
             .padding(.vertical, 1)
@@ -240,20 +245,24 @@ struct MacCoachingLensView: View {
             .font(.caption.weight(.bold))
             .foregroundStyle(Color.accentColor)
 
+            // Quiet setup: what you originally said.
             if let span = card.originalSpan, !span.isEmpty {
                 Text("You said “\(span)”")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
 
+            // The emphasis: the more-natural rewrite is the takeaway — bold, primary.
             if let rewrite = card.nativeRewrite, !rewrite.isEmpty {
                 Text("A more natural way: “\(rewrite)”")
-                    .font(.title3.weight(.semibold))
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(Color.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
             } else {
                 Text(card.title)
-                    .font(.title3.weight(.semibold))
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(Color.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
@@ -335,43 +344,14 @@ struct MacCoachingLensView: View {
         }
     }
 
-    // MARK: - Optional evidence trail (observations)
-
-    /// A compact list of this note's persisted observations — the evidence trail
-    /// behind the coaching. Shown only when present and only beyond what the cards
-    /// already cover (objective per-word GOP findings the cards don't surface).
-    @ViewBuilder
-    private var evidenceTrail: some View {
-        let objective = allObservations.filter { $0.origin == .objective && $0.word != nil }
-        if !objective.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                sectionHeader("What the Coach noticed")
-                ForEach(objective.prefix(6), id: \.id) { obs in
-                    HStack(spacing: 8) {
-                        Image(systemName: "waveform.path")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                        Text(obs.word ?? "")
-                            .font(.caption.weight(.medium))
-                        if let gop = obs.gop {
-                            Text(String(format: "GOP %.2f", gop))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
     // MARK: - Shared chrome
 
+    /// Section anchor: a primary-color headline (MC-R13 — the old faint gray caps
+    /// were too low-contrast to anchor sections).
     private func sectionHeader(_ title: String) -> some View {
-        Text(title.uppercased())
-            .font(.caption.weight(.bold))
-            .foregroundStyle(.secondary)
+        Text(title)
+            .font(.headline)
+            .foregroundStyle(Color.primary)
     }
 
     private var card: some ShapeStyle { Color(.windowBackgroundColor).opacity(0.5) }
