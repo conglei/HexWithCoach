@@ -93,6 +93,16 @@ final class CoachService {
         return LearnerProfileStore(url: dir.appendingPathComponent("profile.json"))
     }
 
+    /// The append-only growth-history log (CI-13): one objective snapshot per
+    /// analyzed note, the durable source the Review → progress trends read from.
+    private var snapshotStore: CoachSnapshotStore {
+        let dir = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: HexAppGroup.identifier)?
+            .appendingPathComponent("Coach", isDirectory: true)
+            ?? FileManager.default.temporaryDirectory
+        return CoachSnapshotStore(url: dir.appendingPathComponent("snapshots.json"))
+    }
+
     /// Whether coaching is opted in with a usable key — gates the LLM override UI.
     var isReady: Bool { preferences.isReady }
 
@@ -132,8 +142,32 @@ final class CoachService {
         // deterministic CoachCards. NO LLM, NO network, NO budget.
         regenerateObjectiveCards()
 
+        // Freeze this note's objective signals into the growth-history log so the
+        // Review → progress trends have real data from day one (CI-13).
+        recordSnapshot(for: entry)
+
         entry.objectiveAnalyzedAt = Date()
         try? modelContext.save()
+    }
+
+    /// Append (or refresh, keyed by note id) this note's objective signals to the
+    /// growth-history log (CI-13). Keyless — runs for every analyzed note via the
+    /// objective lane, so a real "how you grow over time" history exists without an
+    /// API key. Captures GOP at analysis time so the pronunciation trend survives
+    /// any later audio pruning. Best-effort: a snapshot write must never fail capture.
+    private func recordSnapshot(for entry: TranscriptEntry) {
+        let words = entry.text.split { $0.isWhitespace }.count
+        let durationSec = duration(forAudio: entry.audioFilename, fallbackWordCount: words)
+        let fluency = FluencyAnalyzer.analyze(
+            transcript: entry.text,
+            durationSec: durationSec,
+            wordTimings: entry.wordTimings
+        )
+        let snapshot = CoachSnapshot(
+            noteID: entry.id, date: entry.date,
+            fluency: fluency, pronunciation: entry.pronunciationSignals
+        )
+        try? snapshotStore.record(snapshot)
     }
 
     /// Backfill the objective lane across every note that predates always-on
