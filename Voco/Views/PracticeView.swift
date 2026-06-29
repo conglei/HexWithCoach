@@ -374,27 +374,34 @@ private struct PasteShadowingSession: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    /// Index of the segment currently being shadowed; == segments.count when done.
-    @State private var index = 0
-    /// Per-segment ASR match scores, appended as each segment finishes.
-    @State private var scores: [Double] = []
-    /// GOP deltas reported per segment (when the pronunciation model is present).
-    @State private var gopDeltas: [Double] = []
+    /// Pure advancement + payload state machine (testable in VocoCore). The view
+    /// only renders the current segment / summary and persists the attempt.
+    @State private var state: PasteSessionState
     @State private var saved = false
+
+    init(item: PracticeItem, segments: [String]) {
+        self.item = item
+        self.segments = segments
+        _state = State(initialValue: PasteSessionState(segments: segments))
+    }
 
     var body: some View {
         Group {
-            if index < segments.count {
+            if let segment = state.currentSegment {
                 // A fresh ShadowingView per segment (re-init resets its model).
+                // dismissOnComplete:false — this view is embedded directly in the
+                // session's cover with NO presentation boundary, so the per-segment
+                // drill must NOT own the cover's dismiss; advancement is driven
+                // purely via onScored/onComplete and the session owns dismissal.
                 ShadowingView(
-                    target: segments[index],
+                    target: segment,
+                    dismissOnComplete: false,
                     onScored: { result in
-                        scores.append(result.score)
-                        if let delta = result.gopDelta { gopDeltas.append(delta) }
+                        state.recordCurrent(score: result.score, gopDelta: result.gopDelta)
                     },
-                    onComplete: { index += 1 }
+                    onComplete: {}
                 )
-                .id(index)   // force a new ShadowingModel for each segment
+                .id(state.index)   // force a new ShadowingModel for each segment
             } else {
                 summary
             }
@@ -451,29 +458,34 @@ private struct PasteShadowingSession: View {
     }
 
     private var overallText: String {
+        let scores = state.scores
         guard !scores.isEmpty else { return "Practiced \(segments.count) line\(segments.count == 1 ? "" : "s")." }
-        let avg = scores.reduce(0, +) / Double(scores.count)
+        let avg = state.averageScore
         return "Overall \(Int((avg * 100).rounded()))% match across \(scores.count) line\(scores.count == 1 ? "" : "s")."
     }
 
     private func scorePercent(at index: Int) -> String {
-        guard index < scores.count else { return "—" }
-        return "\(Int((scores[index] * 100).rounded()))%"
+        guard index < state.scores.count else { return "—" }
+        return "\(Int((state.scores[index] * 100).rounded()))%"
     }
 
     private func scoreColor(at index: Int) -> Color {
-        guard index < scores.count else { return .secondary }
-        return scores[index] >= ShadowingScorer.matchThreshold ? .green : .orange
+        guard index < state.scores.count else { return .secondary }
+        return state.scores[index] >= ShadowingScorer.matchThreshold ? .green : .orange
     }
 
-    /// Save one `PracticeAttempt` for the whole session onto the item: the
-    /// per-segment scores plus the averaged GOP delta (when any was reported).
+    /// Save one `PracticeAttempt` for the whole session onto the item, using the
+    /// state machine's payload (per-segment scores + averaged GOP delta).
     /// Idempotent — `.onAppear` can fire more than once.
     private func saveAttempt() {
         guard !saved else { return }
         saved = true
-        let avgDelta = gopDeltas.isEmpty ? nil : gopDeltas.reduce(0, +) / Double(gopDeltas.count)
-        let attempt = PracticeAttempt(perSegmentScores: scores, gopDelta: avgDelta, item: item)
+        let payload = state.attemptPayload
+        let attempt = PracticeAttempt(
+            perSegmentScores: payload.perSegmentScores,
+            gopDelta: payload.gopDelta,
+            item: item
+        )
         modelContext.insert(attempt)
         try? modelContext.save()
     }

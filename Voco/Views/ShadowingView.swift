@@ -19,14 +19,25 @@ struct ShadowingView: View {
     /// segment. The default no-op keeps the single-phrase Review/coach callers
     /// (which only need `onComplete`) untouched.
     let onScored: (ShadowingResult) -> Void
+    /// Whether finishing should dismiss the surrounding presentation. true (the
+    /// default) preserves today's single-shot behavior for every existing caller
+    /// (Review's "Say it better", coach drills, TranscriptDetailView): the view
+    /// owns its own cover and closes it on Done. The multi-segment paste session
+    /// (PR-3) sets this false — it embeds `ShadowingView` directly in its cover
+    /// with NO presentation boundary, so an internal `dismiss()` would close the
+    /// whole session. When false, finishing drives advancement purely via
+    /// `onScored`/`onComplete` and the session owns the dismiss.
+    let dismissOnComplete: Bool
     @Environment(\.dismiss) private var dismiss
 
     init(
         target: String,
+        dismissOnComplete: Bool = true,
         onScored: @escaping (ShadowingResult) -> Void = { _ in },
         onComplete: @escaping () -> Void
     ) {
         _model = State(initialValue: ShadowingModel(target: target))
+        self.dismissOnComplete = dismissOnComplete
         self.onScored = onScored
         self.onComplete = onComplete
     }
@@ -194,7 +205,11 @@ struct ShadowingView: View {
             )
         )
         onComplete()
-        dismiss()
+        // Only own the dismiss for standalone single-shot callers. When embedded
+        // in the paste session (dismissOnComplete == false), `onComplete` advances
+        // the session and the session owns the cover's dismiss — calling it here
+        // would synchronously tear down the whole session after segment 0.
+        if dismissOnComplete { dismiss() }
     }
 
     /// Mean per-phoneme GOP delta for an attempt (positive = closer to native).
