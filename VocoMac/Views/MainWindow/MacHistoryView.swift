@@ -2,9 +2,19 @@
 //  MacHistoryView.swift
 //  VocoMac
 //
-//  Companion-window "History" section (MC-R8). The native macOS counterpart to the
-//  iOS HS-1 / HS-2 surfaces: a Notes|Dictation segmented control over a windowed,
-//  searchable browse of the lean `TranscriptEntry` row.
+//  Companion-window "History" section (MC-R8, redesigned MC-R12). The native macOS
+//  counterpart to the iOS HS-1 / HS-2 surfaces: a Notes|Dictation segmented control
+//  over a windowed, searchable browse of the lean `TranscriptEntry` row.
+//
+//  MC-R12 — the Mail/master-detail pattern. A nested `NavigationSplitView` lives
+//  inside the History pane: a NARROW transcript-list sidebar
+//  (`.navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 360)`) leading, and
+//  a DOMINANT `MacTranscriptDetailView` detail trailing that fills the rest. The
+//  list column owns its own controls — the Notes|Dictation segment, the date-scope
+//  chips, the search field, and the list-wide actions (copy-all / delete-all) — all
+//  in its own header, never floating in the window titlebar. The detail's per-note
+//  actions (copy, delete) live in the detail's own toolbar. When nothing is
+//  selected the detail shows a "Select a transcript" placeholder.
 //
 //  HS-1 — the mixed list is split into Notes | Dictation; default Notes; the last
 //  selection is remembered via @AppStorage; each segment has its own empty state.
@@ -48,6 +58,30 @@ struct MacHistoryView: View {
     @State private var selected: TranscriptEntry?
 
     var body: some View {
+        // Master-detail (MC-R12): a NARROW transcript-list sidebar leading, a
+        // DOMINANT detail trailing. Nested inside the window's own split view; the
+        // inner sidebar carries ALL list-scoped controls so nothing floats in the
+        // window titlebar.
+        NavigationSplitView {
+            listColumn
+                .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 360)
+        } detail: {
+            if let selected {
+                MacTranscriptDetailView(entry: selected) { self.selected = nil }
+            } else {
+                placeholder
+            }
+        }
+        // Reset the window whenever the segment / scope / search changes so we don't
+        // carry an inflated "Load older" limit across surfaces.
+        .onChange(of: segment) { _, _ in limit = MacHistoryScope.pageSize; selected = nil }
+        .onChange(of: scope) { _, _ in limit = MacHistoryScope.pageSize }
+        .onChange(of: query) { _, _ in limit = MacHistoryScope.pageSize }
+    }
+
+    // MARK: - List column (owns all list-scoped controls)
+
+    private var listColumn: some View {
         VStack(spacing: 0) {
             Picker("Transcript kind", selection: $segment) {
                 ForEach(MacHistorySegment.allCases) { seg in
@@ -56,15 +90,20 @@ struct MacHistoryView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 12)
             .padding(.top, 12)
             .padding(.bottom, 8)
+
+            // Search lives WITH the list (not the window toolbar) so it never floats.
+            searchField
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
 
             // Scope chips are hidden while searching — search spans all scopes, so a
             // bounding chip would be misleading.
             if query.isEmpty {
                 scopeChips
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 12)
                     .padding(.bottom, 8)
             }
 
@@ -83,20 +122,48 @@ struct MacHistoryView: View {
             .id(MacWindowKey(segment: segment, scope: scope, search: query, limit: limit))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .searchable(text: $query, placement: .toolbar, prompt: "Search transcripts")
-        // Reset the window whenever the segment / scope / search changes so we don't
-        // carry an inflated "Load older" limit across surfaces.
-        .onChange(of: segment) { _, _ in limit = MacHistoryScope.pageSize; selected = nil }
-        .onChange(of: scope) { _, _ in limit = MacHistoryScope.pageSize }
-        .onChange(of: query) { _, _ in limit = MacHistoryScope.pageSize }
-        .inspector(isPresented: .constant(selected != nil)) {
-            if let selected {
-                MacTranscriptDetailView(entry: selected) { self.selected = nil }
-                    .inspectorColumnWidth(min: 320, ideal: 380, max: 520)
-            } else {
-                EmptyView()
+        .navigationTitle("History")
+    }
+
+    /// A plain search field that sits in the list header — deliberately NOT
+    /// `.searchable(placement: .toolbar)`, which renders floating in the window
+    /// titlebar (the bug we're fixing).
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Search transcripts", text: $query)
+                .textFieldStyle(.plain)
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
             }
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(Color(.textBackgroundColor).opacity(0.6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .strokeBorder(Color.secondary.opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+
+    // MARK: - Detail placeholder
+
+    private var placeholder: some View {
+        ContentUnavailableView(
+            "Select a transcript",
+            systemImage: "text.bubble",
+            description: Text("Pick a note or dictation on the left to read it and see its coaching.")
+        )
     }
 
     // MARK: - Scope chips (HS-2)
@@ -197,6 +264,8 @@ private struct MacHistoryList: View {
     @Binding private var selected: TranscriptEntry?
 
     @State private var pendingDelete: TranscriptEntry?
+    /// Confirmation for the list-wide "Delete all" action over the current window.
+    @State private var confirmingDeleteAll = false
 
     init(
         segment: MacHistorySegment,
@@ -247,28 +316,47 @@ private struct MacHistoryList: View {
     }
 
     var body: some View {
-        Group {
-            if entries.isEmpty {
-                if isSearching {
-                    ContentUnavailableView.search
+        VStack(spacing: 0) {
+            // List-wide actions live WITH the list (not the window titlebar): a
+            // count and the copy-all / delete-all controls over the current window.
+            if !entries.isEmpty {
+                listActionBar
+                Divider()
+            }
+
+            Group {
+                if entries.isEmpty {
+                    if isSearching {
+                        ContentUnavailableView.search
+                    } else {
+                        emptyState
+                    }
                 } else {
-                    emptyState
-                }
-            } else {
-                List(selection: $selected) {
-                    ForEach(grouped, id: \.day) { group in
-                        Section(dayHeader(group.day)) {
-                            ForEach(group.entries) { entry in
-                                row(entry)
-                                    .tag(entry)
-                                    .contextMenu { rowMenu(entry) }
+                    List(selection: $selected) {
+                        ForEach(grouped, id: \.day) { group in
+                            Section(dayHeader(group.day)) {
+                                ForEach(group.entries) { entry in
+                                    row(entry)
+                                        .tag(entry)
+                                        .contextMenu { rowMenu(entry) }
+                                }
                             }
                         }
+                        loadOlderRow
                     }
-                    loadOlderRow
+                    .listStyle(.inset)
                 }
-                .listStyle(.inset)
             }
+        }
+        .confirmationDialog(
+            "Delete all shown transcripts?",
+            isPresented: $confirmingDeleteAll,
+            titleVisibility: .visible
+        ) {
+            Button("Delete \(entries.count)", role: .destructive) { deleteAll() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the \(entries.count) transcript(s) currently shown — their audio and any coaching cards, observations, and progress too. This can't be undone.")
         }
         .confirmationDialog(
             "Delete this transcript?",
@@ -284,6 +372,51 @@ private struct MacHistoryList: View {
             Button("Cancel", role: .cancel) { pendingDelete = nil }
         } message: { _ in
             Text("Its audio and any coaching cards, observations, and progress for it are removed too. This can't be undone.")
+        }
+    }
+
+    // MARK: - List-wide actions (live with the list, not the window titlebar)
+
+    /// A compact bar above the list: the shown count plus copy-all / delete-all over
+    /// the current window. These are the *list-scoped* actions; per-note copy/delete
+    /// live in the detail's own toolbar.
+    private var listActionBar: some View {
+        HStack(spacing: 8) {
+            Text("\(entries.count) shown")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                copyAll()
+            } label: {
+                Image(systemName: "doc.on.doc")
+            }
+            .buttonStyle(.borderless)
+            .help("Copy all shown transcripts")
+
+            Button(role: .destructive) {
+                confirmingDeleteAll = true
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+            .help("Delete all shown transcripts")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+    }
+
+    private func copyAll() {
+        let joined = entries.map(\.text).joined(separator: "\n\n")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(joined, forType: .string)
+    }
+
+    private func deleteAll() {
+        let doomed = entries
+        if let sel = selected, doomed.contains(where: { $0.id == sel.id }) { selected = nil }
+        for entry in doomed {
+            MacTranscriptDeletion.delete(entry, in: modelContext)
         }
     }
 

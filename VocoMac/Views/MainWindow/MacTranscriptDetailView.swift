@@ -6,12 +6,19 @@
 //  place that faults the heavy `TranscriptAnalysis` sidecar (word timings /
 //  pronunciation) — the list/window path stays lean and never touches `analysis`.
 //
-//  Mirrors the iOS `TranscriptDetailView` intent natively on macOS: the full
-//  transcript, an audio playback control (reusing the macOS `AudioPlayerController`
-//  from `HistoryFeature`), copy, and a cascade delete (HS-3 fan-out via
-//  `MacTranscriptDeletion`). The pronunciation summary is rendered from the on-row
-//  signals where available; the heavy per-word timing/pronunciation result is read
-//  only here, on open.
+//  Mirrors the iOS `TranscriptDetailView` intent natively on macOS, including its
+//  **Note | Coaching** segmented lens (MC-R12):
+//    • Note (calm default): the plain transcript + audio playback.
+//    • Coaching: the teaching layer for THIS note — the GOP-colored layered
+//      transcript, "Sounds to work on", and this note's coach cards. Rendered by
+//      `MacCoachingLensView`, which reuses the shared VocoCore pieces (the iOS
+//      `LayeredTranscriptView` / `CoachIssuesPanel` are iOS-only and not imported).
+//
+//  Audio playback reuses the macOS `AudioPlayerController` (from `HistoryFeature`).
+//  Per-note actions (copy, cascade delete — HS-3 fan-out via `MacTranscriptDeletion`)
+//  live in THIS detail view's own toolbar, not the window titlebar. The heavy
+//  `TranscriptAnalysis` sidecar (word timings / pronunciation result) is faulted
+//  only here, on open — never in the list window.
 //
 
 import AppKit
@@ -27,6 +34,16 @@ struct MacTranscriptDetailView: View {
     var onDelete: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
+
+    /// Two reading modes for a note (mirrors iOS). **Note** is the calm default: a
+    /// plain transcript + audio. **Coaching** opts in to the teaching layer (GOP
+    /// coloring, sounds to work on, coach cards). Read-only either way.
+    private enum DetailLens: String, CaseIterable, Identifiable {
+        case note = "Note"
+        case coaching = "Coaching"
+        var id: String { rawValue }
+    }
+    @State private var lens: DetailLens = .note
 
     /// One audio controller per detail view; reuses the macOS playback path
     /// (`AudioPlayerController` lives in `HistoryFeature`, same module).
@@ -46,20 +63,36 @@ struct MacTranscriptDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 header
 
-                Text(entry.text)
-                    .font(.title3.weight(.medium))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // Calm-by-default vs. coaching-detail: Note shows a plain
+                // transcript, Coaching reveals the teaching layer (MC-R12).
+                Picker("View", selection: $lens) {
+                    ForEach(DetailLens.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
 
-                if audioURL != nil { playbackBar }
+                switch lens {
+                case .note:
+                    Text(entry.text)
+                        .font(.title3.weight(.medium))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                // The coaching layer is faulted only here, on open. Reading the
-                // sidecar / on-row signals never happens in the list window.
-                analysisSummary
+                    if audioURL != nil { playbackBar }
+                case .coaching:
+                    // The coaching layer is faulted only here, on open. Reading the
+                    // sidecar / on-row signals never happens in the list window.
+                    MacCoachingLensView(entry: entry)
+
+                    if audioURL != nil { playbackBar }
+                }
             }
             .padding(20)
         }
         .navigationTitle("Transcript")
+        // Re-render the lens subview (and its per-note @Query) when the open
+        // transcript changes, and fall back to the calm Note lens.
+        .id(entry.id)
         .toolbar { toolbarButtons }
         .confirmationDialog(
             "Delete this transcript?",
@@ -149,67 +182,6 @@ struct MacTranscriptDetailView: View {
                         .strokeBorder(Color.secondary.opacity(0.2), lineWidth: 1)
                 )
         )
-    }
-
-    // MARK: - Coaching summary (faults the sidecar)
-
-    /// Render the pronunciation themes for this note. Faulting the heavy result is
-    /// confined to this view: `entry.pronunciationResult` reaches into the sidecar,
-    /// and `entry.wordTimings` likewise — neither is read by the list window.
-    @ViewBuilder
-    private var analysisSummary: some View {
-        if entry.coachAnalyzedAt == nil && entry.objectiveAnalyzedAt == nil {
-            Label("Not reviewed by the Coach yet", systemImage: "hourglass")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        } else if let result = entry.pronunciationResult {
-            let lessons = PronunciationSummary.lessons(from: result)
-            if !lessons.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("SOUNDS TO WORK ON")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
-                    ForEach(lessons) { lesson in
-                        lessonRow(lesson)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(.windowBackgroundColor).opacity(0.5))
-                )
-            }
-        }
-    }
-
-    private func lessonRow(_ lesson: PronunciationLesson) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: "waveform")
-                .font(.caption)
-                .foregroundStyle(Color.accentColor)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(headline(for: lesson))
-                    .font(.subheadline.weight(.medium))
-                if !lesson.exampleWords.isEmpty {
-                    Text("in " + lesson.exampleWords.map { "“\($0)”" }.joined(separator: ", "))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-    }
-
-    /// A soft, human headline for one weak sound: name the substitution the speaker
-    /// made when there is one, otherwise frame it as "unclear".
-    private func headline(for lesson: PronunciationLesson) -> String {
-        if let actual = lesson.actual {
-            return "/\(lesson.expected)/ — sounded like /\(actual)/"
-        } else if let leading = lesson.leadingObserved {
-            return "/\(lesson.expected)/ — unclear, more like /\(leading)/"
-        } else {
-            return "/\(lesson.expected)/ — unclear"
-        }
     }
 
     // MARK: - Actions
