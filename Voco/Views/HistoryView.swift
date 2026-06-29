@@ -17,6 +17,13 @@
 //  `init` and is recreated via `.id(...)` whenever the scope / segment / search
 //  changes — preserving SwiftData's auto-update reactivity while bounding memory.
 //
+//  HS-5: layout polish. The filter header is a single tight band (segment +
+//  scope chips), card padding/insets are tightened for density, day headers are
+//  rendered as pinned (sticky) section headers via a `PinnedScrollableViews`
+//  `LazyVStack` so they stay above their notes while scrolling, and the
+//  coach-insight badge is a legible pill. Day grouping is factored into the pure
+//  `HistoryDayGrouping.grouped` helper so its ordering is unit-tested.
+//
 
 import SwiftData
 import SwiftUI
@@ -43,23 +50,26 @@ struct HistoryView: View {
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
-                Picker("Transcript kind", selection: $segment) {
-                    ForEach(HistorySegment.allCases) { segment in
-                        Text(segment.title).tag(segment)
+                // HS-5: one tight filter band. Segment picker + scope chips share a
+                // compact header instead of two heavily-padded stacked rows, so more
+                // of the list shows above the fold. Both stay fully functional.
+                VStack(spacing: 8) {
+                    Picker("Transcript kind", selection: $segment) {
+                        ForEach(HistorySegment.allCases) { segment in
+                            Text(segment.title).tag(segment)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    // Date-scope chips are hidden while searching: search deliberately
+                    // spans all scopes, so a bounding chip would be misleading.
+                    if query.isEmpty {
+                        scopeChips
                     }
                 }
-                .pickerStyle(.segmented)
                 .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .padding(.top, 8)
                 .padding(.bottom, 8)
-
-                // Date-scope chips are hidden while searching: search deliberately
-                // spans all scopes, so a bounding chip would be misleading.
-                if query.isEmpty {
-                    scopeChips
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 8)
-                }
 
                 HistoryList(
                     segment: segment,
@@ -124,8 +134,8 @@ struct HistoryView: View {
                 } label: {
                     Text(scopeOption.title)
                         .font(.footnote.weight(.medium))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
                         .background(
                             Capsule().fill(
                                 scope == scopeOption
@@ -260,10 +270,11 @@ private struct HistoryList: View {
     /// every row would show a confusing "pending" badge when coaching is off.
     private var coachActive: Bool { entries.contains { $0.coachAnalyzedAt != nil } }
 
-    private var grouped: [(day: Date, entries: [TranscriptEntry])] {
-        let cal = Calendar.current
-        let groups = Dictionary(grouping: entries) { cal.startOfDay(for: $0.date) }
-        return groups.keys.sorted(by: >).map { ($0, groups[$0] ?? []) }
+    /// Day-grouped, newest-day-first, reverse-chronological within each day.
+    /// Delegates to the pure `HistoryDayGrouping.grouped` helper (unit-tested)
+    /// so the ordering can't silently regress.
+    private var grouped: [HistoryDay<TranscriptEntry>] {
+        HistoryDayGrouping.grouped(entries, date: \.date)
     }
 
     var body: some View {
@@ -279,7 +290,10 @@ private struct HistoryList: View {
                 // and Select-mode multi-select come for free (HS-3); the card look is
                 // preserved via clear row backgrounds + hidden separators.
                 List {
-                    ForEach(grouped, id: \.day) { group in
+                    // `.plain` pins section headers; giving each header an opaque
+                    // grouped-background row keeps notes from bleeding through the
+                    // pinned header as it sticks to the top while scrolling (HS-5).
+                    ForEach(grouped) { group in
                         section(group)
                     }
                     loadOlderRow
@@ -321,7 +335,7 @@ private struct HistoryList: View {
             .foregroundStyle(HexTheme.gradientColors[0])
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
-            .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 16, trailing: 20))
+            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 16, trailing: 16))
         }
     }
 
@@ -346,7 +360,7 @@ private struct HistoryList: View {
 
     // MARK: - Day section
 
-    private func section(_ group: (day: Date, entries: [TranscriptEntry])) -> some View {
+    private func section(_ group: HistoryDay<TranscriptEntry>) -> some View {
         Section {
             // CI-7: no per-note "Analyze" context menu — coaching runs
             // automatically at capture (objective) and over the backlog (LLM).
@@ -354,7 +368,9 @@ private struct HistoryList: View {
                 row(entry)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
+                    // Tighter inter-card spacing for density (HS-5): 3pt top/bottom
+                    // keeps cards distinct but fits more notes per screen.
+                    .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 3, trailing: 16))
                     // Swipe-to-delete is suppressed in Select mode (taps toggle the
                     // checkbox there); the swipe defers to the confirm dialog.
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -368,10 +384,18 @@ private struct HistoryList: View {
                     }
             }
         } header: {
+            // Padding lives INSIDE the header view (not via .listRowInsets on the
+            // header) so the `.plain` list pins it reliably; the opaque grouped
+            // background prevents cards bleeding through the pinned header (HS-5).
             Text(dayHeader(group.day))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-                .listRowInsets(EdgeInsets(top: 16, leading: 24, bottom: 4, trailing: 20))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 6)
+                .background(Color(.systemGroupedBackground))
+                .listRowInsets(EdgeInsets())
         }
     }
 
@@ -418,48 +442,101 @@ private struct HistoryList: View {
     // MARK: - Transcript card
 
     private func card(_ entry: TranscriptEntry) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 8) {
-                Text(entry.text)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if coachActive { statusIndicator(entry) }
-            }
+        // Tighter padding (12 vs 16) + spacing (5 vs 8) for density (HS-5); the
+        // row stays comfortably tappable because the whole card is the hit target.
+        VStack(alignment: .leading, spacing: 5) {
+            Text(entry.text)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(spacing: 6) {
                 Image(systemName: entry.kind.systemImage)
                     .foregroundStyle(HexTheme.gradientColors[0])
                     .accessibilityLabel(entry.kind.label)
                 Text(entry.date, style: .time)
+                Spacer(minLength: 8)
+                if coachActive { statusIndicator(entry) }
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
         }
-        .hexCard()
+        .hexCard(padding: 12)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Whether the Coach has processed this transcript, and how many notes it found.
+    /// Coach state for a transcript, as a single legible affordance in the meta
+    /// row (HS-5): a tinted "✦ N insights" pill when processed with insights,
+    /// a muted hourglass while pending, a muted check when analyzed with none.
     @ViewBuilder
     private func statusIndicator(_ entry: TranscriptEntry) -> some View {
         if entry.coachAnalyzedAt == nil {
-            Image(systemName: "hourglass")
+            Label("Pending", systemImage: "hourglass")
+                .labelStyle(.iconOnly)
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+                .accessibilityLabel("Coaching pending")
         } else {
             let count = allCards.filter { $0.transcriptID == entry.id }.count
             if count > 0 {
-                Label("\(count)", systemImage: "sparkles")
-                    .font(.caption2)
-                    .labelStyle(.titleAndIcon)
-                    .foregroundStyle(Color.accentColor)
+                insightPill(count)
             } else {
                 Image(systemName: "checkmark.circle")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+                    .accessibilityLabel("Analyzed, no insights")
             }
+        }
+    }
+
+    /// A clear, legible coach-insight pill: brand-tinted capsule with a sparkles
+    /// icon and the insight count (e.g. "✦ 3"). Replaces the weak inline "✦ N".
+    private func insightPill(_ count: Int) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: "sparkles")
+            Text("\(count)")
+                .fontWeight(.semibold)
+        }
+        .font(.caption2)
+        .foregroundStyle(HexTheme.gradientColors[0])
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(
+            Capsule().fill(HexTheme.gradientColors[0].opacity(0.14))
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(count) coaching insight\(count == 1 ? "" : "s")")
+    }
+}
+
+// MARK: - Day grouping (pure, unit-tested — HS-5)
+
+/// One day's worth of transcripts in a section: the day (start-of-day) and its
+/// entries, newest-first within the day.
+struct HistoryDay<Element>: Identifiable {
+    let day: Date
+    let entries: [Element]
+    var id: Date { day }
+}
+
+/// Pure day-grouping for the History list. Factored out of the view so its
+/// ordering guarantees — newest day first, reverse-chronological within a day,
+/// header always above its notes — are unit-tested and can't silently regress.
+///
+/// Input order is irrelevant: items are re-sorted by `date` descending before
+/// grouping, so a window that arrives partially ordered (or a later note ahead
+/// of earlier ones) still lands under the correct day in the correct order.
+enum HistoryDayGrouping {
+    static func grouped<Element>(
+        _ items: [Element],
+        date: (Element) -> Date,
+        calendar: Calendar = .current
+    ) -> [HistoryDay<Element>] {
+        let groups = Dictionary(grouping: items) { calendar.startOfDay(for: date($0)) }
+        return groups.keys.sorted(by: >).map { day in
+            let sorted = (groups[day] ?? []).sorted { date($0) > date($1) }
+            return HistoryDay(day: day, entries: sorted)
         }
     }
 }
