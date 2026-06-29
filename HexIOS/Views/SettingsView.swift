@@ -27,6 +27,10 @@ struct SettingsView: View {
     @State private var apiKeyDraft = ""
     @State private var incognito = CapturePreferences.incognito
 
+    /// On-device pronunciation model delivery (CI-8). Opt-in, not a gate — fluency
+    /// coaching works without it (ADR-0002).
+    @State private var pronunciationModel = PronunciationModelInstall()
+
     // Placeholder (formatter seam #199).
     @State private var cleanUpFiller = false
 
@@ -61,6 +65,8 @@ struct SettingsView: View {
 
                 coachSection
 
+                pronunciationModelSection
+
                 privacySection
 
                 Section {
@@ -89,6 +95,86 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .onAppear { incognito = CapturePreferences.incognito }
         }
+    }
+
+    // MARK: - Pronunciation model (download-on-demand) — CI-8
+
+    @ViewBuilder
+    private var pronunciationModelSection: some View {
+        Section {
+            switch pronunciationModel.phase {
+            case .unknown:
+                LabeledContent("Pronunciation coaching") { ProgressView() }
+
+            case .notInstalled:
+                Button {
+                    pronunciationModel.start()
+                } label: {
+                    Label("Enable pronunciation coaching (\(pronunciationModel.approximateSizeText))",
+                          systemImage: "arrow.down.circle")
+                }
+
+            case let .downloading(fraction, received, total):
+                VStack(alignment: .leading, spacing: 8) {
+                    if let fraction {
+                        ProgressView(value: fraction) {
+                            Text("Downloading pronunciation model")
+                        } currentValueLabel: {
+                            Text(downloadByteText(received: received, total: total))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        ProgressView {
+                            Text("Downloading pronunciation model")
+                        }
+                    }
+                    Button("Cancel", role: .cancel) { pronunciationModel.cancel() }
+                }
+
+            case .installed:
+                LabeledContent("Pronunciation coaching") {
+                    Label("Installed", systemImage: "checkmark.seal.fill")
+                        .foregroundStyle(.green)
+                        .labelStyle(.titleAndIcon)
+                }
+
+            case let .failed(message):
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Download failed", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                    Text(message).font(.footnote).foregroundStyle(.secondary)
+                    Button("Try again") { pronunciationModel.start() }
+                }
+            }
+        } header: {
+            Text("Pronunciation")
+        } footer: {
+            pronunciationModelFooter
+        }
+        .onAppear { pronunciationModel.refresh() }
+    }
+
+    @ViewBuilder
+    private var pronunciationModelFooter: some View {
+        switch pronunciationModel.phase {
+        case .installed:
+            Text("The on-device pronunciation model is installed. Pronunciation feedback is scored locally — nothing leaves your device.")
+        case .downloading:
+            Text("You can keep using Hex while this downloads. If it's interrupted, it resumes where it left off.")
+        default:
+            Text("Adds on-device pronunciation feedback (scored locally, no key needed). Fluency coaching already works without it — this is an optional one-time download.")
+        }
+    }
+
+    /// e.g. "120.4 MB of ~600 MB".
+    private func downloadByteText(received: Int64, total: Int64?) -> String {
+        let f = ByteCountFormatter()
+        f.allowedUnits = [.useMB, .useGB]
+        f.countStyle = .file
+        let got = f.string(fromByteCount: received)
+        guard let total else { return got }
+        return "\(got) of \(f.string(fromByteCount: total))"
     }
 
     // MARK: - Privacy / capture controls (RC-8)
