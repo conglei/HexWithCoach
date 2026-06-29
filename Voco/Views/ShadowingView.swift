@@ -14,10 +14,33 @@ import SwiftUI
 struct ShadowingView: View {
     @State private var model: ShadowingModel
     let onComplete: () -> Void
+    /// Optional per-segment score sink for the multi-segment paste session (PR-3).
+    /// Reports the ASR match score and any GOP delta when the learner finishes a
+    /// segment. The default no-op keeps the single-phrase Review/coach callers
+    /// (which only need `onComplete`) untouched.
+    let onScored: (ShadowingSegmentResult) -> Void
+    /// Whether finishing should dismiss the surrounding presentation. true (the
+    /// default) preserves today's single-shot behavior for every existing caller
+    /// (Review's "Say it better", coach drills, TranscriptDetailView): the view
+    /// owns its own cover and closes it on Done. The multi-segment paste session
+    /// (PR-3) sets this false — it embeds `ShadowingView` directly in its cover
+    /// with NO presentation boundary, so an internal `dismiss()` would close the
+    /// whole session. When false, finishing drives advancement purely via
+    /// `onScored`/`onComplete` and the session owns the dismiss.
+    let dismissOnComplete: Bool
+    /// Which flagged word's phoneme detail is currently expanded (SR-2), or nil.
+    @State private var expandedWord: Int?
     @Environment(\.dismiss) private var dismiss
 
-    init(target: String, onComplete: @escaping () -> Void) {
+    init(
+        target: String,
+        dismissOnComplete: Bool = true,
+        onScored: @escaping (ShadowingSegmentResult) -> Void = { _ in },
+        onComplete: @escaping () -> Void
+    ) {
         _model = State(initialValue: ShadowingModel(target: target))
+        self.dismissOnComplete = dismissOnComplete
+        self.onScored = onScored
         self.onComplete = onComplete
     }
 
@@ -129,72 +152,228 @@ struct ShadowingView: View {
         .animation(.linear(duration: 0.05), value: model.levels)
     }
 
-    // MARK: - Result
+    // MARK: - Result (SR-2 redesign)
 
+    /// The redesigned result: a dual-signal verdict (ASR match vs GOP issues kept
+    /// separate), the phrase tinted word-by-word with tappable flagged words, a
+    /// focused `PhonemeAnchor` issue list, compare playback (native + yours), the
+    /// closed-loop progress delta, and Try again / Done.
     private var resultView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: model.isSuccess ? "checkmark.circle.fill" : "arrow.counterclockwise.circle")
-                .font(.system(size: 44))
-                .foregroundStyle(model.isSuccess ? AnyShapeStyle(HexTheme.gradient) : AnyShapeStyle(Color.orange))
-            Text(model.isSuccess ? "Nailed it!" : "Close — give it another go")
-                .font(.headline)
-            if !model.heard.isEmpty {
-                Text("You said: “\(model.heard)”")
+        VStack(spacing: 16) {
+            verdictCard
+            if model.attemptScores != nil {
+                phraseCard
+            }
+            if !model.resultIssues.isEmpty {
+                issuesCard
+            }
+            comparePlaybackCard
+            if let comparison = model.gopComparison, !comparison.isEmpty {
+                VStack { progressSection(comparison) }.hexCard(padding: 16)
+            }
+            actions
+        }
+    }
+
+    // MARK: Verdict
+
+    private var verdictCard: some View {
+        let verdict = model.verdict
+        return VStack(spacing: 10) {
+            Image(systemName: verdict.isWin ? "checkmark.circle.fill" : "sparkles")
+                .font(.system(size: 40))
+                .foregroundStyle(verdict.isWin ? AnyShapeStyle(HexTheme.gradient) : AnyShapeStyle(Color.orange))
+            Text(verdict.headline)
+                .font(.title3.weight(.bold))
+                .multilineTextAlignment(.center)
+
+            // Two SEPARATE signals — never conflated.
+            HStack(spacing: 10) {
+                signalChip(
+                    ok: verdict.rightWords,
+                    okText: "Right words",
+                    badText: "Words off",
+                    icon: verdict.rightWords ? "text.bubble.fill" : "text.bubble"
+                )
+                if let count = verdict.soundIssueCount {
+                    signalChip(
+                        ok: count == 0,
+                        okText: "Sounds clear",
+                        badText: "\(count) sound\(count == 1 ? "" : "s") to polish",
+                        icon: count == 0 ? "waveform" : "waveform.badge.exclamationmark"
+                    )
+                }
+            }
+            if !model.heard.isEmpty, !verdict.rightWords {
+                Text("Heard: “\(model.heard)”")
                     .font(.footnote).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
-            // "Your pronunciation": the attempt's per-phoneme GOP against the target
-            // phrase — green = clear, red = work on. Shown from the first attempt on
-            // (when the model is available). Without the model this stays nil and the
-            // result is exactly today's ASR pass/fail.
-            if let attempt = model.attemptScores {
-                yourPronunciation(attempt)
-            }
-            if let comparison = model.gopComparison, !comparison.isEmpty {
-                progressSection(comparison)
-            }
-            if model.isSuccess {
-                Button("Done") { onComplete(); dismiss() }
-                    .buttonStyle(HexGradientButtonStyle())
-                    .padding(.top, 4)
-            } else {
-                GradientMicButton(systemImage: "mic.fill", size: 120) {
-                    Task { await model.toggleRecord() }
-                }
-                .accessibilityLabel("Try again")
-                Text("Tap to try again")
-                    .font(.footnote).foregroundStyle(.secondary)
-            }
         }
+        .frame(maxWidth: .infinity)
         .hexCard(padding: 20)
     }
 
-    // MARK: - "Your pronunciation" breakdown
+    private func signalChip(ok: Bool, okText: String, badText: String, icon: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+            Text(ok ? okText : badText).font(.footnote.weight(.semibold))
+        }
+        .foregroundStyle(ok ? Color.green : Color.orange)
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .background((ok ? Color.green : Color.orange).opacity(0.12), in: Capsule())
+    }
 
-    /// The attempt's own weak sounds — "your pronunciation vs. the correct one".
-    /// Each weak sound is shown as expected→actual with a red GOP tint (the shared
-    /// `SoundLessonRow`). When nothing came out weak, a positive all-clear state.
-    @ViewBuilder
-    private func yourPronunciation(_ attempt: VocoCore.PronunciationResult) -> some View {
-        let lessons = PronunciationSummary.lessons(from: attempt)
-        VStack(alignment: .leading, spacing: 10) {
-            Text("YOUR PRONUNCIATION")
+    // MARK: Word-level phrase
+
+    private var phraseCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("YOUR PHRASE")
                 .font(.caption2.weight(.bold)).tracking(1)
                 .foregroundStyle(.secondary)
 
-            if lessons.isEmpty {
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                    Text("Every sound came through clearly")
-                        .font(.footnote.weight(.medium))
-                    Spacer(minLength: 0)
+            FlowChipsLayout(spacing: 6, lineSpacing: 8) {
+                ForEach(model.resultWords) { word in
+                    WordChip(word: word, expanded: expandedWord == word.index) {
+                        guard word.isFlagged else { return }
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            expandedWord = (expandedWord == word.index) ? nil : word.index
+                        }
+                    }
                 }
-            } else {
-                ForEach(lessons) { SoundLessonRow(lesson: $0, showCount: false) }
+            }
+
+            if let index = expandedWord,
+               let word = model.resultWords.first(where: { $0.index == index }),
+               !word.phonemes.isEmpty {
+                WordPhonemeDetail(word: word)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            legend
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .hexCard(padding: 16)
+    }
+
+    private var legend: some View {
+        HStack(spacing: 14) {
+            legendDot(.green, "good")
+            legendDot(.orange, "close")
+            legendDot(.red, "off")
+            Spacer(minLength: 0)
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+    }
+
+    private func legendDot(_ color: Color, _ label: String) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 7, height: 7)
+            Text(label)
+        }
+    }
+
+    // MARK: Focused issues (PhonemeAnchor)
+
+    private var issuesCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("SOUNDS TO POLISH")
+                .font(.caption2.weight(.bold)).tracking(1)
+                .foregroundStyle(.secondary)
+
+            ForEach(model.resultIssues) { issue in
+                VStack(alignment: .leading, spacing: 4) {
+                    if !issue.word.isEmpty {
+                        Text("in “\(issue.word)”")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(HexTheme.gradientColors[1])
+                    }
+                    Text(issue.detail)
+                        .font(.subheadline.weight(.medium))
+                    if let tip = issue.tip {
+                        HStack(alignment: .top, spacing: 6) {
+                            Image(systemName: "mouth").font(.caption2).foregroundStyle(.secondary)
+                            Text(tip).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if issue.id != model.resultIssues.last?.id { Divider() }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .hexCard(padding: 16)
+    }
+
+    // MARK: Compare playback
+
+    private var comparePlaybackCard: some View {
+        HStack(spacing: 12) {
+            Button { model.speak() } label: {
+                Label("Hear native", systemImage: "speaker.wave.2.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(HexTheme.gradientColors[0])
+
+            Button { model.playRecording() } label: {
+                Label(model.isPlayingRecording ? "Playing…" : "Hear yours",
+                      systemImage: model.isPlayingRecording ? "waveform" : "play.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(HexTheme.gradientColors[1])
+            .disabled(!model.hasRecording)
+        }
+    }
+
+    // MARK: Actions — Try again (primary) / Done (secondary)
+
+    @ViewBuilder
+    private var actions: some View {
+        VStack(spacing: 10) {
+            Button {
+                expandedWord = nil
+                Task { await model.toggleRecord() }
+            } label: {
+                Label("Try again", systemImage: "arrow.counterclockwise")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(HexGradientButtonStyle())
+
+            Button("Done") { reportAndFinish() }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
         .padding(.top, 4)
+    }
+
+    /// Report this segment's score to the session sink, then run the legacy
+    /// completion hook and dismiss. Both callbacks fire exactly once per finish.
+    private func reportAndFinish() {
+        onScored(
+            ShadowingSegmentResult(
+                score: model.score,
+                gopDelta: model.gopComparison.map(Self.meanDelta)
+            )
+        )
+        onComplete()
+        // Only own the dismiss for standalone single-shot callers. When embedded
+        // in the paste session (dismissOnComplete == false), `onComplete` advances
+        // the session and the session owns the cover's dismiss — calling it here
+        // would synchronously tear down the whole session after segment 0.
+        if dismissOnComplete { dismiss() }
+    }
+
+    /// Mean per-phoneme GOP delta for an attempt (positive = closer to native).
+    /// Persisted as `PracticeAttempt.gopDelta`. nil-comparison → no value.
+    private static func meanDelta(_ comparison: ShadowingGOP.Comparison) -> Double {
+        let deltas = comparison.phonemes.map(\.delta)
+        guard !deltas.isEmpty else { return 0 }
+        return deltas.reduce(0, +) / Double(deltas.count)
     }
 
     // MARK: - CI-11 closed-loop progress (2nd attempt onward)
@@ -251,6 +430,96 @@ struct ShadowingView: View {
             Spacer(minLength: 0)
         }
     }
+}
+
+// MARK: - SR-2 word rendering
+
+/// One word of the rendered phrase, tinted by its per-word GOP quality. Flagged
+/// (`.off`) words are underlined and tappable to expand their phoneme detail; words
+/// without GOP (out-of-dictionary / no model) render plain. `good`/`close` words are
+/// tinted but not interactive.
+private struct WordChip: View {
+    let word: ShadowingResult.Word
+    let expanded: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Text(word.text)
+            .font(.title3.weight(.medium))
+            .foregroundStyle(color)
+            .underline(word.isFlagged, color: color.opacity(0.6))
+            .padding(.horizontal, word.isFlagged ? 4 : 0)
+            .background(
+                word.isFlagged
+                    ? AnyShapeStyle(Color.red.opacity(expanded ? 0.18 : 0.10))
+                    : AnyShapeStyle(Color.clear),
+                in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+            )
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onTap)
+            .accessibilityAddTraits(word.isFlagged ? .isButton : [])
+    }
+
+    private var color: Color {
+        switch word.quality {
+        case .good: return .green
+        case .close: return .orange
+        case .off: return .red
+        case nil: return .primary
+        }
+    }
+}
+
+/// The expanded phoneme detail for a tapped flagged word: each expected phoneme as
+/// a chip tinted by its own GOP, with the substitution it came out as when one
+/// exists. Lets the learner see exactly which sound inside the word was off.
+private struct WordPhonemeDetail: View {
+    let word: ShadowingResult.Word
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Sounds in “\(word.text)”")
+                .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+            FlowChipsLayout(spacing: 6, lineSpacing: 6) {
+                ForEach(Array(word.phonemes.enumerated()), id: \.offset) { _, p in
+                    HStack(spacing: 3) {
+                        Text("/\(p.symbol)/").font(.caption.monospaced().weight(.semibold))
+                        if let said = p.actualSymbol, said != p.symbol {
+                            Image(systemName: "arrow.right").font(.system(size: 8, weight: .bold)).opacity(0.7)
+                            Text("/\(said)/").font(.caption.monospaced())
+                        }
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .background(chipColor(p.gop), in: Capsule())
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func chipColor(_ gop: Double) -> Color {
+        switch GOPColoring.bucket(forGOP: gop) {
+        case .good: return .green
+        case .fair: return .orange
+        case .weak: return .red
+        case .neutral: return .gray
+        }
+    }
+}
+
+/// One finished segment's outcome, reported to the paste session (PR-3) so it can
+/// collect per-segment scores and the (optional) GOP delta for a `PracticeAttempt`.
+/// (Named `…SegmentResult` to avoid colliding with VocoCore's `ShadowingResult`
+/// presentation namespace used by the redesigned result screen.)
+struct ShadowingSegmentResult {
+    /// ASR match score for the segment (0…1), mirroring `ShadowingModel.score`.
+    let score: Double
+    /// Mean per-phoneme GOP delta vs. the previous attempt, when the pronunciation
+    /// model produced a comparison; nil otherwise (first attempt / no model).
+    let gopDelta: Double?
 }
 
 /// The attempt's phonemes as small colored chips: green = native-clean, orange =

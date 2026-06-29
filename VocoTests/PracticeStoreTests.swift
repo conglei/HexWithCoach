@@ -18,8 +18,7 @@ import VocoCore
     /// and SIGTRAP. Both the context and its owning container are handed back.
     private func makeStore() -> (ModelContext, ModelContainer) {
         let container = try! ModelContainer(
-            for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
-            CoachObservation.self, PracticeItem.self, PracticeAttempt.self,
+            for: TranscriptStore.schema,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         return (ModelContext(container), container)
@@ -104,6 +103,41 @@ import VocoCore
 
         item.originRaw = "not-an-origin"
         #expect(item.origin == .pasted)   // safe default rather than a trap
+    }
+
+    // MARK: Paste flow (PR-3)
+
+    /// The paste-to-practice ingest: segment arbitrary text, build a `.pasted`
+    /// item from those segments, persist it, then attach an attempt with the
+    /// per-segment scores — and confirm none of it leaks into History.
+    @Test func pasteSessionCreatesPastedItemWithSegmentedText() throws {
+        let (ctx, container) = makeStore()
+        _ = container
+
+        let raw = "  Hello there. How are you? I am fine!  "
+        let segments = SentenceSegmenter.segments(from: raw)
+        #expect(segments == ["Hello there.", "How are you?", "I am fine!"])
+
+        let item = PracticeStore.pasted(raw.trimmingCharacters(in: .whitespacesAndNewlines), segments: segments)
+        ctx.insert(item)
+        try ctx.save()
+
+        // Drill finishes → save one attempt with per-segment scores onto the item.
+        item.attempts.append(PracticeAttempt(perSegmentScores: [0.9, 0.7, 0.95], gopDelta: 0.12, item: item))
+        try ctx.save()
+
+        let fetched = try ctx.fetch(FetchDescriptor<PracticeItem>())
+        #expect(fetched.count == 1)
+        let stored = try #require(fetched.first)
+        #expect(stored.origin == .pasted)
+        #expect(stored.sourceID == nil)
+        #expect(stored.segments == ["Hello there.", "How are you?", "I am fine!"])
+        #expect(stored.attempts.count == 1)
+        #expect(stored.attempts.first?.perSegmentScores == [0.9, 0.7, 0.95])
+        #expect(stored.attempts.first?.gopDelta == 0.12)
+
+        // Pasted practice must never surface in History.
+        #expect(try ctx.fetch(FetchDescriptor<TranscriptEntry>()).isEmpty)
     }
 
     @Test func storeHelpersSetOriginAndSource() {

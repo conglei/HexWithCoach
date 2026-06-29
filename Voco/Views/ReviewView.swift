@@ -21,6 +21,15 @@ struct ReviewView: View {
     let preferences: CoachPreferences
     @Binding var selectedTab: AppTab
 
+    /// When embedded under the Coach tab (IA-1), `CoachView` owns the
+    /// `NavigationStack`, title, and segmented control, so this view renders
+    /// `feedContent` directly (no inner stack/title) and attaches `feedToolbar`
+    /// to itself. Crucially the view is still *installed* in the hierarchy, so
+    /// its `@Query`/`@State` are wired to the environment's `modelContext` —
+    /// reaching for `ReviewView().feedContent` off an un-rendered value left the
+    /// `@Query` unbound and the feed empty (FX-1).
+    var embedded: Bool = false
+
     @Query(sort: \CoachCardEntity.createdAt, order: .reverse) private var allCards: [CoachCardEntity]
     @Query private var transcripts: [TranscriptEntry]
     @State private var progress = CoachProgress()
@@ -68,15 +77,25 @@ struct ReviewView: View {
     /// renders `feedContent` directly so the segmented control can live in the nav
     /// bar without a nested stack or a doubled title.
     var body: some View {
-        NavigationStack {
+        if embedded {
+            // Embedded under the Coach tab: no inner NavigationStack/title (the
+            // host owns them), but still a real installed view so `@Query`
+            // resolves. We attach `feedToolbar` here — rather than the host
+            // pulling it off a separate throwaway `ReviewView` value — so it
+            // reads this installed view's `@Query`-backed `backlogCount`.
             feedContent
-                .navigationTitle("Review")
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        NavigationLink { PhrasebookView() } label: { Image(systemName: "bookmark") }
+                .toolbar { feedToolbar }
+        } else {
+            NavigationStack {
+                feedContent
+                    .navigationTitle("Review")
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            NavigationLink { PhrasebookView() } label: { Image(systemName: "bookmark") }
+                        }
+                        feedToolbar
                     }
-                    feedToolbar
-                }
+            }
         }
     }
 

@@ -132,6 +132,26 @@ enum AudioStore {
 }
 
 enum TranscriptStore {
+    /// The single, canonical list of every `@Model` type the app persists.
+    ///
+    /// This re-exports the shared list from `SyncStore.schemaTypes` (VocoEngine),
+    /// which is the one canonical definition both app targets build from. iOS keeps
+    /// this `allModelTypes` surface so existing call sites — the SwiftUI previews,
+    /// the test fixtures, and the `SchemaRegistrationTests` GUARD invariant — keep
+    /// compiling; they now resolve to the shared list rather than an inline literal.
+    ///
+    /// GUARD invariant: every `ModelContainer(for:)` site must build its schema from
+    /// this list (i.e. from `SyncStore.schemaTypes`), never an inline literal, so
+    /// adding a new `@Model` without registering it in `SyncStore` fails
+    /// `SchemaRegistrationTests` instead of shipping a launch crash / empty preview.
+    /// When you add a new `@Model`, add it to `SyncStore.schemaTypes` — that single
+    /// change registers it everywhere.
+    static var allModelTypes: [any PersistentModel.Type] { SyncStore.schemaTypes }
+
+    /// The canonical `Schema` built from `allModelTypes`. Use this anywhere a
+    /// `Schema` (rather than a variadic type list) is wanted.
+    static var schema: Schema { SyncStore.schema }
+
     /// Build the model container. Delegates to the shared `SyncStore` factory
     /// (VocoEngine), which both app targets use so they build one synced schema.
     @MainActor

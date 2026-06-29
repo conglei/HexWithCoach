@@ -21,8 +21,7 @@ import VocoCore
 
     private func makeContext() -> ModelContext {
         let container = try! ModelContainer(
-            for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
-            CoachObservation.self, PracticeItem.self, PracticeAttempt.self,
+            for: TranscriptStore.schema,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         return ModelContext(container)
@@ -173,6 +172,80 @@ import VocoCore
         let e = TranscriptEntry(text: "t", date: Date(), kind: .dictation)
         e.kindRaw = "garbage"
         #expect(e.kind == .note)
+    }
+
+    // MARK: Feed data path (FX-1)
+
+    /// Build a container, hold it for the call's lifetime (SwiftData SIGTRAP
+    /// guard), and return both so the model graph stays alive while we query.
+    private func makeContainerAndContext() -> (ModelContainer, ModelContext) {
+        let container = try! ModelContainer(
+            for: TranscriptStore.schema,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        return (container, ModelContext(container))
+    }
+
+    /// FX-1 regression: the Coach tab's Feedback feed was empty even though
+    /// `.new` `CoachCardEntity` rows existed (the embedded `ReviewView`'s `@Query`
+    /// was never bound to a `modelContext`). The pure gating was always correct;
+    /// what regressed was the *data path*. This pins the contract the feed relies
+    /// on: a `.new` card in the store, filtered exactly as `ReviewView.cards`
+    /// does, must drive `ReviewFeedGating.feedState` to `.feed` — independent of
+    /// key presence (keyless objective lane authors these cards).
+    @Test func newCardInStoreDrivesFeedState() throws {
+        let (container, ctx) = makeContainerAndContext()
+        _ = container  // retain for the test's lifetime
+
+        // A note exists, and the objective lane wrote one fresh card.
+        ctx.insert(TranscriptEntry(text: "every morning she go", date: Date(), kind: .note))
+        ctx.insert(CoachCardEntity(card: CoachCard(
+            kind: .improvement, lens: .pronunciation, key: "th-think",
+            title: "THINK", detail: "voiceless th", createdAt: Date()
+        )))
+        try ctx.save()
+
+        let allCards = try ctx.fetch(FetchDescriptor<CoachCardEntity>())
+        let newCards = allCards.filter { $0.status == .new }   // mirrors ReviewView.cards
+        let notes = try ctx.fetch(FetchDescriptor<TranscriptEntry>())
+
+        #expect(allCards.first?.status == .new)   // objective-lane cards start unseen
+        #expect(newCards.count == 1)
+
+        // Keyless: the card still wins → feed (not caughtUp/onboarding/key wall).
+        let keyless = ReviewFeedGating.Inputs(
+            hasCards: !newCards.isEmpty, hasKey: false, hasNotes: !notes.isEmpty
+        )
+        #expect(ReviewFeedGating.feedState(keyless) == .feed)
+        let keyed = ReviewFeedGating.Inputs(
+            hasCards: !newCards.isEmpty, hasKey: true, hasNotes: !notes.isEmpty
+        )
+        #expect(ReviewFeedGating.feedState(keyed) == .feed)
+    }
+
+    /// The companion: once every card is reviewed (no `.new` left) but notes
+    /// remain, the feed correctly falls to "caught up" rather than showing stale
+    /// cards — confirming the fix doesn't force the feed state on.
+    @Test func reviewedCardsLeaveCaughtUpNotFeed() throws {
+        let (container, ctx) = makeContainerAndContext()
+        _ = container
+
+        ctx.insert(TranscriptEntry(text: "a note", date: Date(), kind: .note))
+        let card = CoachCardEntity(card: CoachCard(
+            kind: .improvement, lens: .grammar, key: "k", title: "t", detail: "d", createdAt: Date()
+        ))
+        card.status = .done   // user already reviewed it
+        ctx.insert(card)
+        try ctx.save()
+
+        let newCards = try ctx.fetch(FetchDescriptor<CoachCardEntity>()).filter { $0.status == .new }
+        let notes = try ctx.fetch(FetchDescriptor<TranscriptEntry>())
+        #expect(newCards.isEmpty)
+
+        let inputs = ReviewFeedGating.Inputs(
+            hasCards: !newCards.isEmpty, hasKey: false, hasNotes: !notes.isEmpty
+        )
+        #expect(ReviewFeedGating.feedState(inputs) == .caughtUp)
     }
 
     // MARK: Pronunciation result persistence (CI-3)

@@ -27,6 +27,12 @@ struct HexIOSApp: App {
         let container = TranscriptStore.makeContainer()
         modelContainer = container
         TranscriptStore.ensureUniqueIDs(in: container.mainContext)
+        #if DEBUG
+        // SEED: launch trigger for the DEBUG-only sample-data harness. Set
+        // `VOCO_SEED=1` (or the `-VOCOSeed` argument) on the Run scheme so an
+        // automated screenshot run can seed without tapping. No-op otherwise.
+        DebugSeed.seedIfRequestedAtLaunch(into: container.mainContext)
+        #endif
         _model = State(initialValue: DictationModel(modelContext: container.mainContext))
         let prefs = CoachPreferences()
         _coachPreferences = State(initialValue: prefs)

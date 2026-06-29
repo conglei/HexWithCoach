@@ -42,17 +42,25 @@ enum SyncStore {
 
     /// Every `@Model` type in the shared Phase-3 schema. Both app targets register
     /// exactly this set so the local store and the CloudKit mirror stay consistent.
-    private static let schemaTypes: [any PersistentModel.Type] = [
+    ///
+    /// This is the single canonical model list. iOS re-exports it via
+    /// `TranscriptStore.allModelTypes`, and the `SchemaRegistrationTests` GUARD
+    /// invariant pins this set so any container built from a different list fails.
+    static let schemaTypes: [any PersistentModel.Type] = [
         TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
         CoachObservation.self, PracticeItem.self, PracticeAttempt.self,
     ]
+
+    /// The canonical `Schema` built from `schemaTypes`, for sites that want a
+    /// `Schema` rather than the variadic type list.
+    static var schema: Schema { Schema(schemaTypes) }
 
     /// Build the model container. Prefers the CloudKit-synced store; falls back
     /// to a local-only store if CloudKit is unavailable (e.g. no iCloud account),
     /// and finally to an in-memory store so the app still runs.
     @MainActor
     static func makeContainer() -> ModelContainer {
-        let schema = Schema(schemaTypes)
+        let schema = self.schema
         if SyncPreferences.iCloudEnabled,
            let cloud = try? ModelContainer(
                for: schema,
