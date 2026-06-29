@@ -35,12 +35,19 @@ struct TranscriptDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 header
 
-                // When we have word timings + audio, render an interactive
-                // transcript: tap a word to jump there, and the spoken word
-                // highlights as it plays (bidirectional sync). Otherwise plain text.
+                // When we have word timings + audio, render the layered coaching
+                // transcript (CI-9): bidirectional audio↔text sync PLUS the
+                // persisted objective signals (per-word GOP tint, pause/filler
+                // markers) and any keyed meaning spans, all inline. Read-only — it
+                // never triggers analysis. Otherwise plain text.
                 if let words = entry.wordTimings, !words.isEmpty, audioURL != nil {
-                    SyncedTranscriptView(words: words, audio: audio)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    LayeredTranscriptView(
+                        words: words,
+                        pronunciation: entry.pronunciationResult,
+                        cards: cards,
+                        audio: audio
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     Text(transcriptAttributed)
                         .font(.title3.weight(.semibold))
@@ -219,49 +226,9 @@ private struct CoachRewriteCard: View {
     }
 }
 
-/// Interactive transcript with bidirectional audio↔text sync: tapping a word
-/// seeks the audio there (and starts playing); during playback the word currently
-/// being spoken is highlighted. Words + timings come from the ASR (Parakeet).
-private struct SyncedTranscriptView: View {
-    let words: [WordTiming]
-    let audio: AudioPlayer
-
-    /// Index of the word being spoken now — the last word whose start has passed.
-    /// Using "last started" keeps the highlight stable through the ~80ms gaps
-    /// between words instead of flickering off.
-    private var activeIndex: Int? {
-        let t = audio.currentTime
-        guard t > 0 || audio.isPlaying else { return nil }
-        return words.lastIndex { $0.start <= t + 0.02 }
-    }
-
-    var body: some View {
-        let active = activeIndex
-        FlowLayout(spacing: 6, lineSpacing: 8) {
-            ForEach(Array(words.enumerated()), id: \.offset) { index, word in
-                let isActive = index == active
-                Text(word.word)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(isActive ? Color.white : Color.primary)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(
-                        isActive ? AnyShapeStyle(HexTheme.gradient) : AnyShapeStyle(Color.clear),
-                        in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    )
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        audio.seek(toTime: word.start)
-                        if !audio.isPlaying { audio.play() }
-                    }
-                    .animation(.easeOut(duration: 0.1), value: isActive)
-            }
-        }
-    }
-}
-
 /// Minimal wrapping layout (words flow left-to-right, wrapping to new lines).
-private struct FlowLayout: Layout {
+/// Shared with `LayeredTranscriptView`.
+struct FlowLayout: Layout {
     var spacing: CGFloat = 6
     var lineSpacing: CGFloat = 8
 
