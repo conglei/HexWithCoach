@@ -106,6 +106,10 @@ final class CoachService {
         // unconditionally (keyless-first).
         await analyzePronunciation(for: entry)
         recomputeFluencyPatterns()
+        // Keyless teaching (CI-4b): turn the objective patterns just merged into
+        // the profile into deterministic CoachCards. NO LLM, NO network, NO budget
+        // — runs even with no key so the Review feed is non-empty for free.
+        regenerateObjectiveCards()
 
         guard preferences.isReady, !isAnalyzing else { return }
         guard let apiKey = CoachKeychain.read(CoachKeychain.geminiAPIKeyAccount), !apiKey.isEmpty else { return }
@@ -118,9 +122,14 @@ final class CoachService {
         isAnalyzing = true
         defer { isAnalyzing = false }
 
-        // Replace any cards previously curated from this transcript.
+        // Replace any LLM cards previously curated from this transcript. Objective
+        // (keyless) cards are owned by `regenerateObjectiveCards()` above and keyed
+        // by pattern, so they're excluded from this per-transcript LLM cleanup.
         if let existing = try? modelContext.fetch(FetchDescriptor<CoachCardEntity>()) {
-            for card in existing where card.transcriptID == entry.id { modelContext.delete(card) }
+            for card in existing
+            where card.transcriptID == entry.id && !Self.isObjectiveCardKey(card.key) {
+                modelContext.delete(card)
+            }
         }
         entry.coachAnalyzedAt = nil
 
@@ -248,6 +257,11 @@ final class CoachService {
 
         try? profileStore.save(profile)
         try? modelContext.save()
+
+        // Refresh keyless objective cards from the now-updated profile so the feed
+        // carries both lanes (CI-4b). The LLM lane above *enriches* alongside — it
+        // doesn't replace these pattern-keyed cards.
+        regenerateObjectiveCards()
     }
 
     // MARK: - Pronunciation (objective lane, CI-3)
@@ -329,6 +343,40 @@ final class CoachService {
         var profile = profileStore.load()
         profile.integrate(observations, at: Date())
         try? profileStore.save(profile)
+    }
+
+    // MARK: - Objective card generation (keyless teaching, CI-4b)
+
+    /// Regenerate the deterministic keyless cards from the objective patterns in
+    /// the profile (phoneme guide + fluency-tips + the learner's own examples) and
+    /// persist them. Pure generation lives in `ObjectiveCardGenerator` (HexCore);
+    /// this only owns the SwiftData upsert. NO LLM, NO network, NO budget.
+    ///
+    /// Idempotent: it deletes the prior objective-keyed cards and re-inserts the
+    /// current set, so repeated calls (per-note + backlog) don't accumulate dupes.
+    /// LLM cards are untouched — when a key is present the LLM lane *enriches*
+    /// alongside these rather than replacing them.
+    func regenerateObjectiveCards() {
+        let now = Date()
+        let profile = profileStore.load()
+        let cards = ObjectiveCardGenerator.generate(profile: profile, now: now)
+
+        // Drop the previous objective cards (pattern-keyed), keep LLM cards.
+        if let existing = try? modelContext.fetch(FetchDescriptor<CoachCardEntity>()) {
+            for card in existing where Self.isObjectiveCardKey(card.key) {
+                modelContext.delete(card)
+            }
+        }
+        for card in cards { modelContext.insert(CoachCardEntity(card: card)) }
+        try? modelContext.save()
+    }
+
+    /// Whether a persisted card's key belongs to the keyless objective lane
+    /// (pronunciation-phoneme or fluency patterns). Used to scope objective-card
+    /// cleanup without disturbing LLM cards. Mirrors the detectors' key prefixes.
+    private static func isObjectiveCardKey(_ key: String) -> Bool {
+        key.hasPrefix(ObjectiveCardGenerator.pronunciationKeyPrefix)
+            || key.hasPrefix(ObjectiveCardGenerator.fluencyKeyPrefix)
     }
 
     /// Run the analyzer off the main actor. Returns nil if assets fail to load or
