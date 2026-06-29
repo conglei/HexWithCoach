@@ -290,7 +290,7 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 		let settingsView = SettingsWindowView(store: HexApp.appStore)
 		let settingsWindow = NSWindow(
 			contentRect: .init(x: 0, y: 0, width: 700, height: 640),
-			styleMask: [.titled, .fullSizeContentView, .closable, .miniaturizable, .resizable],
+			styleMask: [.titled, .closable, .miniaturizable, .resizable],
 			backing: .buffered,
 			defer: false
 		)
@@ -301,9 +301,13 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 		settingsWindow.minSize = .init(width: 620, height: 520)
 		settingsWindow.setFrameAutosaveName("Settings")
 		settingsWindow.center()
-		// Preferences toolbar style yields the standard macOS Settings chrome with
-		// the tab icons living in the toolbar.
-		settingsWindow.toolbarStyle = NSWindow.ToolbarStyle.preference
+		// NOTE: the SwiftUI `TabView` renders its own standard tab bar. Do NOT set
+		// `toolbarStyle = .preference` / `.fullSizeContentView` here — that style
+		// expects an NSToolbar hosting the tab items, which only the SwiftUI
+		// `Settings {}` scene installs. On a hand-hosted `NSHostingView` it leaves
+		// the window blank (no toolbar to render the tabs into). Getting the true
+		// toolbar-icon-tabs chrome means adopting the `Settings {}` scene — tracked
+		// as a follow-up; for now the TabView's top tabs render correctly.
 		settingsWindow.makeKeyAndOrderFront(nil)
 		NSApp.activate(ignoringOtherApps: true)
 		self.settingsWindow = settingsWindow
