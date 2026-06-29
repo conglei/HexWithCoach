@@ -14,8 +14,8 @@
 //  Progress digest stay reachable exactly as Review exposed them (bookmark
 //  toolbar item + the streak header link inside the feed).
 //
-//  Practice is a deliberate PLACEHOLDER here — PR-2 fills in the real drill
-//  surface. Keep it minimal and clearly stubbed.
+//  Practice (PR-2) is the drill surface: a paste hero, coach-generated drills,
+//  and the promoted phrasebook — see `PracticeView`.
 //
 
 import SwiftUI
@@ -47,7 +47,7 @@ struct CoachView: View {
                     // title.
                     review.feedContent
                 case .practice:
-                    practiceStub
+                    PracticeView()
                 }
             }
             .navigationTitle("Coach")
@@ -76,16 +76,5 @@ struct CoachView: View {
     /// and its `feedToolbar`, so the feed's `@Query`/`@State` are shared.
     private var review: ReviewView {
         ReviewView(coach: coach, preferences: preferences, selectedTab: $selectedTab)
-    }
-
-    /// PLACEHOLDER for the Practice surface (PR-2). Intentionally minimal —
-    /// just a clearly-stubbed "coming soon" so the entry point exists.
-    private var practiceStub: some View {
-        ContentUnavailableView {
-            Label("Practice", systemImage: "graduationcap")
-        } description: {
-            Text("Guided drills built from your coaching are coming soon.")
-        }
-        .background(Color(.systemGroupedBackground))
     }
 }
