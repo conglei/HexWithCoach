@@ -100,6 +100,27 @@ public enum KeyboardPresence {
     }
 }
 
+/// Hands-free "start a Flow Session" handoff. Surfaces that can't reach the app's
+/// model directly — the Shortcuts / Action Button / Siri intent, and the Control
+/// Center / Lock Screen control — record a pending request here; the app honors it
+/// the next time it becomes active (see HexIOSApp), which avoids a cold-launch race.
+/// Pure App Group / UserDefaults, so it's safe to call from any process/actor.
+public enum PendingAppAction {
+    private static let key = "hex.pendingStartSession"
+
+    public static func requestStartSession(appGroupIdentifier: String = HexAppGroup.identifier) {
+        UserDefaults(suiteName: appGroupIdentifier)?.set(true, forKey: key)
+    }
+
+    /// Returns true (and clears the flag) if a session start was requested.
+    public static func consumeStartSession(appGroupIdentifier: String = HexAppGroup.identifier) -> Bool {
+        let defaults = UserDefaults(suiteName: appGroupIdentifier)
+        guard defaults?.bool(forKey: key) == true else { return false }
+        defaults?.set(false, forKey: key)
+        return true
+    }
+}
+
 /// Standard filenames inside the App Group container.
 public enum IPCFile {
     public static let result = "dictation-result.json"

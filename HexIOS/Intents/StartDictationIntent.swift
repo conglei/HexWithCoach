@@ -13,26 +13,9 @@ import AppIntents
 import Foundation
 import HexCore
 
-/// Shared key used to hand a "start a session" request from the intent (which
-/// can't reach the app's model directly) to the app on next activation.
-// Pure App Group / UserDefaults handoff with no main-actor state. Opt out of the
-// project's `MainActor` default isolation so the nonisolated `AppIntent.perform()`
-// can call it. (SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor)
-nonisolated enum PendingAppAction {
-    static let key = "hex.pendingStartSession"
-
-    static func requestStartSession() {
-        UserDefaults(suiteName: HexAppGroup.identifier)?.set(true, forKey: key)
-    }
-
-    /// Returns true (and clears the flag) if a session start was requested.
-    static func consumeStartSession() -> Bool {
-        let defaults = UserDefaults(suiteName: HexAppGroup.identifier)
-        guard defaults?.bool(forKey: key) == true else { return false }
-        defaults?.set(false, forKey: key)
-        return true
-    }
-}
+// `PendingAppAction` (the App Group handoff that lets a session-start request
+// survive until the app is foreground) now lives in HexCore so the widget
+// extension's Control Center / Lock Screen control can use it too.
 
 struct StartDictationIntent: AppIntent {
     static var title: LocalizedStringResource = "Start Dictation"

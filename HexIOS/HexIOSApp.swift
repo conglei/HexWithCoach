@@ -5,8 +5,10 @@
 //  Created by Conglei Shi on 6/26/26.
 //
 
+import HexCore
 import SwiftData
 import SwiftUI
+import UIKit
 
 @main
 struct HexIOSApp: App {
@@ -41,6 +43,14 @@ struct HexIOSApp: App {
                     case "settings":
                         // Keyboard toolbar settings icon → Settings tab.
                         selectedTab = .settings
+                    case "enableKeyboard":
+                        // Home widget tapped while the keyboard isn't set up yet:
+                        // iOS won't let us enable it programmatically, so jump
+                        // straight to this app's page in Settings (Keyboards lives
+                        // there) instead of making the user hunt for it.
+                        if let settings = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(settings)
+                        }
                     default:
                         break
                     }

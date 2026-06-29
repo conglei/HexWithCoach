@@ -11,30 +11,23 @@
 import Foundation
 import HexCore
 import Observation
+import WidgetKit
 
 @MainActor
 @Observable
 final class CoachProgress {
-    private let defaults = UserDefaults(suiteName: HexAppGroup.identifier) ?? .standard
-    @ObservationIgnored private static let streakKey = "hex.coach.streak"
-
     private(set) var streak: StreakState
 
     init() {
-        if let data = defaults.data(forKey: Self.streakKey),
-           let saved = try? JSONDecoder().decode(StreakState.self, from: data) {
-            streak = saved
-        } else {
-            streak = StreakState()
-        }
+        streak = CoachStreakStore.load()
     }
 
     /// Count today toward the streak (called when the user reviews/shadows a card).
     func recordReview(now: Date = Date()) {
         streak = StreakCalculator.recording(streak, reviewedOn: now)
-        if let data = try? JSONEncoder().encode(streak) {
-            defaults.set(data, forKey: Self.streakKey)
-        }
+        CoachStreakStore.save(streak)
+        // Keep the Home widget's streak glance fresh.
+        WidgetCenter.shared.reloadTimelines(ofKind: "HexWidgets")
     }
 
     /// The LearnerProfile the engine maintains (levels + mastered patterns).
