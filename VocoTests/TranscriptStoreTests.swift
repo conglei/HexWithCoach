@@ -22,6 +22,7 @@ import VocoCore
     private func makeContext() -> ModelContext {
         let container = try! ModelContainer(
             for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
+            CoachObservation.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         return ModelContext(container)

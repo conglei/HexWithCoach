@@ -264,6 +264,10 @@ final class CoachService {
             recordSpend(Self.estimatedCost(chars: entry.text.count, audioSec: audioClip == nil ? 0 : durationSec))
             entry.coachAnalyzedAt = now
 
+            // Persist every verified insight to the observation log (DM-2) BEFORE
+            // curation discards the ones that don't become cards.
+            recordObservations(analysis.insights, for: entry, origin: .llm)
+
             let wins = profile.patterns.filter { $0.status == .mastered && !masteredBefore.contains($0.key) }
             let merged = CoachAnalysis(insights: analysis.insights, focuses: [], signals: analysis.signals)
             let cards = CoachCardCurator.curate(analysis: merged, wins: wins, profile: profile, now: now, limit: perRunCardLimit)
@@ -273,6 +277,48 @@ final class CoachService {
             errorMessage = error.localizedDescription
         }
         try? modelContext.save()
+    }
+
+    // MARK: - Observation log (DM-2)
+
+    /// Append every verified LLM-lane insight to the observation log *before*
+    /// curation (DM-2). Today raw insights are discarded once curated into deduped
+    /// cards; persisting each finding as a dated `CoachObservation` makes cross-note
+    /// coaching (frequency over time, regression, evidence trails) a query. Curation
+    /// and the profile are unchanged — this only ADDS persistence.
+    ///
+    /// `internal` (not `private`) so the persistence behavior is unit-testable via
+    /// `@testable import Voco`.
+    func recordObservations(_ insights: [CoachInsight], for entry: TranscriptEntry, origin: CoachObservation.Origin) {
+        for insight in insights {
+            let obs = CoachObservation()
+            obs.noteID = entry.id
+            obs.date = entry.date
+            obs.lensRaw = insight.lens.rawValue
+            obs.originRaw = origin.rawValue
+            obs.patternKey = insight.key
+            obs.severity = insight.severity
+            obs.span = insight.originalSpan
+            modelContext.insert(obs)
+            HexLog.coach.debug("Coach observation: lens=\(insight.lens.rawValue, privacy: .public) key=\(insight.key, privacy: .public) span=\(insight.originalSpan, privacy: .private)")
+        }
+    }
+
+    /// Append one objective `CoachObservation` per scored word from a pronunciation
+    /// result (DM-2), recording the word + its GOP so per-word pronunciation trends
+    /// across notes become a query. Keyless lane → origin `.objective`,
+    /// `lens = .pronunciation`. `internal` for `@testable` unit coverage.
+    func recordWordObservations(_ result: PronunciationResult, for entry: TranscriptEntry) {
+        for wordScore in result.words {
+            let obs = CoachObservation()
+            obs.noteID = entry.id
+            obs.date = entry.date
+            obs.lensRaw = Lens.pronunciation.rawValue
+            obs.originRaw = CoachObservation.Origin.objective.rawValue
+            obs.word = wordScore.word
+            obs.gop = wordScore.gop
+            modelContext.insert(obs)
+        }
     }
 
     /// Count of transcripts not yet analyzed — the activation bait + refresh badge.
@@ -334,6 +380,10 @@ final class CoachService {
             )
             do {
                 let analysis = try await pipeline.analyze(input, profile: &profile, at: now)
+                // Persist this note's verified insights to the observation log (DM-2)
+                // inside the loop, while we still have its id/date — BEFORE the batch
+                // curation below collapses them into deduped cards.
+                recordObservations(analysis.insights, for: entry, origin: .llm)
                 allInsights.append(contentsOf: analysis.insights)
                 let cost = Self.estimatedCost(chars: entry.text.count, audioSec: audioClip == nil ? 0 : durationSec)
                 recordSpend(cost)
@@ -387,6 +437,10 @@ final class CoachService {
             let result = await Self.runPronunciation(audioURL: url, transcript: text)
             if let result, !result.words.isEmpty {
                 entry.pronunciationResult = result
+                // Append one objective observation per scored word to the log (DM-2),
+                // capturing the per-word GOP so cross-note pronunciation trends are a
+                // query. Keyless lane → origin `.objective`.
+                recordWordObservations(result, for: entry)
                 try? modelContext.save()
             }
         }
