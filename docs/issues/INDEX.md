@@ -126,6 +126,14 @@ RC-7 plan** — Home keeps capture, History stays primary, Review+Practice merge
 | [PR-2](PR-2-practice-surface.md) | Practice surface in the Coach tab | IA-1, PR-1 | M | DONE (#99) |
 | [PR-3](PR-3-paste-ingest.md) | Paste-to-practice ingest → segment → shadowing | PR-1, PR-2 | M | DONE (#100) |
 
+### Shadowing result (SR series)
+Redesign of the "Say it better" result screen — word-level pronunciation feedback, honest
+ASR-vs-GOP verdict, hear-your-own + retry. (RC-4/PR-3 only stubbed the drill functionally.)
+| ID | Title | Depends on | Size | Status |
+|----|-------|-----------|------|--------|
+| [SR-1](SR-1-phoneme-guide.md) | Phoneme guide: plain-English anchors + tips | — | S | TODO |
+| [SR-2](SR-2-shadowing-result-redesign.md) | Shadowing result: word-level pronunciation feedback | SR-1 | L | TODO |
+
 ### Future / not yet scoped
 - **PR-4** — Practice Share Extension ("Share → Voco: Practice") — depends PR-3.
 - **HS-4** — Dictation auto-expiry (prune dictations older than N days; keep notes) — depends DM-1.
