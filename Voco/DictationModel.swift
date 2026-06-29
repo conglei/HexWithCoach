@@ -172,6 +172,10 @@ final class DictationModel {
     private var meterTask: Task<Void, Never>?
 
     private let sessionEngine = SessionAudioEngine()
+    /// Streams the live mic level to the keyboard during a capture so it can draw a
+    /// real waveform (the keyboard can't read the mic itself).
+    private let meter = KeyboardAudioMeter(appGroupIdentifier: HexAppGroup.identifier)
+    private var sessionMeterTask: Task<Void, Never>?
     private var captureObserverTask: Task<Void, Never>?
     private var captureObserver: DarwinSignalObserver?
     private var sessionTimeoutTask: Task<Void, Never>?
@@ -432,6 +436,7 @@ final class DictationModel {
         sessionTimeoutTask?.cancel(); sessionTimeoutTask = nil
         captureObserverTask?.cancel(); captureObserverTask = nil
         heartbeatTask?.cancel(); heartbeatTask = nil
+        stopSessionMetering()
         captureObserver = nil
         sessionEngine.stop()
         sessionCaptureURL = nil
@@ -481,10 +486,12 @@ final class DictationModel {
                 return
             }
             sessionCaptureURL = try? sessionEngine.beginCapture()
+            startSessionMetering()
             extendSession()
             updateActivity(capturing: true)
         case .captureStop:
             guard sessionCaptureURL != nil else { return }
+            stopSessionMetering()
             let url = sessionEngine.endCapture()
             sessionCaptureURL = nil
             updateActivity(capturing: false)
@@ -494,6 +501,29 @@ final class DictationModel {
         default:
             break
         }
+    }
+
+    // MARK: - Keyboard waveform streaming
+
+    /// While capturing, publish the engine's live level to the App Group ~20×/sec
+    /// so the keyboard can render a real waveform. Runs off the audio thread (the
+    /// tap only updates a guarded value; this task does the file write).
+    private func startSessionMetering() {
+        guard let meter else { return }
+        sessionMeterTask?.cancel()
+        let engine = sessionEngine
+        sessionMeterTask = Task.detached(priority: .utility) {
+            while !Task.isCancelled {
+                meter.write(level: engine.currentLevel)
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+        }
+    }
+
+    private func stopSessionMetering() {
+        sessionMeterTask?.cancel()
+        sessionMeterTask = nil
+        meter?.clear()
     }
 
     // MARK: - Live Activity

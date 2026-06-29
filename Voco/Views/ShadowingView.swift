@@ -115,16 +115,18 @@ struct ShadowingView: View {
         }
     }
 
-    /// A simple gradient waveform shown while the learner is speaking.
+    /// A live gradient waveform driven by the learner's actual mic level while
+    /// speaking — mirrors the dictation page's metering, scaled to this hero.
     private var waveform: some View {
-        HStack(spacing: 5) {
-            ForEach(0..<7, id: \.self) { i in
+        HStack(spacing: 3) {
+            ForEach(Array(model.levels.enumerated()), id: \.offset) { _, level in
                 Capsule()
                     .fill(HexTheme.gradient)
-                    .frame(width: 5, height: [14, 26, 18, 32, 20, 28, 16][i])
+                    .frame(width: 3, height: 4 + level * 28)
             }
         }
         .frame(height: 32)
+        .animation(.linear(duration: 0.05), value: model.levels)
     }
 
     // MARK: - Result

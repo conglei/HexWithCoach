@@ -27,6 +27,11 @@ final class ShadowingModel {
     private(set) var score: Double = 0
     var errorMessage: String?
 
+    /// Rolling mic input levels (0…1) for the live recording waveform, mirroring
+    /// `DictationModel`. Empty unless actively recording.
+    private(set) var levels: [CGFloat] = []
+    @ObservationIgnored private var meterTask: Task<Void, Never>?
+
     // MARK: - CI-11 closed-loop GOP re-scoring
 
     /// Per-phoneme comparison of the latest attempt against the previous one — the
@@ -94,12 +99,14 @@ final class ShadowingModel {
         do {
             _ = try recorder.start()
             phase = .recording
+            startMetering()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
     private func stopAndScore() async {
+        stopMetering()
         guard let url = recorder.stop() else { phase = .idle; return }
         phase = .transcribing
         do {
@@ -150,5 +157,31 @@ final class ShadowingModel {
             gopComparison = ShadowingGOP.compare(target: reference, attempt: scored)
         }
         lastAttemptScores = scored
+    }
+
+    // MARK: - Waveform metering
+
+    /// Poll the recorder's input level into a rolling buffer (20 Hz) so the mic
+    /// hero shows the learner's actual voice, matching the dictation waveform.
+    private func startMetering() {
+        let barCount = 32
+        levels = Array(repeating: 0, count: barCount)
+        meterTask?.cancel()
+        meterTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let self, self.phase == .recording else { break }
+                var next = self.levels
+                next.removeFirst()
+                next.append(self.recorder.level())
+                self.levels = next
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+        }
+    }
+
+    private func stopMetering() {
+        meterTask?.cancel()
+        meterTask = nil
+        levels = []
     }
 }
