@@ -7,6 +7,16 @@ public enum CoachCardKind: String, Codable, Sendable {
     case win          // a positive — a habit you've mastered
 }
 
+/// Where a card came from. Lets the LLM lane *enrich* deterministic objective
+/// cards (CI-4b / ADR-0002) rather than duplicate them: an `.objective` card is
+/// authored keyless from the phoneme guide / fluency-tips table + the learner's
+/// own examples; `.llm` cards come from the BYOK pipeline. Defaults to `.llm`
+/// everywhere so older persisted cards (no stored origin) keep their meaning.
+public enum CoachCardOrigin: String, Codable, Sendable {
+    case objective  // deterministic, keyless (ObjectiveCardGenerator)
+    case llm        // BYOK pipeline (CoachPipeline → CoachCardCurator)
+}
+
 /// A single teachable moment for the Review feed (RC-3): your real words → a more
 /// natural rewrite → the rule → which lens, or a positive "win". Derived from the
 /// pipeline's `CoachInsight`s (CE-3) and the `LearnerProfile` (CE-2).
@@ -27,6 +37,9 @@ public struct CoachCard: Codable, Sendable, Equatable, Identifiable {
     /// e.g. "Came up 4× — here's the pattern." Shown when an issue recurs.
     public var recurrenceNote: String?
     public var createdAt: Date
+    /// Whether the card was authored keyless (objective lane) or by the LLM.
+    /// Additive + defaulted to `.llm` so existing persisted cards decode unchanged.
+    public var origin: CoachCardOrigin
 
     public init(
         id: UUID = UUID(),
@@ -41,7 +54,8 @@ public struct CoachCard: Codable, Sendable, Equatable, Identifiable {
         practiceText: String? = nil,
         transcriptID: UUID? = nil,
         recurrenceNote: String? = nil,
-        createdAt: Date
+        createdAt: Date,
+        origin: CoachCardOrigin = .llm
     ) {
         self.id = id
         self.kind = kind
@@ -56,6 +70,32 @@ public struct CoachCard: Codable, Sendable, Equatable, Identifiable {
         self.transcriptID = transcriptID
         self.recurrenceNote = recurrenceNote
         self.createdAt = createdAt
+        self.origin = origin
+    }
+
+    // Custom Codable so older persisted cards (without an `origin` field) decode
+    // as `.llm` rather than failing — keeps the field strictly backward-compatible.
+    private enum CodingKeys: String, CodingKey {
+        case id, kind, lens, key, title, detail, originalSpan, nativeRewrite
+        case context, practiceText, transcriptID, recurrenceNote, createdAt, origin
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        kind = try c.decode(CoachCardKind.self, forKey: .kind)
+        lens = try c.decode(Lens.self, forKey: .lens)
+        key = try c.decode(String.self, forKey: .key)
+        title = try c.decode(String.self, forKey: .title)
+        detail = try c.decode(String.self, forKey: .detail)
+        originalSpan = try c.decodeIfPresent(String.self, forKey: .originalSpan)
+        nativeRewrite = try c.decodeIfPresent(String.self, forKey: .nativeRewrite)
+        context = try c.decodeIfPresent(String.self, forKey: .context)
+        practiceText = try c.decodeIfPresent(String.self, forKey: .practiceText)
+        transcriptID = try c.decodeIfPresent(UUID.self, forKey: .transcriptID)
+        recurrenceNote = try c.decodeIfPresent(String.self, forKey: .recurrenceNote)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        origin = try c.decodeIfPresent(CoachCardOrigin.self, forKey: .origin) ?? .llm
     }
 }
 
