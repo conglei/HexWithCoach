@@ -65,6 +65,12 @@ private struct MacCoachHub: View {
 
     @State private var surface: MacCoachSurface = .feedback
 
+    /// Deep-link target for "Say it better" (MC-R6): a Review card sets this and we
+    /// switch to the Practice surface, which preloads it into a fresh session.
+    /// Lives here (the hub owns `surface`) so the card action can both navigate and
+    /// hand off the target.
+    @State private var pendingPracticeTarget: String?
+
     var body: some View {
         VStack(spacing: 0) {
             Picker("Coach surface", selection: $surface) {
@@ -81,10 +87,18 @@ private struct MacCoachHub: View {
             Group {
                 switch surface {
                 case .feedback:
-                    MacReviewFeed(coach: coach, preferences: preferences)
+                    MacReviewFeed(
+                        coach: coach,
+                        preferences: preferences,
+                        onSayItBetter: { target in
+                            pendingPracticeTarget = target
+                            surface = .practice
+                        }
+                    )
                 case .practice:
-                    // Placeholder (MC-R6). "Say it better" on a card deep-links here.
-                    MacPracticeView()
+                    // "Say it better" on a card deep-links here with a preloaded
+                    // target (MC-R6).
+                    MacPracticeView(pendingTarget: $pendingPracticeTarget)
                 case .progress:
                     // Placeholder (MC-R7).
                     MacProgressView()
@@ -135,6 +149,10 @@ private struct MacCoachHub: View {
 private struct MacReviewFeed: View {
     @Bindable var coach: MacCoachService
     @Bindable var preferences: MacCoachPreferences
+
+    /// Deep-link out to Practice when a card's "Say it better" is tapped (MC-R6).
+    /// The hub owns the surface + the pending target; the feed just forwards it.
+    var onSayItBetter: (String) -> Void
 
     // Newest-first. Cards within a run are curated severity-first by
     // `CoachCardCurator`, so the most recent run leads with the highest-leverage
@@ -203,7 +221,11 @@ private struct MacReviewFeed: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 340, maximum: 520), spacing: 16, alignment: .top)],
                           alignment: .leading, spacing: 16) {
                     ForEach(cards) { card in
-                        MacCoachCardView(card: card, transcript: transcript(for: card))
+                        MacCoachCardView(
+                            card: card,
+                            transcript: transcript(for: card),
+                            onSayItBetter: onSayItBetter
+                        )
                     }
                 }
             }
@@ -362,6 +384,8 @@ private struct MacKeyUpsellBanner: View {
 private struct MacCoachCardView: View {
     let card: CoachCardEntity
     let transcript: TranscriptEntry?
+    /// Deep-link to the Practice surface with this card's practice target (MC-R6).
+    var onSayItBetter: (String) -> Void
 
     @Environment(\.modelContext) private var modelContext
     @State private var isHovering = false
@@ -479,9 +503,8 @@ private struct MacCoachCardView: View {
 
     private var actions: some View {
         HStack(spacing: 8) {
-            // "Say it better" → deep-link into Practice/Shadowing (MC-R6/MC-R9).
-            // The practice target is preloaded here; the actual navigation is a hook
-            // left for MC-R6 (Practice surface) — for now it surfaces the target.
+            // "Say it better" → deep-link into the Practice surface (MC-R6) with
+            // this card's practice target preloaded into a fresh session.
             if card.kind == .improvement, !practiceTarget.isEmpty {
                 Button { sayItBetter() } label: {
                     Label("Say it better", systemImage: "mic.fill")
@@ -519,17 +542,12 @@ private struct MacCoachCardView: View {
         try? modelContext.save()
     }
 
-    // MARK: Deep-link hook (MC-R6 / MC-R9)
+    // MARK: Deep-link (MC-R6)
 
-    /// Hook for "Say it better": the deep-link target for the Practice surface is
-    /// preloaded here. MC-R6 will route this into `MacPracticeView`/shadowing;
-    /// until then we expose the practice target without losing the action.
-    @State private var pendingPractice: String?
-
+    /// "Say it better": hand the card's practice target up to the hub, which switches
+    /// to the Practice surface and preloads it into a fresh session.
     private func sayItBetter() {
-        pendingPractice = practiceTarget
-        // TODO(MC-R6/MC-R9): switch the hub to the Practice surface with
-        // `pendingPractice` preloaded as the shadowing target.
+        onSayItBetter(practiceTarget)
     }
 
     // MARK: Audio
