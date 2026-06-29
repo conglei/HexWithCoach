@@ -8,7 +8,7 @@
 //  save. Speaker labels / timecodes / editing are out of scope for now.
 //
 
-import HexCore
+import VocoCore
 import os
 import SwiftData
 import SwiftUI

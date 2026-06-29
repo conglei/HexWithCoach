@@ -1,6 +1,6 @@
 import Combine
 import ComposableArchitecture
-import HexCore
+import VocoCore
 import SwiftUI
 
 private let appLogger = HexLog.app

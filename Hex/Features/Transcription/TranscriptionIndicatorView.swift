@@ -5,7 +5,7 @@
 //  Created by Kit Langton on 1/25/25.
 
 import AppKit
-import HexCore
+import VocoCore
 import Inject
 import Pow
 import SwiftUI

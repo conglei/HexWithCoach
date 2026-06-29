@@ -1,5 +1,5 @@
 import Foundation
-import HexCore
+import VocoCore
 
 struct PronunciationInput: Sendable {
 	let audioURL: URL

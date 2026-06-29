@@ -4,7 +4,7 @@ import ComposableArchitecture
 import Dependencies
 import DependenciesMacros
 import Foundation
-import HexCore
+import VocoCore
 
 private let liveTextInsertionLogger = HexLog.pasteboard
 

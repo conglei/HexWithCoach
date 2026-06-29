@@ -9,7 +9,7 @@
 //
 
 import Foundation
-import HexCore
+import VocoCore
 
 enum CapturePreferences {
     private static var defaults: UserDefaults? { UserDefaults(suiteName: HexAppGroup.identifier) }

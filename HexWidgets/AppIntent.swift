@@ -9,7 +9,7 @@
 //
 
 import AppIntents
-import HexCore
+import VocoCore
 
 struct StartDictationControlIntent: AppIntent {
     static var title: LocalizedStringResource = "Start dictation"

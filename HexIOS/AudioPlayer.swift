@@ -9,7 +9,7 @@
 
 import AVFoundation
 import Foundation
-import HexCore
+import VocoCore
 import os
 import Observation
 

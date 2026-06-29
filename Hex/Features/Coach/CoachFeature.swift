@@ -2,7 +2,7 @@ import AppKit
 import ComposableArchitecture
 import Dependencies
 import Foundation
-import HexCore
+import VocoCore
 
 private let coachLogger = HexLog.coach
 

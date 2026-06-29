@@ -8,7 +8,7 @@
 //  framed result.
 //
 
-import HexCore
+import VocoCore
 import SwiftUI
 
 struct ShadowingView: View {

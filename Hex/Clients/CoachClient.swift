@@ -2,7 +2,7 @@ import ComposableArchitecture
 import Dependencies
 import DependenciesMacros
 import Foundation
-import HexCore
+import VocoCore
 
 @DependencyClient
 struct CoachClient {

@@ -13,7 +13,7 @@
 //  the Hex toolbar's actions.
 //
 
-import HexCore
+import VocoCore
 import KeyboardKit
 import SwiftUI
 import UIKit

@@ -10,7 +10,7 @@ import ComposableArchitecture
 import Dependencies
 import DependenciesMacros
 import Foundation
-import HexCore
+import VocoCore
 import SwiftUI
 
 // Thank you. Never mind then.What a beautiful idea.

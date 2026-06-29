@@ -26,3 +26,4 @@ node_modules/
 
 # On-device phoneme model (large; sideloaded for testing, not committed)
 tools/pronunciation-assets/PhonemeCTC.mlpackage/
+VocoCore/.build/

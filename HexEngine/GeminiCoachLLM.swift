@@ -9,7 +9,7 @@
 //
 
 import Foundation
-import HexCore
+import VocoCore
 
 struct GeminiCoachLLM: CoachLLM {
     let apiKey: String

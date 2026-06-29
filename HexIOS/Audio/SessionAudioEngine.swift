@@ -21,7 +21,7 @@
 
 import AVFoundation
 import Foundation
-import HexCore
+import VocoCore
 import os
 
 final class SessionAudioEngine: @unchecked Sendable {

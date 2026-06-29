@@ -1,5 +1,5 @@
 import Foundation
-import HexCore
+import VocoCore
 
 /// LLM-produced pronunciation feedback for a single recording.
 struct Feedback: Codable, Equatable, Sendable {

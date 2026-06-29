@@ -12,7 +12,7 @@
 //  lens, and richer LLM-authored teaching.
 //
 
-import HexCore
+import VocoCore
 import SwiftData
 import SwiftUI
 

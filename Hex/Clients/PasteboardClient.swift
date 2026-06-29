@@ -11,7 +11,7 @@ import Carbon
 import Dependencies
 import DependenciesMacros
 import Foundation
-import HexCore
+import VocoCore
 import Sauce
 import SwiftUI
 

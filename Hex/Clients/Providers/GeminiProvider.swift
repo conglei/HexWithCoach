@@ -1,5 +1,5 @@
 import Foundation
-import HexCore
+import VocoCore
 
 private let coachLogger = HexLog.coach
 

@@ -8,7 +8,7 @@
 //  enable-keyboard flow when it isn't.
 //
 
-import HexCore
+import VocoCore
 import SwiftUI
 import WidgetKit
 

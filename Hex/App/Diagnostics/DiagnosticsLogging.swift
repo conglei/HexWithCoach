@@ -1,4 +1,4 @@
-import HexCore
+import VocoCore
 import OSLog
 
 enum DiagnosticsLogging {

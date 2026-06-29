@@ -1,7 +1,7 @@
 import AVFoundation
 import Foundation
-import HexCore
-import HexCore
+import VocoCore
+import VocoCore
 
 private final class FloatRingBuffer {
   private let lock = NSLock()

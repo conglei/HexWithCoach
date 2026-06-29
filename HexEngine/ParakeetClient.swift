@@ -1,5 +1,5 @@
 import Foundation
-import HexCore
+import VocoCore
 import os
 
 /// A Parakeet transcription plus, when available, word-level timings derived from

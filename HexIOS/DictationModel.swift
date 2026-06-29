@@ -10,7 +10,7 @@
 import ActivityKit
 import Dependencies
 import Foundation
-import HexCore
+import VocoCore
 import Observation
 import os
 import SwiftData

@@ -1,7 +1,7 @@
 import ComposableArchitecture
 import Inject
 import SwiftUI
-import HexCore
+import VocoCore
 
 struct HistorySectionView: View {
 	@ObserveInjection var inject

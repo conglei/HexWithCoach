@@ -15,7 +15,7 @@
 //
 
 import AVFoundation
-import HexCore
+import VocoCore
 import SwiftData
 import SwiftUI
 import UIKit

@@ -11,7 +11,7 @@
 
 import AppIntents
 import Foundation
-import HexCore
+import VocoCore
 
 // `PendingAppAction` (the App Group handoff that lets a session-start request
 // survive until the app is foreground) now lives in HexCore so the widget

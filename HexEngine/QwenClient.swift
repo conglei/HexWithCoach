@@ -1,5 +1,5 @@
 import Foundation
-import HexCore
+import VocoCore
 import os
 
 #if canImport(MLXAudioSTT)

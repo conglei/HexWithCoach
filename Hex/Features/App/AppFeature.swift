@@ -8,7 +8,7 @@
 import AppKit
 import ComposableArchitecture
 import Dependencies
-import HexCore
+import VocoCore
 import SwiftUI
 
 @Reducer

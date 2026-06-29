@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 import Testing
-import HexCore
+import VocoCore
 @testable import HexIOS
 
 /// Behavior spec for the iOS persistence layer: the `ensureUniqueIDs` dedup

@@ -12,7 +12,7 @@ import CoreAudio
 import Dependencies
 import DependenciesMacros
 import Foundation
-import HexCore
+import VocoCore
 
 private let recordingLogger = HexLog.recording
 private let mediaLogger = HexLog.media

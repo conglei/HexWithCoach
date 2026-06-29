@@ -8,7 +8,7 @@
 //  v2.1). Reached from the Review tab.
 //
 
-import HexCore
+import VocoCore
 import SwiftData
 import SwiftUI
 

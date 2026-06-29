@@ -7,7 +7,7 @@
 //  stage 3, session length, sync = P4, Full Access status, etc.).
 //
 
-import HexCore
+import VocoCore
 import SwiftUI
 import UIKit
 

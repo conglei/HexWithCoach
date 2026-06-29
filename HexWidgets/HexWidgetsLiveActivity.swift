@@ -14,7 +14,7 @@
 
 import ActivityKit
 import AppIntents
-import HexCore
+import VocoCore
 import SwiftUI
 import WidgetKit
 

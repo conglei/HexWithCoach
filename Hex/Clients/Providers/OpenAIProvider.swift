@@ -1,5 +1,5 @@
 import Foundation
-import HexCore
+import VocoCore
 
 struct OpenAIProvider: PronunciationProvider {
 	let providerKind: CoachProvider = .openai

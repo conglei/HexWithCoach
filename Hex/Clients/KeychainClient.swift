@@ -2,7 +2,7 @@ import ComposableArchitecture
 import Dependencies
 import DependenciesMacros
 import Foundation
-import HexCore
+import VocoCore
 import Security
 
 private let coachKeychainLogger = HexLog.coach

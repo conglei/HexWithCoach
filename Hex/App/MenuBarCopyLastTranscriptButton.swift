@@ -2,7 +2,7 @@ import SwiftUI
 import ComposableArchitecture
 import Dependencies
 import AppKit
-import HexCore
+import VocoCore
 import Sauce
 
 struct MenuBarCopyLastTranscriptButton: View {

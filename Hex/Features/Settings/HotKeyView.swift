@@ -5,7 +5,7 @@
 //  Created by Kit Langton on 1/30/25.
 //
 
-import HexCore
+import VocoCore
 import Inject
 import Sauce
 import SwiftUI

@@ -3,7 +3,7 @@ import AppKit
 import ComposableArchitecture
 import CoreAudio
 import Dependencies
-import HexCore
+import VocoCore
 import IdentifiedCollections
 import Sauce
 import ServiceManagement

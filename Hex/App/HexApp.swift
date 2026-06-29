@@ -1,6 +1,6 @@
 import AppKit
 import ComposableArchitecture
-import HexCore
+import VocoCore
 import Inject
 import Sparkle
 import SwiftUI

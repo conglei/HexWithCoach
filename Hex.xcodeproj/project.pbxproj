@@ -10,7 +10,7 @@
 		35B84163BCC297826D063C72 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 31CB50E41AA5E1941B7A1281 /* Foundation.framework */; };
 		3CBD456D9C3C419B7AF9F020 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 31CB50E41AA5E1941B7A1281 /* Foundation.framework */; };
 		47512ABF2E14D8C9000E25BA /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 47512ABE2E14D8C9000E25BA /* WhisperKit */; };
-		476316272E5FB31400913CDE /* HexCore in Frameworks */ = {isa = PBXBuildFile; productRef = 476316262E5FB31400913CDE /* HexCore */; };
+		476316272E5FB31400913CDE /* VocoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 476316262E5FB31400913CDE /* VocoCore */; };
 		4765045E2D45900200C7EA60 /* Pow in Frameworks */ = {isa = PBXBuildFile; productRef = 4765045D2D45900200C7EA60 /* Pow */; };
 		476BAD3E2D47E7880088C61F /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 476BAD3D2D47E7880088C61F /* Sparkle */; };
 		47C08AB62DE9F61B00564AE6 /* Inject in Frameworks */ = {isa = PBXBuildFile; productRef = 47C08AB52DE9F61B00564AE6 /* Inject */; };
@@ -19,19 +19,19 @@
 		47E05E0A2D44525B00D26DA6 /* Dependencies in Frameworks */ = {isa = PBXBuildFile; productRef = 47E05E092D44525B00D26DA6 /* Dependencies */; };
 		47E05E0C2D44525B00D26DA6 /* DependenciesMacros in Frameworks */ = {isa = PBXBuildFile; productRef = 47E05E0B2D44525B00D26DA6 /* DependenciesMacros */; };
 		47E16A622EC6C9D300885CF7 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 47E16A612EC6C9D300885CF7 /* FluidAudio */; };
-		4EF356212FEF3CE300DCA9C2 /* HexCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4EF356202FEF3CE300DCA9C2 /* HexCore */; };
+		4EF356212FEF3CE300DCA9C2 /* VocoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4EF356202FEF3CE300DCA9C2 /* VocoCore */; };
 		4EF356232FEF3CEF00DCA9C2 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4EF356222FEF3CEF00DCA9C2 /* WhisperKit */; };
 		4EF356252FEF3D0000DCA9C2 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 4EF356242FEF3D0000DCA9C2 /* FluidAudio */; };
 		4EF356E82FEF431A00DCA9C2 /* HexIOSKeyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4EF356E12FEF431A00DCA9C2 /* HexIOSKeyboard.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		4EF356F02FEF434B00DCA9C2 /* HexCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4EF356EF2FEF434B00DCA9C2 /* HexCore */; };
+		4EF356F02FEF434B00DCA9C2 /* VocoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4EF356EF2FEF434B00DCA9C2 /* VocoCore */; };
 		4EF356F62FEF5ABF00DCA9C2 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = 4EF356F52FEF5ABF00DCA9C2 /* ComposableArchitecture */; };
 		4EFA06ED2FEF86F500A6BFA0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4EFA06EC2FEF86F500A6BFA0 /* WidgetKit.framework */; };
 		4EFA06EF2FEF86F500A6BFA0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4EFA06EE2FEF86F500A6BFA0 /* SwiftUI.framework */; };
 		4EFA07002FEF86F600A6BFA0 /* HexWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4EFA06EB2FEF86F500A6BFA0 /* HexWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		4EFA07062FEF882200A6BFA0 /* HexCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4EFA07052FEF882200A6BFA0 /* HexCore */; };
+		4EFA07062FEF882200A6BFA0 /* VocoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4EFA07052FEF882200A6BFA0 /* VocoCore */; };
 		4EFA0D0F2FF0771000A6BFA0 /* KeyboardKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4EFA0D0E2FF0771000A6BFA0 /* KeyboardKit */; };
 		4EFA0D112FF0775F00A6BFA0 /* KeyboardKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4EFA0D102FF0775F00A6BFA0 /* KeyboardKit */; };
-		4F0D6A012F1A000100000001 /* HexCore in Frameworks */ = {isa = PBXBuildFile; productRef = 476316262E5FB31400913CDE /* HexCore */; };
+		4F0D6A012F1A000100000001 /* VocoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 476316262E5FB31400913CDE /* VocoCore */; };
 		4F0D6A022F1A000100000001 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = 47E05E012D444EE900D26DA6 /* ComposableArchitecture */; };
 		57F3BA759BCAE4382B151EA7 /* SessionLengthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 576F8B0BC68A98BFE7D3BF90 /* SessionLengthTests.swift */; };
 		75320C11A4C07BB3067CEA41 /* KeyboardState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28A2C51A566F778F0C01018E /* KeyboardState.swift */; };
@@ -165,6 +165,8 @@
 		};
 		4EAA000000000000000000E1 /* HexEngine */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = HexEngine;
 			sourceTree = "<group>";
 		};
@@ -194,6 +196,8 @@
 		};
 		4F0D6A032F1A000100000001 /* HexTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = HexTests;
 			sourceTree = "<group>";
 		};
@@ -213,7 +217,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4F0D6A022F1A000100000001 /* ComposableArchitecture in Frameworks */,
-				4F0D6A012F1A000100000001 /* HexCore in Frameworks */,
+				4F0D6A012F1A000100000001 /* VocoCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -223,7 +227,7 @@
 			files = (
 				476BAD3E2D47E7880088C61F /* Sparkle in Frameworks */,
 				7BA7464C2FBD689B00814C43 /* MLXAudioSTT in Frameworks */,
-				476316272E5FB31400913CDE /* HexCore in Frameworks */,
+				476316272E5FB31400913CDE /* VocoCore in Frameworks */,
 				47E05E0A2D44525B00D26DA6 /* Dependencies in Frameworks */,
 				B5045C972D78DED500D0A119 /* MarkdownUI in Frameworks */,
 				47512ABF2E14D8C9000E25BA /* WhisperKit in Frameworks */,
@@ -244,7 +248,7 @@
 				4EFA0D0F2FF0771000A6BFA0 /* KeyboardKit in Frameworks */,
 				4EF356252FEF3D0000DCA9C2 /* FluidAudio in Frameworks */,
 				4EF356F62FEF5ABF00DCA9C2 /* ComposableArchitecture in Frameworks */,
-				4EF356212FEF3CE300DCA9C2 /* HexCore in Frameworks */,
+				4EF356212FEF3CE300DCA9C2 /* VocoCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -253,7 +257,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4EFA0D112FF0775F00A6BFA0 /* KeyboardKit in Frameworks */,
-				4EF356F02FEF434B00DCA9C2 /* HexCore in Frameworks */,
+				4EF356F02FEF434B00DCA9C2 /* VocoCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -261,7 +265,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4EFA07062FEF882200A6BFA0 /* HexCore in Frameworks */,
+				4EFA07062FEF882200A6BFA0 /* VocoCore in Frameworks */,
 				4EFA06EF2FEF86F500A6BFA0 /* SwiftUI.framework in Frameworks */,
 				4EFA06ED2FEF86F500A6BFA0 /* WidgetKit.framework in Frameworks */,
 			);
@@ -370,7 +374,7 @@
 			name = HexTests;
 			packageProductDependencies = (
 				47E05E012D444EE900D26DA6 /* ComposableArchitecture */,
-				476316262E5FB31400913CDE /* HexCore */,
+				476316262E5FB31400913CDE /* VocoCore */,
 			);
 			productName = HexTests;
 			productReference = 478637A52D48725900319BFA /* HexTests.xctest */;
@@ -403,7 +407,7 @@
 				B5045C962D78DED500D0A119 /* MarkdownUI */,
 				47C08AB52DE9F61B00564AE6 /* Inject */,
 				47512ABE2E14D8C9000E25BA /* WhisperKit */,
-				476316262E5FB31400913CDE /* HexCore */,
+				476316262E5FB31400913CDE /* VocoCore */,
 				47E16A612EC6C9D300885CF7 /* FluidAudio */,
 				7BA7464B2FBD689B00814C43 /* MLXAudioSTT */,
 			);
@@ -432,7 +436,7 @@
 			);
 			name = HexIOS;
 			packageProductDependencies = (
-				4EF356202FEF3CE300DCA9C2 /* HexCore */,
+				4EF356202FEF3CE300DCA9C2 /* VocoCore */,
 				4EF356222FEF3CEF00DCA9C2 /* WhisperKit */,
 				4EF356242FEF3D0000DCA9C2 /* FluidAudio */,
 				4EF356F52FEF5ABF00DCA9C2 /* ComposableArchitecture */,
@@ -459,7 +463,7 @@
 			);
 			name = HexIOSKeyboard;
 			packageProductDependencies = (
-				4EF356EF2FEF434B00DCA9C2 /* HexCore */,
+				4EF356EF2FEF434B00DCA9C2 /* VocoCore */,
 				4EFA0D102FF0775F00A6BFA0 /* KeyboardKit */,
 			);
 			productName = HexIOSKeyboard;
@@ -483,7 +487,7 @@
 			);
 			name = HexWidgetsExtension;
 			packageProductDependencies = (
-				4EFA07052FEF882200A6BFA0 /* HexCore */,
+				4EFA07052FEF882200A6BFA0 /* VocoCore */,
 			);
 			productName = HexWidgetsExtension;
 			productReference = 4EFA06EB2FEF86F500A6BFA0 /* HexWidgetsExtension.appex */;
@@ -572,7 +576,7 @@
 				B5045C952D78DED500D0A119 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 				47C08AB42DE9F61B00564AE6 /* XCRemoteSwiftPackageReference "Inject" */,
 				47512ABD2E14D8C9000E25BA /* XCRemoteSwiftPackageReference "WhisperKit" */,
-				476316252E5FB31400913CDE /* XCLocalSwiftPackageReference "HexCore" */,
+				476316252E5FB31400913CDE /* XCLocalSwiftPackageReference "VocoCore" */,
 				47E16A602EC6C9D300885CF7 /* XCRemoteSwiftPackageReference "FluidAudio" */,
 				7BA7464A2FBD689B00814C43 /* XCRemoteSwiftPackageReference "mlx-audio-swift" */,
 				4EFA0D0D2FF0771000A6BFA0 /* XCRemoteSwiftPackageReference "KeyboardKit" */,
@@ -1355,9 +1359,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		476316252E5FB31400913CDE /* XCLocalSwiftPackageReference "HexCore" */ = {
+		476316252E5FB31400913CDE /* XCLocalSwiftPackageReference "VocoCore" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = HexCore;
+			relativePath = VocoCore;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -1458,9 +1462,9 @@
 			package = 47512ABD2E14D8C9000E25BA /* XCRemoteSwiftPackageReference "WhisperKit" */;
 			productName = WhisperKit;
 		};
-		476316262E5FB31400913CDE /* HexCore */ = {
+		476316262E5FB31400913CDE /* VocoCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = HexCore;
+			productName = VocoCore;
 		};
 		4765045D2D45900200C7EA60 /* Pow */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1502,10 +1506,10 @@
 			package = 47E16A602EC6C9D300885CF7 /* XCRemoteSwiftPackageReference "FluidAudio" */;
 			productName = FluidAudio;
 		};
-		4EF356202FEF3CE300DCA9C2 /* HexCore */ = {
+		4EF356202FEF3CE300DCA9C2 /* VocoCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 476316252E5FB31400913CDE /* XCLocalSwiftPackageReference "HexCore" */;
-			productName = HexCore;
+			package = 476316252E5FB31400913CDE /* XCLocalSwiftPackageReference "VocoCore" */;
+			productName = VocoCore;
 		};
 		4EF356222FEF3CEF00DCA9C2 /* WhisperKit */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1517,20 +1521,20 @@
 			package = 47E16A602EC6C9D300885CF7 /* XCRemoteSwiftPackageReference "FluidAudio" */;
 			productName = FluidAudio;
 		};
-		4EF356EF2FEF434B00DCA9C2 /* HexCore */ = {
+		4EF356EF2FEF434B00DCA9C2 /* VocoCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 476316252E5FB31400913CDE /* XCLocalSwiftPackageReference "HexCore" */;
-			productName = HexCore;
+			package = 476316252E5FB31400913CDE /* XCLocalSwiftPackageReference "VocoCore" */;
+			productName = VocoCore;
 		};
 		4EF356F52FEF5ABF00DCA9C2 /* ComposableArchitecture */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 47E05E002D444EE900D26DA6 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */;
 			productName = ComposableArchitecture;
 		};
-		4EFA07052FEF882200A6BFA0 /* HexCore */ = {
+		4EFA07052FEF882200A6BFA0 /* VocoCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 476316252E5FB31400913CDE /* XCLocalSwiftPackageReference "HexCore" */;
-			productName = HexCore;
+			package = 476316252E5FB31400913CDE /* XCLocalSwiftPackageReference "VocoCore" */;
+			productName = VocoCore;
 		};
 		4EFA0D0E2FF0771000A6BFA0 /* KeyboardKit */ = {
 			isa = XCSwiftPackageProductDependency;

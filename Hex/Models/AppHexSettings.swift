@@ -1,7 +1,7 @@
 import ComposableArchitecture
 import Dependencies
 import Foundation
-import HexCore
+import VocoCore
 
 // Re-export types so the app target can use them without HexCore prefixes.
 typealias RecordingAudioBehavior = HexCore.RecordingAudioBehavior

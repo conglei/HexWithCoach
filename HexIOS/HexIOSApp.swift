@@ -5,7 +5,7 @@
 //  Created by Conglei Shi on 6/26/26.
 //
 
-import HexCore
+import VocoCore
 import SwiftData
 import SwiftUI
 import UIKit

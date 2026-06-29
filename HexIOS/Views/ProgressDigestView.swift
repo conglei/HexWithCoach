@@ -10,7 +10,7 @@
 //  view only renders it. Styled with the shared HexTheme.
 //
 
-import HexCore
+import VocoCore
 import SwiftData
 import SwiftUI
 

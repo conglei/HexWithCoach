@@ -6,7 +6,7 @@ import CoreGraphics
 import Dependencies
 import DependenciesMacros
 import Foundation
-import HexCore
+import VocoCore
 import IOKit
 import IOKit.hidsystem
 import Sauce

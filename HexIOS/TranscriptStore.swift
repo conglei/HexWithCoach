@@ -9,7 +9,7 @@
 
 import AVFoundation
 import Foundation
-import HexCore
+import VocoCore
 import SwiftData
 
 /// User-controllable sync preferences, persisted in the App Group.

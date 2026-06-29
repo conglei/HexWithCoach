@@ -13,7 +13,7 @@
 //  render neutral — the plain synced transcript, gracefully.
 //
 
-import HexCore
+import VocoCore
 import SwiftUI
 
 /// The layered, interactive transcript. Bidirectional audio↔text sync is kept

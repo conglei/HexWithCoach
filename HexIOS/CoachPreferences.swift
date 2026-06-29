@@ -10,7 +10,7 @@
 //
 
 import Foundation
-import HexCore
+import VocoCore
 import Observation
 
 @MainActor
