@@ -133,16 +133,33 @@ struct TranscriptDetailView: View {
         cards.first { $0.kind == .win }
     }
 
-    /// The meaning issues to browse in the panel — the same cards that get
-    /// underlined in the transcript, in reading order. Falls back to improvement
-    /// cards with a rewrite for plain-text notes (no word timings to match against).
+    /// The meaning issues to browse in the panel. The note page must never show
+    /// FEWER of its own cards than the global Review tab does, so this is a
+    /// SUPERSET of the matched set: span-matched cards first (in reading order so
+    /// they line up with the underlines in the transcript), then every other
+    /// improvement card appended — many objective cards carry a non-contiguous
+    /// `originalSpan` (e.g. a comma-joined word list like "went, store") that can't
+    /// match a consecutive run of words, and those would otherwise be silently
+    /// dropped here even though they appear in Review. `.win` cards are excluded;
+    /// they're surfaced separately via `winCard`.
     private var panelCards: [CoachCardEntity] {
-        if let words = entry.wordTimings, !words.isEmpty {
-            let matched = TranscriptDecorator.matchCards(words: words, cards: cards)
-            let ordered = matched.keys.sorted().compactMap { matched[$0] }
-            if !ordered.isEmpty { return ordered }
+        let improvements = cards.filter { $0.kind == .improvement }
+        guard let words = entry.wordTimings, !words.isEmpty else {
+            // No word timings to match against: show every improvement card,
+            // oldest first (don't exclude cards merely for lacking a rewrite —
+            // they still appear in Review).
+            return improvements.sorted { $0.createdAt < $1.createdAt }
         }
-        return cards.filter { $0.kind == .improvement && $0.nativeRewrite != nil }
+
+        // Span-matched cards first, in reading order (matches the transcript
+        // underlines), then the remaining improvement cards by creation time.
+        let matched = TranscriptDecorator.matchCards(words: words, cards: cards)
+        let ordered = matched.keys.sorted().compactMap { matched[$0] }
+        var seen = Set(ordered.map { $0.persistentModelID })
+        let rest = improvements
+            .filter { seen.insert($0.persistentModelID).inserted }
+            .sorted { $0.createdAt < $1.createdAt }
+        return ordered.filter { $0.kind == .improvement } + rest
     }
 
     @ViewBuilder
