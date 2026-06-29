@@ -396,19 +396,30 @@ public final class PronunciationAnalyzer {
         for (i, span) in spans.enumerated() {
             let f0 = max(0, Int((span.start / stride).rounded()))
             let f1 = min(emissions.count, max(f0 + 1, Int((span.end / stride).rounded())))
+            let domId = Self.dominantClass(in: emissions, frames: f0 ..< f1, blank: blank)
+            let domSym = domId.flatMap { recognizer.vocab.idToSymbol[$0] }
+            // A *syllabic* realization (e.g. "-ful" → [əl], "little" → [l̩]) is correct
+            // connected speech, not a substitution: the forced aligner just expects the
+            // un-merged phonemes. Credit the GOP against the syllabic token and don't
+            // report a swapped sound, so it isn't flagged red or counted as "unclear".
+            let prev = i > 0 ? symbols[i - 1] : nil
+            let next = i < symbols.count - 1 ? symbols[i + 1] : nil
+            let isSyllabic = domSym.map {
+                Self.isSyllabicRealization(decoded: $0, expected: symbols[i], prev: prev, next: next)
+            } ?? false
             var sum = 0.0
             var n = 0
             for t in f0 ..< f1 {
                 let row = emissions[t]
-                let expected = Double(row[targetIds[i]])
+                var expected = Double(row[targetIds[i]])
+                if isSyllabic, let domId { expected = max(expected, Double(row[domId])) }
                 let best = row.max().map(Double.init) ?? expected
                 sum += (expected - best)
                 n += 1
             }
-            let actualSymbol = Self.dominantClass(in: emissions, frames: f0 ..< f1, blank: blank)
-                .flatMap { recognizer.vocab.idToSymbol[$0] }
             scores.append(PhonemeScore(symbol: symbols[i], start: span.start, end: span.end,
-                                       gop: n > 0 ? sum / Double(n) : 0, actualSymbol: actualSymbol))
+                                       gop: n > 0 ? sum / Double(n) : 0,
+                                       actualSymbol: isSyllabic ? symbols[i] : domSym))
         }
 
         let wordScores = ranges.map { WordScore(word: $0.word, phonemes: Array(scores[$0.start ..< $0.end])) }
@@ -433,6 +444,33 @@ public final class PronunciationAnalyzer {
         return tally.max { lhs, rhs in
             lhs.value != rhs.value ? lhs.value < rhs.value : lhs.key > rhs.key
         }?.key
+    }
+
+    /// Combining marks that turn a consonant into its *syllabic* form (`l` → `l̩`,
+    /// `n` → `n̩`). A consonant carrying only these is the same phoneme realized as a
+    /// syllable nucleus, not a different sound.
+    static let syllabicMarks: Set<Unicode.Scalar> = [
+        "\u{0329}", // combining vertical line below  (l̩, n̩, m̩)
+        "\u{030D}", // combining vertical line above
+    ]
+
+    /// Whether `decoded` is a *syllabic realization* of the expected phoneme rather than
+    /// a genuine substitution. English reduces unstressed endings to syllabic units the
+    /// phoneme model has dedicated tokens for — `-ful` is syllabic `[əl]`, `little` ends
+    /// in syllabic `[l̩]` — but the forced aligner still expects the un-merged `[ə][l]`,
+    /// so the merged token decodes as a bogus "you said /əl/" error. Two correct shapes:
+    ///   • diacritic — the same consonant with a syllabic mark (`l` → `l̩`), and
+    ///   • digraph — the expected phoneme fused with an adjacent target (`ə`+`l` → `əl`).
+    /// Pure and model-free so it's unit-testable.
+    static func isSyllabicRealization(decoded: String, expected: String, prev: String?, next: String?) -> Bool {
+        guard decoded != expected else { return false }
+        // Diacritic form: strip syllabic marks and compare the base consonant.
+        let base = String(String.UnicodeScalarView(decoded.unicodeScalars.filter { !syllabicMarks.contains($0) }))
+        if base == expected { return true }
+        // Digraph form: the expected phoneme merged with the neighbour it fused into.
+        if let next, decoded == expected + next { return true }
+        if let prev, decoded == prev + expected { return true }
+        return false
     }
 }
 
