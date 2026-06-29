@@ -16,7 +16,8 @@
 //    •          `MacRecentsView` (recents / quick-note pane)
 //
 //  The reconciled IA replaces MC-7's Review/Notebook/History/Progress set with
-//  Coach · History · Settings + a recents pane (capture stays the menu-bar hotkey).
+//  Coach · History + a recents pane (capture stays the menu-bar hotkey). Settings
+//  moved out to its own HIG-standard tabbed window (MC-R11).
 //
 //  The shared `ModelContainer` reaches the environment in `HexAppDelegate`
 //  (`presentMainWindow()`), which applies `.modelContainer(MacTranscriptStore.shared.modelContainer!)`
@@ -26,13 +27,13 @@
 import SwiftUI
 
 /// Sidebar sections of the companion window, mirroring the reconciled Phase-3 IA
-/// (`docs/macos-companion-phase3-reconcile.md` §5): Coach · History · Settings.
-/// Settings embeds the real settings UI; the rest are empty-state placeholders
-/// until MC-R5 / MC-R8 fill them in.
+/// (`docs/macos-companion-phase3-reconcile.md` §5): Coach · History. Settings is no
+/// longer a section here — it moved to a dedicated, HIG-standard tabbed Settings
+/// window opened via the status menu / ⌘, (MC-R11). The sections below remain
+/// fan-out screens; capture stays the menu-bar hotkey.
 enum MainWindowSection: String, CaseIterable, Identifiable, Hashable {
     case coach
     case history
-    case settings
 
     var id: String { rawValue }
 
@@ -40,7 +41,6 @@ enum MainWindowSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .coach: return "Coach"
         case .history: return "History"
-        case .settings: return "Settings"
         }
     }
 
@@ -48,7 +48,6 @@ enum MainWindowSection: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .coach: return "graduationcap"
         case .history: return "clock"
-        case .settings: return "gearshape"
         }
     }
 }
@@ -58,10 +57,6 @@ enum MainWindowSection: String, CaseIterable, Identifiable, Hashable {
 /// small footer under the sidebar list (capture itself stays the menu-bar hotkey,
 /// per the 2026-06-29 decision).
 struct MainWindowView: View {
-    /// The TCA store, used solely to render the existing Settings UI inside the
-    /// Settings section. The learning sections are TCA-free.
-    let settingsContent: AnyView
-
     @State private var selection: MainWindowSection? = .coach
     @State private var columnVisibility = NavigationSplitViewVisibility.all
 
@@ -96,9 +91,6 @@ struct MainWindowView: View {
                 .navigationTitle(section.title)
         case .history:
             MacHistoryView()
-                .navigationTitle(section.title)
-        case .settings:
-            settingsContent
                 .navigationTitle(section.title)
         }
     }
