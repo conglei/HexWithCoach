@@ -54,6 +54,15 @@ struct ReviewView: View {
 
     private var showsUpsell: Bool { ReviewFeedGating.showsKeyUpsell(gatingInputs) }
 
+    /// Notes captured in the last 7 days — baits the pre-activation upsell with
+    /// the user's real corpus (IA-2). Computed here (not in gating) since it's a
+    /// presentation detail; the count only ever shows while the upsell does, i.e.
+    /// pre-activation.
+    private var capturedThisWeek: Int {
+        let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? .distantPast
+        return transcripts.filter { $0.date >= weekAgo }.count
+    }
+
     /// Standalone use keeps its own navigation chrome. When embedded under the
     /// Coach tab (IA-1), `CoachView` owns the `NavigationStack` and the title, and
     /// renders `feedContent` directly so the segmented control can live in the nav
@@ -160,7 +169,7 @@ struct ReviewView: View {
             LazyVStack(spacing: 14) {
                 progressHeader
                 if showsUpsell {
-                    KeyUpsellBanner { selectedTab = .settings }
+                    KeyUpsellBanner(onConnect: { selectedTab = .settings }, capturedThisWeek: capturedThisWeek)
                 }
                 Text("TODAY")
                     .font(.caption.weight(.semibold)).tracking(1)
@@ -186,7 +195,7 @@ struct ReviewView: View {
         ScrollView {
             VStack(spacing: 16) {
                 if showsUpsell {
-                    KeyUpsellBanner { selectedTab = .settings }
+                    KeyUpsellBanner(onConnect: { selectedTab = .settings }, capturedThisWeek: capturedThisWeek)
                 }
                 ContentUnavailableView {
                     Label("All caught up", systemImage: "checkmark.circle")
@@ -259,7 +268,7 @@ struct ReviewView: View {
             .padding(.top, 8)
 
             if showsUpsell {
-                KeyUpsellBanner { selectedTab = .settings }
+                KeyUpsellBanner(onConnect: { selectedTab = .settings }, capturedThisWeek: capturedThisWeek)
                     .padding(.horizontal, 8)
             }
 

@@ -37,7 +37,7 @@ struct ContentView: View {
                 .tabItem { Label("Coach", systemImage: "graduationcap") }
                 .tag(AppTab.coach)
 
-            HomeView(model: model, selectedTab: $selectedTab, onShowAllHistory: {
+            HomeView(model: model, coachPreferences: coachPreferences, selectedTab: $selectedTab, onShowAllHistory: {
                 historyPath = NavigationPath()
                 selectedTab = .history
             })
