@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import SwiftData
 import VocoCore
 import SwiftUI
 
@@ -8,6 +9,7 @@ private let cacheLogger = HexLog.caches
 class HexAppDelegate: NSObject, NSApplicationDelegate {
 	var invisibleWindow: InvisibleWindow?
 	var settingsWindow: NSWindow?
+	var mainWindow: NSWindow?
 	var statusItem: NSStatusItem!
 	private var launchedAtLogin = false
 
@@ -70,7 +72,7 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 			return
 		}
 
-		presentSettingsView()
+		presentMainWindow()
 		NSApp.activate(ignoringOtherApps: true)
 	}
 
@@ -138,13 +140,19 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 		if isRightClick {
 			showStatusMenu()
 		} else {
-			// Left-click opens Settings now that the legacy coach popover is gone (MC-R4).
-			presentSettingsView()
+			// Left-click opens the companion main window (MC-R0).
+			presentMainWindow()
 		}
 	}
 
 	private func showStatusMenu() {
 		let menu = NSMenu()
+
+		let openVoco = NSMenuItem(title: "Open Voco", action: #selector(menuOpenVoco(_:)), keyEquivalent: "")
+		openVoco.target = self
+		menu.addItem(openVoco)
+
+		menu.addItem(.separator())
 
 		let checkUpdates = NSMenuItem(title: "Check for Updates…", action: #selector(menuCheckForUpdates(_:)), keyEquivalent: "")
 		checkUpdates.target = self
@@ -170,6 +178,10 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 		statusItem.button?.performClick(nil)
 		// Detach menu so future left-clicks don't open it.
 		statusItem.menu = nil
+	}
+
+	@objc private func menuOpenVoco(_ sender: Any?) {
+		presentMainWindow()
 	}
 
 	@objc private func menuCheckForUpdates(_ sender: Any?) {
@@ -203,6 +215,66 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 			.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 		invisibleWindow = InvisibleWindow.fromView(transcriptionView)
 		invisibleWindow?.orderFrontRegardless()
+	}
+
+	/// Present the macOS companion window (MC-R0): a native, resizable main window
+	/// hosting the standalone SwiftUI learning experience, re-cut to the reconciled
+	/// Phase-3 IA (Coach · History · Settings + a recents pane). Mirrors
+	/// `presentSettingsView()` — an NSWindow whose content is an `NSHostingView`,
+	/// restoring its frame via an autosave name.
+	///
+	/// The shared SwiftData `ModelContainer` (owned by `MacTranscriptStore`, MC-R3) is
+	/// injected into the SwiftUI environment with `.modelContainer(_:)` so the fan-out
+	/// screens (MC-R5 / MC-R8) can `@Query` the synced store. Settings reuses the
+	/// existing TCA `AppView`.
+	func presentMainWindow() {
+		// Ensure the window can show + focus even when running as a menu-bar
+		// (LSUIElement / .accessory) app — mirror Settings' activation handling.
+		if !hexSettings.showDockIcon {
+			NSApp.setActivationPolicy(.regular)
+		}
+
+		if let mainWindow = mainWindow {
+			mainWindow.makeKeyAndOrderFront(nil)
+			NSApp.activate(ignoringOtherApps: true)
+			return
+		}
+
+		let settingsContent = AnyView(AppView(store: HexApp.appStore))
+		let rootView = MainWindowView(settingsContent: settingsContent)
+
+		// Inject the shared container when bootstrapped (always true at runtime;
+		// nil only in tests, where this window isn't presented). `MacTranscriptStore`
+		// is @MainActor; this delegate method runs on the main thread, so assume the
+		// isolation to read the container — mirrors the store bootstrap.
+		let container = MainActor.assumeIsolated { MacTranscriptStore.shared.modelContainer }
+		let hosted: NSView
+		if let container {
+			hosted = NSHostingView(rootView: rootView.modelContainer(container))
+		} else {
+			hosted = NSHostingView(rootView: rootView)
+		}
+
+		let window = NSWindow(
+			contentRect: .init(x: 0, y: 0, width: 1000, height: 700),
+			styleMask: [.titled, .fullSizeContentView, .closable, .miniaturizable, .resizable],
+			backing: .buffered,
+			defer: false
+		)
+		window.title = "Voco"
+		window.titleVisibility = .visible
+		window.contentView = hosted
+		window.isReleasedWhenClosed = false
+		window.minSize = .init(width: 760, height: 480)
+		window.setFrameAutosaveName("VocoMainWindow")
+		window.toolbarStyle = .unified
+		// center() only when the autosave name didn't restore a saved frame.
+		if !window.setFrameUsingName("VocoMainWindow") {
+			window.center()
+		}
+		window.makeKeyAndOrderFront(nil)
+		NSApp.activate(ignoringOtherApps: true)
+		self.mainWindow = window
 	}
 
 	func presentSettingsView() {
@@ -248,7 +320,7 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 	}
 
 	func applicationShouldHandleReopen(_: NSApplication, hasVisibleWindows _: Bool) -> Bool {
-		presentSettingsView()
+		presentMainWindow()
 		return true
 	}
 
