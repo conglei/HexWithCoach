@@ -179,7 +179,7 @@ Design: [macos-companion-phase3-reconcile.md](../macos-companion-phase3-reconcil
 
 | ID | Title | Carry | Depends on | Size | Status |
 |----|-------|-------|-----------|------|--------|
-| [MC-R0](MC-R0-window-shell-carryforward.md) | Companion window shell (from MC-7) | ✅ | MC-R1 | S | TODO |
+| [MC-R0](MC-R0-window-shell-carryforward.md) | Companion window shell (from MC-7) | ✅ | MC-R1 | S | IN-PROGRESS |
 | [MC-R1](MC-R1-integrate-origin-main.md) | Integrate origin/main (re-found base) | ◐ | upstream DM-2 + PR-1 ✅ | L | DONE |
 | [MC-R2](MC-R2-refound-shared-layer.md) | Re-found MC-1's shared layer on Phase-3 model | ✅ | MC-R1 | L | DONE |
 | [MC-R3](MC-R3-macos-store-lean-windowed.md) | macOS store on lean row + windowed fetch (re-do MC-3) | ◐ | MC-R2 | M | DONE |
