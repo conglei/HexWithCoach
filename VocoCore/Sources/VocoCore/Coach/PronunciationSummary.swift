@@ -41,9 +41,16 @@ public struct PronunciationLesson: Sendable, Equatable, Identifiable {
 }
 
 public enum PronunciationSummary {
-    /// The `maxLessons` sounds most worth working on in this note, worst/most-frequent
-    /// first. Only *weak* phonemes (the `.weak` GOP bucket) count — the slightly-off
-    /// and clear ones are intentionally omitted so the summary stays short.
+    /// Reduced/centralized vowels that dominate connected speech. These show up
+    /// constantly on long notes (schwa especially) but are the least teachable —
+    /// they're a property of natural reduction, not a discrete error to drill. We
+    /// demote them and cap them to at most one slot so they can't crowd out the
+    /// genuinely fixable sounds.
+    private static let reducedVowels: Set<String> = ["ə", "ɪ", "ʊ", "ɐ", "ᵻ"]
+
+    /// The `maxLessons` sounds most worth working on in this note, most
+    /// actionable/severe first. Only *weak* phonemes (the `.weak` GOP bucket) count —
+    /// the slightly-off and clear ones are intentionally omitted so the summary stays short.
     public static func lessons(
         from result: PronunciationResult,
         maxLessons: Int = 3,
@@ -90,12 +97,37 @@ public enum PronunciationSummary {
             )
         }
 
-        return Array(
-            lessons.sorted {
-                $0.count != $1.count ? $0.count > $1.count
-                    : ($0.meanGOP != $1.meanGOP ? $0.meanGOP < $1.meanGOP : $0.expected < $1.expected)
+        // Rank by how actionable/severe each sound is, NOT by raw frequency: long notes
+        // otherwise always surface the most common reduced sounds (schwa, /t/, /ɹ/),
+        // which are the least teachable. A dominant substitution ("you said /X/") is more
+        // actionable than a diffuse "unclear"; reduced vowels are demoted and capped to at
+        // most one slot so they can't dominate the list.
+        func severity(_ lesson: PronunciationLesson) -> Double {
+            var score = -lesson.meanGOP // more-negative GOP ⇒ larger ⇒ more severe
+            if lesson.actual != nil { score += 1.0 } // a concrete substitution is more actionable
+            if Self.reducedVowels.contains(lesson.expected) { score -= 1.0 } // demote diffuse reduced sounds
+            return score
+        }
+
+        let ranked = lessons.sorted {
+            let a = severity($0), b = severity($1)
+            if a != b { return a > b }
+            if $0.count != $1.count { return $0.count > $1.count }
+            return $0.expected < $1.expected
+        }
+
+        // Take the most severe sounds, but allow at most ONE reduced vowel in the result
+        // so a single dominant schwa can't be followed by /ɪ/, /ʊ/, … crowding everything out.
+        var result: [PronunciationLesson] = []
+        var usedReducedVowel = false
+        for lesson in ranked {
+            if Self.reducedVowels.contains(lesson.expected) {
+                if usedReducedVowel { continue }
+                usedReducedVowel = true
             }
-            .prefix(maxLessons)
-        )
+            result.append(lesson)
+            if result.count >= maxLessons { break }
+        }
+        return result
     }
 }
