@@ -220,7 +220,7 @@ High-friction, needs care: (1) add keyboard in Settings → (2) enable Full Acce
 (4) download a model → (5) first session walkthrough incl. the swipe-back gesture.
 
 ### Project / repo structure
-- Keep one `Hex.xcodeproj`. Add `HexiOS` + `HexKeyboard` targets. Share schemes for CI.
+- Keep one `Voco.xcodeproj`. Add `HexiOS` + `HexKeyboard` targets. Share schemes for CI.
 - Consider a shared `HexUI` package later if SwiftUI views diverge; not needed for V1.
 
 ### Testing

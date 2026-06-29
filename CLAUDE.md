@@ -13,7 +13,7 @@ Hex is a macOS menu bar application for on‑device voice‑to‑text. It suppor
 xcodebuild -scheme VocoMac -configuration Release
 
 # Open in Xcode (recommended for development)
-open Hex.xcodeproj
+open Voco.xcodeproj
 ```
 
 ### Testing — what runs where
@@ -61,7 +61,7 @@ The app uses **The Composable Architecture (TCA)** for state management. Key arc
 - **WhisperKit**: Core ML transcription (tracking main branch)
 - **FluidAudio (Parakeet)**: Core ML ASR (multilingual) default model
 - **Sauce**: Keyboard event monitoring
-- **Sparkle**: Auto-updates (feed: https://hex-updates.s3.amazonaws.com/appcast.xml)
+- **Sparkle**: Auto-updates (feed: https://voco-updates.s3.amazonaws.com/appcast.xml)
 - **Swift Composable Architecture**: State management
 - **Inject** Hot Reloading for SwiftUI
 
@@ -209,7 +209,7 @@ Releases are automated via a local CLI tool that handles building, signing, nota
 9. Creates and signs DMG
 10. Notarizes DMG
 11. Generates Sparkle appcast
-12. Uploads to S3 (versioned DMG + `hex-latest.dmg` + appcast.xml)
+12. Uploads to S3 (versioned DMG + `voco-latest.dmg` + appcast.xml)
 13. Commits version changes, creates git tag, pushes
 14. Creates GitHub release with DMG and ZIP attachments
 
@@ -222,9 +222,9 @@ The tool will prompt you to either:
 ### Artifacts
 
 Each release produces:
-- `Hex-{version}.dmg` - Signed, notarized DMG
-- `Hex-{version}.zip` - For Homebrew cask
-- `hex-latest.dmg` - Always points to latest
+- `Voco-{version}.dmg` - Signed, notarized DMG
+- `Voco-{version}.zip` - For Homebrew cask
+- `voco-latest.dmg` - Always points to latest
 - `appcast.xml` - Sparkle update feed
 
 ### Troubleshooting

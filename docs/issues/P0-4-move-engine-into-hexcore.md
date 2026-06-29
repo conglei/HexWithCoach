@@ -28,4 +28,4 @@ of duplicating app code.
 
 ## Files
 - `HexCore/Package.swift`, `HexCore/Sources/HexCore/Transcription/*`
-- `Hex/Clients/*` (moved out), `Hex.xcodeproj/project.pbxproj` (package wiring)
+- `Hex/Clients/*` (moved out), `Voco.xcodeproj/project.pbxproj` (package wiring)

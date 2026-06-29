@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1600"
+   LastUpgradeVersion = "2610"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES">
+      buildImplicitDependencies = "YES"
+      buildArchitectures = "Automatic">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -14,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "4EF356142FEF3C2100DCA9C2"
-               BuildableName = "Voco.app"
-               BlueprintName = "Voco"
-               ReferencedContainer = "container:Hex.xcodeproj">
+               BlueprintIdentifier = "47E05DED2D444EC600D26DA6"
+               BuildableName = "VocoMac.app"
+               BlueprintName = "VocoMac"
+               ReferencedContainer = "container:Voco.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -26,26 +27,18 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES">
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      shouldAutocreateTestPlan = "YES">
       <Testables>
          <TestableReference
-            skipped = "NO">
+            skipped = "NO"
+            parallelizable = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "DF72E1BC1207AEDFC58AB4E1"
-               BuildableName = "VocoTests.xctest"
-               BlueprintName = "VocoTests"
-               ReferencedContainer = "container:Hex.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "C8032FE288C965FD8B99B58E"
-               BuildableName = "VocoKeyboardTests.xctest"
-               BlueprintName = "VocoKeyboardTests"
-               ReferencedContainer = "container:Hex.xcodeproj">
+               BlueprintIdentifier = "478637A42D48725900319BFA"
+               BuildableName = "VocoMacTests.xctest"
+               BlueprintName = "VocoMacTests"
+               ReferencedContainer = "container:Voco.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -64,12 +57,24 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4EF356142FEF3C2100DCA9C2"
-            BuildableName = "Voco.app"
-            BlueprintName = "Voco"
-            ReferencedContainer = "container:Hex.xcodeproj">
+            BlueprintIdentifier = "47E05DED2D444EC600D26DA6"
+            BuildableName = "VocoMac.app"
+            BlueprintName = "VocoMac"
+            ReferencedContainer = "container:Voco.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "INJECTION_PRESERVE_STATICS"
+            value = "TRUE"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "INJECTION_KEYPATHS"
+            value = "TRUE"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -81,10 +86,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4EF356142FEF3C2100DCA9C2"
-            BuildableName = "Voco.app"
-            BlueprintName = "Voco"
-            ReferencedContainer = "container:Hex.xcodeproj">
+            BlueprintIdentifier = "47E05DED2D444EC600D26DA6"
+            BuildableName = "VocoMac.app"
+            BlueprintName = "VocoMac"
+            ReferencedContainer = "container:Voco.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

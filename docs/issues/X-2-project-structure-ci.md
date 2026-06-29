@@ -10,7 +10,7 @@
 Keep one Xcode project building cleanly for all targets, with CI covering both platforms.
 
 ## Tasks
-- [ ] One `Hex.xcodeproj` with targets: `Hex` (macOS), `HexiOS`, `HexKeyboard`, all sharing
+- [ ] One `Voco.xcodeproj` with targets: `Hex` (macOS), `HexiOS`, `HexKeyboard`, all sharing
       the multiplatform HexCore package.
 - [ ] Shared schemes for CI.
 - [ ] CI: build macOS app, build iOS app, run `HexCore` tests (both platforms).
@@ -20,4 +20,4 @@ Keep one Xcode project building cleanly for all targets, with CI covering both p
 - [ ] CI green for macOS build + iOS build + HexCore tests.
 
 ## Files
-- `.github/workflows/*`, `Hex.xcodeproj/*`
+- `.github/workflows/*`, `Voco.xcodeproj/*`

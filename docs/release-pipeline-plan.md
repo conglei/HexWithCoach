@@ -39,7 +39,7 @@ Need to set up automated release pipeline for macOS app distribution via:
 **Use existing `release.ts` from workflow:**
 ```yaml
 - uses: oven-sh/setup-bun@v2
-- run: bun run tools/release.ts --bucket hex-updates
+- run: bun run tools/release.ts --bucket voco-updates
 ```
 
 **Pros:** Test locally, type-safe, reusable, Effect composability
@@ -88,7 +88,7 @@ const getNotarizeArgs = () => {
 ```typescript
 // After DMG creation
 yield* runCommandCheck("ditto", "-c", "-k", "--keepParent",
-  appBundle, join(updatesDir, `Hex-${newVersion}.zip`))
+  appBundle, join(updatesDir, `Voco-${newVersion}.zip`))
 ```
 
 #### 2. Update Workflow
@@ -131,7 +131,7 @@ jobs:
           rm /tmp/cert.p12
 
       - name: Build and release
-        run: bun run tools/release.ts --bucket hex-updates
+        run: bun run tools/release.ts --bucket voco-updates
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
@@ -149,8 +149,8 @@ jobs:
           gh release create "v$VERSION" \
             --title "Hex v$VERSION" \
             --notes-file build/release-notes-$VERSION.md \
-            updates/Hex-$VERSION.dmg \
-            updates/Hex-$VERSION.zip
+            updates/Voco-$VERSION.dmg \
+            updates/Voco-$VERSION.zip
 ```
 
 ### Required Secrets (9)
@@ -232,7 +232,7 @@ brew install --cask hex
 ### Local Testing
 ```bash
 # Full release (dry-run flag needed?)
-bun run tools/release.ts --bucket hex-updates-test
+bun run tools/release.ts --bucket voco-updates-test
 
 # Test specific steps
 bun run tools/release.ts --skip-upload

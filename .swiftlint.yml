@@ -35,7 +35,7 @@ excluded:
   - SourcePackages
   - DerivedData
   - .swiftpm
-  - Hex.xcodeproj
+  - Voco.xcodeproj
   - HexTests
 
 line_length:
