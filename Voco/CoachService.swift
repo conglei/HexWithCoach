@@ -209,6 +209,14 @@ final class CoachService {
     /// Also refreshes the objective lane for the note. Automatic coaching flows
     /// through `autoAnalyzeOnCapture`; this stays as a manual escape hatch.
     func analyzeEntry(_ entry: TranscriptEntry) async {
+        // DM-2 dedup: a manual re-analyze re-records this note's observations (both
+        // the objective per-word GOP rows and the LLM-lane insight rows below), so
+        // drop the note's existing `CoachObservation` rows first. Without this,
+        // re-analyzing double-inserts and skews frequency-over-time queries.
+        // `analyzeBacklog` doesn't need this — it only touches `coachAnalyzedAt == nil`
+        // notes, which have no prior observations.
+        TranscriptDeletion.deleteObservations(noteID: entry.id, in: modelContext)
+
         // Objective lane (keyless, CI-2/CI-3): force a refresh for this note even if
         // it ran before, so a manual re-analyze re-derives the objective signals too.
         entry.objectiveAnalyzedAt = nil
