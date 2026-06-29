@@ -19,6 +19,9 @@ struct TranscriptDetailView: View {
     /// transcript so the learner can find it in context.
     var highlightSpan: String? = nil
     @State private var audio = AudioPlayer()
+    /// Which underlined meaning issue the Coach panel is currently showing. Set by
+    /// tapping an underline in the transcript; defaults to the first issue.
+    @State private var focusedCardPID: PersistentIdentifier?
     @Environment(\.modelContext) private var modelContext
 
     /// Coach cards whose example is this transcript — the backlink from a note to
@@ -29,44 +32,51 @@ struct TranscriptDetailView: View {
     private var audioURL: URL? { AudioStore.url(for: entry.audioFilename) }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                header
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    header
 
-                // When we have word timings + audio, render the layered coaching
-                // transcript (CI-9): bidirectional audio↔text sync PLUS the
-                // persisted objective signals (per-word GOP tint, pause/filler
-                // markers) and any keyed meaning spans, all inline. Read-only — it
-                // never triggers analysis. Otherwise plain text.
-                if let words = entry.wordTimings, !words.isEmpty, audioURL != nil {
-                    LayeredTranscriptView(
-                        words: words,
-                        pronunciation: entry.pronunciationResult,
-                        cards: cards,
-                        audio: audio
-                    )
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    Text(transcriptAttributed)
-                        .font(.title3.weight(.semibold))
-                        .textSelection(.enabled)
+                    // When we have word timings + audio, render the layered coaching
+                    // transcript (CI-9): bidirectional audio↔text sync PLUS the
+                    // persisted objective signals (per-word GOP tint, pause/filler
+                    // markers) and any keyed meaning spans, all inline. Read-only — it
+                    // never triggers analysis. Otherwise plain text.
+                    if let words = entry.wordTimings, !words.isEmpty, audioURL != nil {
+                        LayeredTranscriptView(
+                            words: words,
+                            pronunciation: entry.pronunciationResult,
+                            cards: cards,
+                            audio: audio,
+                            // Tapping an underline focuses that issue in the Coach
+                            // panel below and scrolls it into view (point 1 fix).
+                            onSelectCard: { card in
+                                focusedCardPID = card.persistentModelID
+                                withAnimation { proxy.scrollTo("coachPanel", anchor: .center) }
+                            }
+                        )
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        Text(transcriptAttributed)
+                            .font(.title3.weight(.semibold))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    if audioURL != nil {
+                        PlayerBar(audio: audio)
+                            .hexCard()
+                    }
+
+                    // CI-7 / ADR-0004: the objective lane (GOP + fluency) runs
+                    // automatically at capture and persists per note. The summary +
+                    // panel below render those persisted results — no manual trigger.
+                    pronunciationSummary
+
+                    coachPanel.id("coachPanel")
                 }
-
-                if audioURL != nil {
-                    PlayerBar(audio: audio)
-                        .hexCard()
-                }
-
-                // CI-7 / ADR-0004: the objective lane (GOP + fluency) now runs
-                // automatically at capture and persists per note, and the layered
-                // transcript above renders those results inline. There's no manual
-                // "Check pronunciation" / "Analyze" trigger anymore — coaching
-                // "just appears".
-
-                coachCard
+                .padding()
             }
-            .padding()
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Transcript")
@@ -101,26 +111,47 @@ struct TranscriptDetailView: View {
         .foregroundStyle(.secondary)
     }
 
-    // MARK: - Coaching backlink
+    // MARK: - Pronunciation summary (objective lane)
 
-    /// The first improvement card with a native rewrite — the one the Coach card
-    /// invites the user to practice.
-    private var rewriteCard: CoachCardEntity? {
-        cards.first { $0.kind == .improvement && $0.nativeRewrite != nil }
+    /// "Sounds to work on" — the 1–3 weakest sounds in this note with the
+    /// substitution the speaker made and their own example words. Reframes the raw
+    /// per-phoneme dump into a digestible theme. Shown only when GOP data exists.
+    @ViewBuilder
+    private var pronunciationSummary: some View {
+        if let result = entry.pronunciationResult {
+            let lessons = PronunciationSummary.lessons(from: result)
+            if !lessons.isEmpty {
+                PronunciationSummaryCard(lessons: lessons)
+            }
+        }
     }
 
-    /// The first "win" — a positive habit worth celebrating.
+    // MARK: - Coaching backlink (meaning lenses)
+
+    /// The "win" card — a positive habit worth celebrating.
     private var winCard: CoachCardEntity? {
         cards.first { $0.kind == .win }
     }
 
+    /// The meaning issues to browse in the panel — the same cards that get
+    /// underlined in the transcript, in reading order. Falls back to improvement
+    /// cards with a rewrite for plain-text notes (no word timings to match against).
+    private var panelCards: [CoachCardEntity] {
+        if let words = entry.wordTimings, !words.isEmpty {
+            let matched = TranscriptDecorator.matchCards(words: words, cards: cards)
+            let ordered = matched.keys.sorted().compactMap { matched[$0] }
+            if !ordered.isEmpty { return ordered }
+        }
+        return cards.filter { $0.kind == .improvement && $0.nativeRewrite != nil }
+    }
+
     @ViewBuilder
-    private var coachCard: some View {
+    private var coachPanel: some View {
         if entry.coachAnalyzedAt == nil {
             Label("Not reviewed by the Coach yet", systemImage: "hourglass")
                 .font(.footnote).foregroundStyle(.secondary)
-        } else if let card = rewriteCard, let rewrite = card.nativeRewrite {
-            CoachRewriteCard(card: card, rewrite: rewrite, modelContext: modelContext)
+        } else if !panelCards.isEmpty {
+            CoachIssuesPanel(cards: panelCards, focusedPID: $focusedCardPID, modelContext: modelContext)
         } else if let win = winCard {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.seal.fill").foregroundStyle(HexTheme.gradientColors[1])
@@ -135,33 +166,140 @@ struct TranscriptDetailView: View {
     }
 }
 
-/// The hero of the detail screen: a soft gradient-tinted card that offers a more
-/// natural way to phrase what the user said, with one tap to shadow it aloud and
-/// another to save it to the phrasebook.
-private struct CoachRewriteCard: View {
+// MARK: - Pronunciation summary card
+
+/// "Sounds to work on": the note's weakest sounds as expected → you-said rows.
+private struct PronunciationSummaryCard: View {
+    let lessons: [PronunciationLesson]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 6) {
+                Image(systemName: "waveform")
+                Text("SOUNDS TO WORK ON")
+            }
+            .font(.caption.weight(.bold)).tracking(1)
+            .foregroundStyle(HexTheme.gradientColors[1])
+
+            ForEach(lessons) { LessonRow(lesson: $0) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .hexCard()
+    }
+}
+
+private struct LessonRow: View {
+    let lesson: PronunciationLesson
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            HStack(spacing: 6) {
+                Text("/\(lesson.expected)/")
+                    .font(.system(.title3, design: .monospaced).weight(.bold))
+                    .foregroundStyle(.red)
+                if let actual = lesson.actual {
+                    Image(systemName: "arrow.right").font(.caption).foregroundStyle(.secondary)
+                    Text("/\(actual)/")
+                        .font(.system(.title3, design: .monospaced).weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(lesson.actual != nil ? "you said /\(lesson.actual!)/ instead" : "came out unclear")
+                    .font(.subheadline.weight(.medium))
+                if !lesson.exampleWords.isEmpty {
+                    Text("in " + lesson.exampleWords.map { "“\($0)”" }.joined(separator: ", "))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Text("\(lesson.count)×").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - Browsable coach issues panel
+
+/// The hero panel: browses the note's meaning issues ("1 of N"), showing one
+/// rephrase at a time with shadow + save. Tapping an underline in the transcript
+/// focuses the matching issue here.
+private struct CoachIssuesPanel: View {
+    let cards: [CoachCardEntity]
+    @Binding var focusedPID: PersistentIdentifier?
+    let modelContext: ModelContext
+
+    private var index: Int {
+        guard let pid = focusedPID,
+              let i = cards.firstIndex(where: { $0.persistentModelID == pid }) else { return 0 }
+        return i
+    }
+    private var current: CoachCardEntity { cards[min(index, cards.count - 1)] }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                    Text(current.lens.rawValue.uppercased())
+                }
+                .font(.caption.weight(.bold)).tracking(1)
+                .foregroundStyle(HexTheme.gradientColors[1])
+
+                Spacer()
+
+                if cards.count > 1 {
+                    HStack(spacing: 14) {
+                        Text("\(index + 1) of \(cards.count)")
+                            .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        Button { step(-1) } label: { Image(systemName: "chevron.left") }
+                            .disabled(index == 0)
+                        Button { step(1) } label: { Image(systemName: "chevron.right") }
+                            .disabled(index == cards.count - 1)
+                    }
+                    .font(.headline).foregroundStyle(HexTheme.gradientColors[1])
+                }
+            }
+
+            CoachIssueBody(card: current, modelContext: modelContext)
+                .id(current.persistentModelID)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(HexTheme.gradientSoft, in: RoundedRectangle(cornerRadius: HexTheme.cardRadius, style: .continuous))
+    }
+
+    private func step(_ delta: Int) {
+        let next = max(0, min(cards.count - 1, index + delta))
+        focusedPID = cards[next].persistentModelID
+    }
+}
+
+/// One issue's body: the more-natural rephrase (or the card title when there's no
+/// rewrite), the "why", and shadow + save actions.
+private struct CoachIssueBody: View {
     let card: CoachCardEntity
-    let rewrite: String
     let modelContext: ModelContext
 
     @State private var showShadow = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 6) {
-                Image(systemName: "sparkles")
-                Text("COACH")
+            if let rewrite = card.nativeRewrite, !rewrite.isEmpty {
+                Text("A more natural way to say this:")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Text("“\(rewrite)”")
+                    .font(.title3.weight(.bold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text(card.title)
+                    .font(.title3.weight(.bold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .font(.caption.weight(.bold))
-            .tracking(1)
-            .foregroundStyle(HexTheme.gradientColors[1])
 
-            Text("A more natural way to say this:")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            Text("“\(rewrite)”")
-                .font(.title3.weight(.bold))
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if !card.detail.isEmpty {
+                Text(card.detail).font(.callout).foregroundStyle(.secondary)
+            }
 
             HStack(spacing: 12) {
                 Button { showShadow = true } label: {
@@ -177,22 +315,17 @@ private struct CoachRewriteCard: View {
                 .buttonStyle(.plain)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(HexTheme.gradientSoft, in: RoundedRectangle(cornerRadius: HexTheme.cardRadius, style: .continuous))
         .fullScreenCover(isPresented: $showShadow) {
             ShadowingView(target: shadowTarget) {}
         }
     }
 
-    /// Shadow the real, speakable practice sentence when the card has one; else
-    /// fall back to the displayed rewrite (older cards / non-pronunciation lenses).
+    /// Shadow the real, speakable practice sentence when present; else the rewrite.
     private var shadowTarget: String {
         if let practice = card.practiceText, !practice.isEmpty { return practice }
-        return rewrite
+        return card.nativeRewrite ?? card.title
     }
 
-    /// Bookmark → keep this rephrase in the phrasebook (RC-5).
     private func saveToPhrasebook() {
         card.status = .saved
         try? modelContext.save()
