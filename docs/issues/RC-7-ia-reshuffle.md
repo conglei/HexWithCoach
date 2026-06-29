@@ -1,5 +1,13 @@
 # [RC-7] IA reshuffle: Review home, History → search, capture off home
 
+> **STATUS: SUPERSEDED by [IA-1](IA-1-tab-restructure-coach.md)** (Phase 3 — Notebook & Coach v2).
+> The IA decided here is reversed: the app stays **capture-first** (Home is the front door),
+> **History stays a primary tab**, and **Review + Practice merge** into a Coach tab (Home / History
+> / Coach / Settings). The neighbor design RC-7 referenced is **not** lost — the Review feed (RC-3),
+> card curation (RC-2), shadowing (RC-4), phrasebook (RC-5), and progress (RC-6) now live **inside**
+> the Coach tab, and RC-7/§8's **activation model** (baited empty state + first-run nudge) is carried
+> forward as **[IA-2](IA-2-coach-activation.md)**. Kept for the record of why. Do not implement as written.
+
 - **Phase:** 2 — Review/Coach companion
 - **Depends on:** RC-3
 - **Blocks:** —
