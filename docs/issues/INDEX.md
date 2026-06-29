@@ -103,28 +103,28 @@ RC-7 plan** — Home keeps capture, History stays primary, Review+Practice merge
 ### Foundation (data model) — do first
 | ID | Title | Depends on | Size | Status |
 |----|-------|-----------|------|--------|
-| [DM-1](DM-1-transcript-analysis-split.md) | Split TranscriptEntry + analysis sidecar | — | M | TODO |
-| [DM-2](DM-2-coach-observation-log.md) | CoachObservation log + curation/profile as projections | DM-1 | L | TODO |
+| [DM-1](DM-1-transcript-analysis-split.md) | Split TranscriptEntry + analysis sidecar | — | M | DONE (#92) |
+| [DM-2](DM-2-coach-observation-log.md) | CoachObservation log + curation/profile as projections | DM-1 | L | DONE (#94) |
 
 ### History scaling
 | ID | Title | Depends on | Size | Status |
 |----|-------|-----------|------|--------|
-| [HS-1](HS-1-history-notes-dictation-segment.md) | History: Notes/Dictation segment | — | S | TODO |
-| [HS-2](HS-2-history-windowed-fetch.md) | History: windowed fetch + date-scope chips | DM-1, HS-1 | M | TODO |
-| [HS-3](HS-3-history-delete-cascade.md) | History: delete + cascade | DM-1, DM-2 | M | TODO |
+| [HS-1](HS-1-history-notes-dictation-segment.md) | History: Notes/Dictation segment | — | S | DONE (#91) |
+| [HS-2](HS-2-history-windowed-fetch.md) | History: windowed fetch + date-scope chips | DM-1, HS-1 | M | DONE (#93) |
+| [HS-3](HS-3-history-delete-cascade.md) | History: delete + cascade | DM-1, DM-2 | M | DONE (#97) |
 
 ### Navigation
 | ID | Title | Depends on | Size | Status |
 |----|-------|-----------|------|--------|
-| [IA-1](IA-1-tab-restructure-coach.md) | Tab restructure: merge Review+Practice → Coach (supersedes RC-7) | — | M | TODO |
-| [IA-2](IA-2-coach-activation.md) | Coach activation: baited empty state + first-run nudge | IA-1, RC-3 | S | TODO |
+| [IA-1](IA-1-tab-restructure-coach.md) | Tab restructure: merge Review+Practice → Coach (supersedes RC-7) | — | M | DONE (#95) |
+| [IA-2](IA-2-coach-activation.md) | Coach activation: baited empty state + first-run nudge | IA-1, RC-3 | S | DONE (#96) |
 
 ### Practice
 | ID | Title | Depends on | Size | Status |
 |----|-------|-----------|------|--------|
-| [PR-1](PR-1-practice-item-model.md) | PracticeItem model + store | — | S | TODO |
-| [PR-2](PR-2-practice-surface.md) | Practice surface in the Coach tab | IA-1, PR-1 | M | TODO |
-| [PR-3](PR-3-paste-ingest.md) | Paste-to-practice ingest → segment → shadowing | PR-1, PR-2 | M | TODO |
+| [PR-1](PR-1-practice-item-model.md) | PracticeItem model + store | — | S | DONE (#98) |
+| [PR-2](PR-2-practice-surface.md) | Practice surface in the Coach tab | IA-1, PR-1 | M | DONE (#99) |
+| [PR-3](PR-3-paste-ingest.md) | Paste-to-practice ingest → segment → shadowing | PR-1, PR-2 | M | DONE (#100) |
 
 ### Future / not yet scoped
 - **PR-4** — Practice Share Extension ("Share → Voco: Practice") — depends PR-3.
