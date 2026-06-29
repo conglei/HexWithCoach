@@ -100,24 +100,56 @@ public enum KeyboardPresence {
     }
 }
 
-/// Hands-free "start a Flow Session" handoff. Surfaces that can't reach the app's
-/// model directly — the Shortcuts / Action Button / Siri intent, and the Control
-/// Center / Lock Screen control — record a pending request here; the app honors it
-/// the next time it becomes active (see HexIOSApp), which avoids a cold-launch race.
-/// Pure App Group / UserDefaults, so it's safe to call from any process/actor.
+/// Hands-free handoff for surfaces that can't reach the app's model directly — the
+/// Shortcuts / Action Button / Siri intent, the Control Center / Lock Screen
+/// control, and the Home Screen widget buttons. Each records a pending request
+/// here; the app honors it the next time it becomes active (see HexIOSApp), which
+/// avoids a cold-launch race. Pure App Group / UserDefaults, so it's safe to call
+/// from any process/actor.
 public enum PendingAppAction {
-    private static let key = "hex.pendingStartSession"
+    private static let startSessionKey = "hex.pendingStartSession"
+    private static let recordNoteKey = "hex.pendingRecordNote"
+    private static let openKeyboardSettingsKey = "hex.pendingOpenKeyboardSettings"
 
-    public static func requestStartSession(appGroupIdentifier: String = HexAppGroup.identifier) {
+    private static func request(_ key: String, _ appGroupIdentifier: String) {
         UserDefaults(suiteName: appGroupIdentifier)?.set(true, forKey: key)
     }
 
-    /// Returns true (and clears the flag) if a session start was requested.
-    public static func consumeStartSession(appGroupIdentifier: String = HexAppGroup.identifier) -> Bool {
+    /// Returns true (and clears the flag) if `key` was set.
+    private static func consume(_ key: String, _ appGroupIdentifier: String) -> Bool {
         let defaults = UserDefaults(suiteName: appGroupIdentifier)
         guard defaults?.bool(forKey: key) == true else { return false }
         defaults?.set(false, forKey: key)
         return true
+    }
+
+    /// Start a keyboard Flow Session (Control Center / Action Button / Siri).
+    public static func requestStartSession(appGroupIdentifier: String = HexAppGroup.identifier) {
+        request(startSessionKey, appGroupIdentifier)
+    }
+
+    public static func consumeStartSession(appGroupIdentifier: String = HexAppGroup.identifier) -> Bool {
+        consume(startSessionKey, appGroupIdentifier)
+    }
+
+    /// Start recording a new in-app note (Home Screen widget mic button).
+    public static func requestRecordNote(appGroupIdentifier: String = HexAppGroup.identifier) {
+        request(recordNoteKey, appGroupIdentifier)
+    }
+
+    public static func consumeRecordNote(appGroupIdentifier: String = HexAppGroup.identifier) -> Bool {
+        consume(recordNoteKey, appGroupIdentifier)
+    }
+
+    /// Open iOS keyboard settings to enable/disable the Voco keyboard (Home Screen
+    /// widget status pill). iOS exposes no API to toggle a keyboard directly, so the
+    /// best we can do is jump the user to the page where they turn it on or off.
+    public static func requestOpenKeyboardSettings(appGroupIdentifier: String = HexAppGroup.identifier) {
+        request(openKeyboardSettingsKey, appGroupIdentifier)
+    }
+
+    public static func consumeOpenKeyboardSettings(appGroupIdentifier: String = HexAppGroup.identifier) -> Bool {
+        consume(openKeyboardSettingsKey, appGroupIdentifier)
     }
 }
 

@@ -40,6 +40,9 @@ struct HexIOSApp: App {
                     case "startSession":
                         // Keyboard session bounce.
                         Task { await model.startKeyboardSession() }
+                    case "record":
+                        // Start a new in-app note (Home widget mic button / Shortcuts).
+                        startNote()
                     case "settings":
                         // Keyboard toolbar settings icon → Settings tab.
                         selectedTab = .settings
@@ -48,19 +51,45 @@ struct HexIOSApp: App {
                         // iOS won't let us enable it programmatically, so jump
                         // straight to this app's page in Settings (Keyboards lives
                         // there) instead of making the user hunt for it.
-                        if let settings = URL(string: UIApplication.openSettingsURLString) {
-                            UIApplication.shared.open(settings)
-                        }
+                        openKeyboardSettings()
                     default:
                         break
                     }
                 }
                 .onChange(of: scenePhase) { _, phase in
-                    // Hands-free entry (App Intent / Action Button / Siri): the
-                    // intent opens the app and flags a request; honor it on activation.
-                    guard phase == .active, PendingAppAction.consumeStartSession() else { return }
-                    Task { await model.startKeyboardSession() }
+                    // Hands-free entry: an intent (Action Button / Siri / Control /
+                    // Home widget) opens the app and flags a request; honor whichever
+                    // is pending on activation. This avoids a cold-launch race.
+                    guard phase == .active else { return }
+                    if PendingAppAction.consumeStartSession() {
+                        Task { await model.startKeyboardSession() }
+                    }
+                    if PendingAppAction.consumeRecordNote() {
+                        startNote()
+                    }
+                    if PendingAppAction.consumeOpenKeyboardSettings() {
+                        openKeyboardSettings()
+                    }
                 }
+        }
+    }
+
+    /// Switch to Home and start recording a new note. `prepare()` is idempotent, so
+    /// awaiting it here covers the cold-launch case where the model isn't ready yet
+    /// when the widget bounces us in.
+    private func startNote() {
+        selectedTab = .home
+        Task {
+            await model.prepare()
+            guard model.canRecord else { return }
+            await model.toggleRecording()
+        }
+    }
+
+    /// Jump to this app's page in iOS Settings, where the keyboard is turned on/off.
+    private func openKeyboardSettings() {
+        if let settings = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(settings)
         }
     }
 }

@@ -8,6 +8,7 @@
 //  enable-keyboard flow when it isn't.
 //
 
+import AppIntents
 import VocoCore
 import SwiftUI
 import WidgetKit
@@ -32,17 +33,6 @@ struct Provider: TimelineProvider {
         // active, streak changes); this periodic refresh is just a safety net.
         let next = Calendar.current.date(byAdding: .minute, value: 30, to: entry.date) ?? entry.date
         completion(Timeline(entries: [entry], policy: .after(next)))
-    }
-}
-
-// MARK: - Deep links
-
-private enum WidgetLink {
-    static let start = URL(string: "voco://startSession")!
-    static let enableKeyboard = URL(string: "voco://enableKeyboard")!
-
-    static func destination(for snapshot: HomeWidgetSnapshot) -> URL {
-        snapshot.keyboardReady ? start : enableKeyboard
     }
 }
 
@@ -91,20 +81,43 @@ private struct StreakGlance: View {
     }
 }
 
+/// The two-zone column shared by both widget sizes: a big tap target that starts a
+/// new in-app note, and a smaller one (the status pill) that opens iOS keyboard
+/// settings to turn the keyboard on or off. Two separate `Button(intent:)` controls
+/// give two independent tap targets even in the small widget.
+struct HexWidgetsColumn: View {
+    let snapshot: HomeWidgetSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button(intent: RecordNoteIntent()) {
+                VStack(alignment: .leading, spacing: 8) {
+                    MicBadge()
+                    Text("Start dictation")
+                        .font(.headline)
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button(intent: ManageKeyboardIntent()) {
+                StatusPill(ready: snapshot.keyboardReady)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+}
+
 struct HexWidgetsSmallView: View {
     let snapshot: HomeWidgetSnapshot
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            MicBadge()
-            Spacer(minLength: 8)
-            Text("Start dictation")
-                .font(.headline)
-                .lineLimit(2)
-            Spacer(minLength: 6)
-            StatusPill(ready: snapshot.keyboardReady)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        HexWidgetsColumn(snapshot: snapshot)
     }
 }
 
@@ -113,15 +126,7 @@ struct HexWidgetsMediumView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                MicBadge()
-                Spacer(minLength: 8)
-                Text("Start dictation")
-                    .font(.headline)
-                Spacer(minLength: 6)
-                StatusPill(ready: snapshot.keyboardReady)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            HexWidgetsColumn(snapshot: snapshot)
 
             Divider()
 
@@ -149,7 +154,6 @@ struct HexWidgetsEntryView: View {
                 HexWidgetsSmallView(snapshot: entry.snapshot)
             }
         }
-        .widgetURL(WidgetLink.destination(for: entry.snapshot))
         .containerBackground(.fill.tertiary, for: .widget)
     }
 }
