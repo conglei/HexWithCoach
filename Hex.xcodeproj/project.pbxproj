@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		35B84163BCC297826D063C72 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 31CB50E41AA5E1941B7A1281 /* Foundation.framework */; };
 		3CBD456D9C3C419B7AF9F020 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 31CB50E41AA5E1941B7A1281 /* Foundation.framework */; };
+		44E1CB51E1749FC35E76742F /* voco.icon in Resources */ = {isa = PBXBuildFile; fileRef = 4C1B1586395136E1BA3BCA93 /* voco.icon */; };
 		47512ABF2E14D8C9000E25BA /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 47512ABE2E14D8C9000E25BA /* WhisperKit */; };
 		476316272E5FB31400913CDE /* VocoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 476316262E5FB31400913CDE /* VocoCore */; };
 		4765045E2D45900200C7EA60 /* Pow in Frameworks */ = {isa = PBXBuildFile; productRef = 4765045D2D45900200C7EA60 /* Pow */; };
@@ -34,6 +35,7 @@
 		4F0D6A012F1A000100000001 /* VocoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 476316262E5FB31400913CDE /* VocoCore */; };
 		4F0D6A022F1A000100000001 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = 47E05E012D444EE900D26DA6 /* ComposableArchitecture */; };
 		57F3BA759BCAE4382B151EA7 /* SessionLengthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 576F8B0BC68A98BFE7D3BF90 /* SessionLengthTests.swift */; };
+		6D7FF79DEE8D6EAE217DD00B /* voco.icon in Resources */ = {isa = PBXBuildFile; fileRef = 4C1B1586395136E1BA3BCA93 /* voco.icon */; };
 		75320C11A4C07BB3067CEA41 /* KeyboardState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28A2C51A566F778F0C01018E /* KeyboardState.swift */; };
 		7BA7464C2FBD689B00814C43 /* MLXAudioSTT in Frameworks */ = {isa = PBXBuildFile; productRef = 7BA7464B2FBD689B00814C43 /* MLXAudioSTT */; };
 		B5045C972D78DED500D0A119 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = B5045C962D78DED500D0A119 /* MarkdownUI */; };
@@ -110,6 +112,7 @@
 		473544542D445959001FBCB5 /* Testing.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Testing.framework; path = Platforms/MacOSX.platform/Developer/Library/Frameworks/Testing.framework; sourceTree = DEVELOPER_DIR; };
 		478637A52D48725900319BFA /* VocoMacTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VocoMacTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		47E05DEE2D444EC600D26DA6 /* VocoMac Debug.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "VocoMac Debug.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C1B1586395136E1BA3BCA93 /* voco.icon */ = {isa = PBXFileReference; includeInIndex = 1; path = voco.icon; sourceTree = "<group>"; };
 		4EF356152FEF3C2100DCA9C2 /* Voco.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Voco.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4EF356E12FEF431A00DCA9C2 /* VocoKeyboard.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VocoKeyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		4EFA06EB2FEF86F500A6BFA0 /* VocoWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VocoWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -117,7 +120,6 @@
 		4EFA06EE2FEF86F500A6BFA0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		576F8B0BC68A98BFE7D3BF90 /* SessionLengthTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionLengthTests.swift; sourceTree = "<group>"; };
 		B53355FF2D7B8D4900E5F542 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
-		B5A1C7E22E6A1C5B00AB1234 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.icon; name = AppIcon.icon; path = VocoMac/AppIcon.icon; sourceTree = "<group>"; };
 		C1408FD4F795F2464BB81846 /* VocoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VocoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C5EEF22628FF169BD32E1946 /* KeyboardStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeyboardStateTests.swift; sourceTree = "<group>"; };
 		CA55E77DF9B4266D2223256A /* TranscriptStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TranscriptStoreTests.swift; sourceTree = "<group>"; };
@@ -323,7 +325,6 @@
 			isa = PBXGroup;
 			children = (
 				B53355FF2D7B8D4900E5F542 /* Localizable.xcstrings */,
-				B5A1C7E22E6A1C5B00AB1234 /* AppIcon.icon */,
 				47E05DF02D444EC600D26DA6 /* VocoMac */,
 				4F0D6A032F1A000100000001 /* VocoMacTests */,
 				4EF356162FEF3C2100DCA9C2 /* Voco */,
@@ -335,6 +336,7 @@
 				389E4D86F46EE8AF05CC10BF /* VocoTests */,
 				382250D6F907BBE63C436659 /* VocoKeyboardTests */,
 				28A2C51A566F778F0C01018E /* KeyboardState.swift */,
+				4C1B1586395136E1BA3BCA93 /* voco.icon */,
 			);
 			sourceTree = "<group>";
 		};
@@ -617,6 +619,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B53356002D7B8D4900E5F542 /* Localizable.xcstrings in Resources */,
+				44E1CB51E1749FC35E76742F /* voco.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -624,6 +627,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6D7FF79DEE8D6EAE217DD00B /* voco.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -924,7 +928,7 @@
 		47E05DFE2D444EC700D26DA6 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = voco;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ENTITLEMENTS = VocoMac/VocoMac.entitlements;
@@ -980,7 +984,7 @@
 		47E05DFF2D444EC700D26DA6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = voco;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ENTITLEMENTS = VocoMac/VocoMac.entitlements;
@@ -1031,7 +1035,7 @@
 		4EF3561D2FEF3C2300DCA9C2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = voco;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Voco/Voco.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -1068,7 +1072,7 @@
 		4EF3561E2FEF3C2300DCA9C2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = voco;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Voco/Voco.entitlements;
 				CODE_SIGN_STYLE = Automatic;
