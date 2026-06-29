@@ -23,8 +23,11 @@ struct HexIOSApp: App {
         #if DEBUG
         // DEBUG-only: a seeded screenshot / QA run can land on the Coach tab with
         // the `-VOCOCoachPractice` launch argument (paired with CoachView opening on
-        // Practice) so the word-swap drill is reachable headlessly. No release effect.
-        if ProcessInfo.processInfo.arguments.contains("-VOCOCoachPractice") { return .coach }
+        // Practice) so the word-swap drill is reachable headlessly. `-VOCOCoachFocus`
+        // lands on the Coach tab's default Focus surface (CF-1) for the same reason.
+        // No release effect.
+        if ProcessInfo.processInfo.arguments.contains("-VOCOCoachPractice")
+            || ProcessInfo.processInfo.arguments.contains("-VOCOCoachFocus") { return .coach }
         #endif
         return .home
     }()
