@@ -15,7 +15,7 @@
 #   ./tools/scripts/sideload_pronunciation.sh device <UDID>   # specific device
 set -euo pipefail
 
-BUNDLE_ID="stonefrontier.HexIOS"
+BUNDLE_ID="co.stonefrontier.voco"
 ASSETS="$(cd "$(dirname "$0")/../pronunciation-assets" && pwd)"
 TARGET="${1:-sim}"
 
@@ -23,7 +23,9 @@ if [[ "$TARGET" == "parakeet" ]]; then
   # Sideload the Parakeet ASR model from the Mac's cache, bypassing FluidAudio's
   # in-memory download (which OOM-kills the app on the big weight file).
   DEVICE="${2:-$(xcrun devicectl list devices 2>/dev/null | grep -i connected | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)}"
-  SRC="$HOME/Library/Containers/com.kitlangton.Hex/Data/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3-coreml"
+  SRC="$HOME/Library/Containers/co.stonefrontier.voco/Data/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3-coreml"
+  # Fall back to the pre-rename macOS Hex container if the model was cached there.
+  [[ -d "$SRC" ]] || SRC="$HOME/Library/Containers/com.kitlangton.Hex/Data/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3-coreml"
   [[ -d "$SRC" ]] || { echo "No cached Parakeet model at: $SRC"; exit 1; }
   [[ -z "$DEVICE" ]] && { echo "No connected device found. Pass a UDID."; exit 1; }
   echo "Pushing Parakeet (~461MB) to device $DEVICE … (USB; takes a minute)"
@@ -63,4 +65,4 @@ else
   echo "✓ Sideloaded to device $DEVICE"
 fi
 
-echo "Now record a note in the app, open it, and tap “Check pronunciation”."
+echo "Force-quit and relaunch the app, then record/open a note — pronunciation now runs automatically and shows inline."
