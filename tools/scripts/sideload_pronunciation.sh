@@ -13,6 +13,8 @@
 #   ./tools/scripts/sideload_pronunciation.sh                 # booted simulator
 #   ./tools/scripts/sideload_pronunciation.sh device          # first connected device
 #   ./tools/scripts/sideload_pronunciation.sh device <UDID>   # specific device
+#   ./tools/scripts/sideload_pronunciation.sh mac             # macOS app (Debug build)
+#   ./tools/scripts/sideload_pronunciation.sh mac <bundle-id> # macOS app (other build)
 set -euo pipefail
 
 BUNDLE_ID="co.stonefrontier.voco"
@@ -36,6 +38,25 @@ if [[ "$TARGET" == "parakeet" ]]; then
     --source "$SRC" \
     --destination "Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3-coreml"
   echo "✓ Parakeet sideloaded. Force-quit and relaunch the app — no download needed."
+  exit 0
+fi
+
+if [[ "$TARGET" == "mac" ]]; then
+  # macOS app (sandboxed): copy the phoneme assets into the app's *container*
+  # Application Support, where MacPronunciationAssets loads them at runtime
+  # (same Pronunciation/ convention as iOS). Bundle id defaults to the Debug
+  # build; pass one to target another build, e.g. `mac co.stonefrontier.voco`.
+  # Prereq: launch VocoMac once so its container exists.
+  MAC_BUNDLE="${2:-co.stonefrontier.voco.debug}"
+  CONTAINER="$HOME/Library/Containers/$MAC_BUNDLE/Data"
+  [[ -d "$CONTAINER" ]] || { echo "No container for $MAC_BUNDLE — launch VocoMac once first, then re-run."; exit 1; }
+  DEST="$CONTAINER/Library/Application Support/Pronunciation"
+  rm -rf "$DEST"        # clear any previous (e.g. old model) so nothing stale remains
+  mkdir -p "$DEST"
+  cp -R "$ASSETS/PhonemeCTC.mlpackage" "$DEST/"
+  cp "$ASSETS/cmudict.dict" "$ASSETS/phoneme_vocab.json" "$DEST/"
+  echo "✓ Sideloaded to macOS app ($MAC_BUNDLE): $DEST"
+  echo "Force-quit and relaunch VocoMac — word-level pronunciation now runs."
   exit 0
 fi
 
