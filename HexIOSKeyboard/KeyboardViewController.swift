@@ -17,6 +17,7 @@ import HexCore
 import KeyboardKit
 import SwiftUI
 import UIKit
+import WidgetKit
 
 final class KeyboardViewController: KeyboardInputViewController {
     private let ipc = KeyboardIPC(appGroupIdentifier: HexAppGroup.identifier)
@@ -88,6 +89,8 @@ final class KeyboardViewController: KeyboardInputViewController {
         if hasFullAccess {
             KeyboardPresence.markActive(appGroupIdentifier: HexAppGroup.identifier)
             DarwinSignal.post(.keyboardActive)
+            // Flip the Home widget's "Enable keyboard" status to "Keyboard on".
+            WidgetCenter.shared.reloadTimelines(ofKind: "HexWidgets")
         }
         refreshSessionState()
         insertPendingResult()

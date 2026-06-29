@@ -2,10 +2,14 @@
 //  HexWidgetsLiveActivity.swift
 //  HexWidgets
 //
-//  Flow Session Live Activity (P3-3): a persistent "mic hot · MM:SS left"
-//  indicator on the Lock Screen + Dynamic Island while a dictation session is
-//  active, with an interactive End button. Uses the shared FlowSessionAttributes
-//  from HexCore.
+//  Flow Session Live Activity: a calm "you can dictate" indicator on the Lock
+//  Screen + Dynamic Island while a session is active, with an End button. Uses the
+//  shared FlowSessionAttributes from HexCore.
+//
+//  Design: the Lock Screen stays one steady state — a mic and "Ready to dictate" —
+//  because you're rarely staring at the Lock Screen mid-utterance. The live
+//  "speaking now" feedback (mic → waveform) lives only in the Dynamic Island,
+//  where you actually see it while dictating in another app.
 //
 
 import ActivityKit
@@ -17,34 +21,34 @@ import WidgetKit
 struct HexWidgetsLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: FlowSessionAttributes.self) { context in
-            // Lock Screen / banner
+            // Lock Screen / banner — one steady, quiet state.
             HStack(spacing: 12) {
-                micGlyph(context).font(.title2)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Hex dictation").font(.headline)
-                    countdown(context).font(.subheadline).foregroundStyle(.secondary)
-                }
+                Image(systemName: "mic.fill")
+                    .font(.title3)
+                    .foregroundStyle(.tint)
+                Text("Ready to dictate")
+                    .font(.headline)
                 Spacer()
-                endButton.buttonStyle(.bordered).tint(.accentColor)
+                endButton.buttonStyle(.bordered)
             }
             .padding()
             .activitySystemActionForegroundColor(.accentColor)
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) { micGlyph(context).font(.title3) }
-                DynamicIslandExpandedRegion(.trailing) { countdown(context).font(.title3) }
+                DynamicIslandExpandedRegion(.leading) { islandGlyph(context).font(.title3) }
+                DynamicIslandExpandedRegion(.trailing) { countdown(context).font(.body).foregroundStyle(.secondary) }
                 DynamicIslandExpandedRegion(.center) {
-                    Text("Hex dictation").font(.caption).foregroundStyle(.secondary)
+                    Text("Ready to dictate").font(.caption).foregroundStyle(.secondary)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    endButton.buttonStyle(.bordered).tint(.accentColor)
+                    endButton.buttonStyle(.bordered)
                 }
             } compactLeading: {
-                Image(systemName: "mic.fill").foregroundStyle(.tint)
+                islandGlyph(context)
             } compactTrailing: {
-                countdown(context).monospacedDigit()
+                countdown(context).monospacedDigit().foregroundStyle(.secondary)
             } minimal: {
-                Image(systemName: "mic.fill").foregroundStyle(.tint)
+                islandGlyph(context)
             }
             .keylineTint(.accentColor)
         }
@@ -54,9 +58,11 @@ struct HexWidgetsLiveActivity: Widget {
         Button(intent: EndFlowSessionIntent()) {
             Label("End", systemImage: "stop.fill")
         }
+        .tint(.accentColor)
     }
 
-    private func micGlyph(_ context: ActivityViewContext<FlowSessionAttributes>) -> some View {
+    /// Mic when waiting, waveform while you're actually speaking — Dynamic Island only.
+    private func islandGlyph(_ context: ActivityViewContext<FlowSessionAttributes>) -> some View {
         Image(systemName: context.state.isCapturing ? "waveform" : "mic.fill")
             .foregroundStyle(.tint)
     }
@@ -66,7 +72,7 @@ struct HexWidgetsLiveActivity: Widget {
         if let endsAt = context.state.endsAt, endsAt > Date() {
             Text(timerInterval: Date() ... endsAt, countsDown: true)
         } else {
-            Text("mic hot")
+            EmptyView()
         }
     }
 }
