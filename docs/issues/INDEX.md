@@ -134,3 +134,64 @@ RC-7 plan** — Home keeps capture, History stays primary, Review+Practice merge
 
 **Suggested order:** DM-1 → DM-2 (foundation), alongside HS-1; then HS-2, HS-3, IA-1; then
 PR-1 → PR-2 → PR-3; CT-* after DM-2.
+## macOS Companion (MC series — bring Coach v2 + synced Notebook to the Mac)
+
+Make macOS a first-class peer: shared synced data model, Coach v2 engine, a real companion window
+(Review / Notebook / History / Progress / Shadowing), and Mac↔iOS sync of notes + coach results +
+profile + (opt-in) audio. The Coach engine is already shared in `VocoCore`/`VocoEngine`; the gap is
+the app-integration layer. Design: [macos-companion-v1-design.md](../macos-companion-v1-design.md).
+
+| ID | Title | Phase | Depends on | Size | Status |
+|----|-------|-------|-----------|------|--------|
+| [MC-1](MC-1-shared-swiftdata-models.md) | Shared SwiftData models in VocoEngine (linchpin) | 1 | — | L | DONE |
+| [MC-2](MC-2-shared-cloudkit-container.md) | Shared CloudKit container + cross-device merge spike | 1 | MC-1 | M | IN-PROGRESS (code; device verify pending) |
+| [MC-3](MC-3-macos-swiftdata-store-migration.md) | macOS adopts shared SwiftData store + JSON migration | 1 | MC-1 | L | DONE |
+| [MC-4](MC-4-profile-sync.md) | Sync LearnerProfile + growth history | 1 | MC-1 | M | DONE |
+| [MC-5](MC-5-macos-coach-v2-engine.md) | Wire Coach v2 two-lane engine on macOS | 2 | MC-3, MC-4 | DONE |
+| [MC-6](MC-6-remove-old-macos-coach.md) | Remove legacy macOS one-shot Coach | 2 | MC-5 | M | DONE |
+| [MC-7](MC-7-companion-window-shell.md) | macOS companion window shell | 3 | MC-3 | M | DONE |
+| ~~[MC-8](MC-8-macos-review-feed.md)~~ | macOS Review feed → **SUPERSEDED by [MC-R5](MC-R5-macos-coach-hub.md)** | 3 | — | — | SUPERSEDED |
+| ~~[MC-9](MC-9-macos-notebook.md)~~ | macOS Notebook → **folded into capture + [MC-R6](MC-R6-macos-practice-surface.md)** | 3 | — | — | SUPERSEDED |
+| ~~[MC-10](MC-10-macos-progress.md)~~ | macOS Progress → **SUPERSEDED by [MC-R7](MC-R7-macos-progress.md)** | 3 | — | — | SUPERSEDED |
+| ~~[MC-11](MC-11-macos-history-search.md)~~ | macOS History → **SUPERSEDED by [MC-R8](MC-R8-macos-history.md)** | 3 | — | — | SUPERSEDED |
+| ~~[MC-12](MC-12-macos-shadowing.md)~~ | macOS Shadowing → **SUPERSEDED by [MC-R9](MC-R9-macos-shadowing.md)** | 4 | — | — | SUPERSEDED |
+| ~~[MC-13](MC-13-audio-sync-optin.md)~~ | Opt-in audio sync → **SUPERSEDED by [MC-R10](MC-R10-audio-sync-optin.md)** | 4 | — | — | SUPERSEDED |
+
+- **MC-M1 — Synced substrate:** MC-1..MC-4 (one model, one container; notes + profile sync Mac↔iOS).
+- **MC-M2 — Coach on Mac:** MC-5, MC-6 (v2 engine replaces the one-shot popover).
+- **MC-M3 — Companion window:** MC-7 (window shell ✅; surfaces moved to MC-R series).
+- **MC-M4 — Loop + audio:** → MC-R9, MC-R10.
+
+> **NOTE (2026-06-29):** MC-8..MC-13 were scoped against the pre-Phase-3 data model + IA. `origin/main`
+> has since landed the Phase-3 Coach v2 refactor (DM-1 lean row + sidecar #92, HS-1/HS-2 History #91/#93,
+> with DM-2 observation log + IA-1 Coach tab + PR-1 PracticeItem in flight), which reshapes both. The
+> macOS surfaces are re-planned as the **MC-R series** below, re-founded on `origin/main`. MC-1..MC-7
+> stay DONE on this branch; their *structure* carries forward (MC-1's sharing mechanism returns as
+> MC-R2), only MC-1's old `TranscriptEntry` body is discarded. See
+> [macos-companion-phase3-reconcile.md](../macos-companion-phase3-reconcile.md).
+
+## macOS Companion — Phase-3 reconcile (MC-R series — supersedes MC-8..MC-13)
+
+Re-found the macOS epic on `origin/main`'s Phase-3 model + IA. Decisions: re-found (not rebase); wait
+for upstream DM-2 + PR-1 before re-founding the shared layer; macOS IA = Coach / History / Settings +
+menu-bar capture + recents pane. Carry-forward legend: ✅ kept · ◐ re-applied on new base · ➕ new.
+Design: [macos-companion-phase3-reconcile.md](../macos-companion-phase3-reconcile.md).
+
+| ID | Title | Carry | Depends on | Size | Status |
+|----|-------|-------|-----------|------|--------|
+| [MC-R0](MC-R0-window-shell-carryforward.md) | Companion window shell (from MC-7) | ✅ | MC-R1 | S | TODO |
+| [MC-R1](MC-R1-integrate-origin-main.md) | Integrate origin/main (re-found base) | ◐ | upstream DM-2 + PR-1 ✅ | L | DONE |
+| [MC-R2](MC-R2-refound-shared-layer.md) | Re-found MC-1's shared layer on Phase-3 model | ✅ | MC-R1 | L | DONE |
+| [MC-R3](MC-R3-macos-store-lean-windowed.md) | macOS store on lean row + windowed fetch (re-do MC-3) | ◐ | MC-R2 | M | TODO |
+| [MC-R4](MC-R4-macos-coach-observation-log.md) | macOS Coach v2 on observation log (re-do MC-5 + MC-6) | ◐ | MC-R2, MC-R3 | L | TODO |
+| [MC-R5](MC-R5-macos-coach-hub.md) | macOS Coach hub — Review feed + activation (was MC-8) | ◐ | MC-R0, MC-R4 | L | TODO |
+| [MC-R6](MC-R6-macos-practice-surface.md) | macOS Practice surface (PR-2 on Mac) | ➕ | MC-R2, MC-R5 | M | TODO |
+| [MC-R7](MC-R7-macos-progress.md) | macOS Progress — observation projections (was MC-10) | ◐ | MC-R4, MC-R0 | M | TODO |
+| [MC-R8](MC-R8-macos-history.md) | macOS History — Notes\|Dictation + windowed (was MC-11) | ◐ | MC-R3, MC-R0 | S | TODO |
+| [MC-R9](MC-R9-macos-shadowing.md) | macOS Shadowing (was MC-12) | ◐ | MC-R5, MC-R6 | M | TODO |
+| [MC-R10](MC-R10-audio-sync-optin.md) | Opt-in audio sync (was MC-13) | ◐ | MC-R2, MC-R3 | M | TODO (device verify) |
+
+- **MC-RM1 — Re-founded substrate:** MC-R1, MC-R2 (one shared synced model on the Phase-3 schema).
+- **MC-RM2 — macOS engine + store:** MC-R3, MC-R4 (lean store + Coach v2 on the observation log).
+- **MC-RM3 — Surfaces:** MC-R0, MC-R5, MC-R6, MC-R7, MC-R8 (Coach hub / Practice / Progress / History).
+- **MC-RM4 — Loop + audio:** MC-R9, MC-R10.
