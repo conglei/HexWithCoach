@@ -91,6 +91,10 @@ struct SettingsView: View {
                 } footer: {
                     Text("Re-run the setup checklist for the keyboard, permissions, and model.")
                 }
+
+                Section("About") {
+                    NavigationLink("Acknowledgements") { AcknowledgementsView() }
+                }
             }
             .navigationTitle("Settings")
             .onAppear { incognito = CapturePreferences.incognito }
