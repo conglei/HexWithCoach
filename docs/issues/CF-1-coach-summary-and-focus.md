@@ -27,10 +27,19 @@ short summary and **one thing to start on**.
    step, not a verdict.
 
 ## Surface (top → bottom)
-1. **Weekly summary** — 2–4 sentences, plain language, generated from aggregated signals:
-   *"This week you spoke ~2h. Clarity is improving. The one thing holding you back: you drop
-   articles — 12 times. A 2-minute drill below."* v1 is **template-bound from deterministic
-   signals** (no LLM in the headline) for reliability; LLM phrasing can enhance later, gated/cheap.
+1. **Weekly summary** — 2–4 sentences that synthesize the coaching across ALL five lenses —
+   including the **LLM-derived grammar / word-choice / sentence-structure / clarity** insights, which
+   are the substance (the objective metrics are supporting evidence):
+   *"This week you spoke ~2h. Your sentences tend to run long — tightening them is your biggest win.
+   You also drop articles before abstract nouns (12×). Clarity is improving."*
+   v1 is a **grounded LLM recap**, not free-form: the model is handed the already-aggregated,
+   already-critic-verified findings (insights + frequencies + objective metrics) and asked to
+   **prioritize and phrase** — to *summarize*, never to *generate* new claims. Hallucination risk
+   lives in inventing findings; grounding removes it. Two hard rules: (a) **numbers come from our
+   aggregation, interpolated into the prose** — the LLM never does arithmetic; (b) **keyless /
+   paid-off fallback** = a leaner structured template from the objective signals, so the summary
+   degrades rather than disappears. Generate **once per rollup** (per analysis batch / daily-weekly)
+   and cache — not per view — to fit cost/cadence control (CE-5).
 2. **Skill map** — the five lenses, each a level (`LearnerProfile.levels[Lens]`) + trend arrow.
    Glanceable landscape; tappable → lens detail.
 3. **Today's focus** — ONE (occasionally up to 3) prioritized focus area: title, **evidence**
@@ -45,8 +54,10 @@ short summary and **one thing to start on**.
   occurrences** before a pattern becomes a surfaced focus (configurable; default small but ≥2).
 - Objective findings (GOP / fluency) are deterministic. LLM findings are already critic-verified in
   the pipeline — do **not** surface unverified raw insights as focus areas.
-- The summary must never contradict the data — template-bound in v1 so the headline can't
-  hallucinate.
+- The summary is a **grounded** LLM recap, not free-form: it may reference only the verified
+  findings it is given, and all numbers/deltas are computed by us and interpolated (the LLM never
+  does math). Keyless → structured-template fallback. This keeps it reliable without giving up the
+  qualitative grammar/structure synthesis a pure template can't produce.
 
 ## Tasks
 - [ ] Replace the flat `.new` card feed in the Coach "Focus" surface with **summary + skill-map +
@@ -56,8 +67,10 @@ short summary and **one thing to start on**.
       exactly the logic that needs a seeded-data runtime check before trust — see the prevention
       work.)
 - [ ] Skill map from `LearnerProfile.levels` with trend (from `CoachSnapshot` / observations).
-- [ ] Summary generator: a pure function from deterministic signals → sentences (pluggable so LLM
-      phrasing can swap in later).
+- [ ] Summary generator: a **grounded LLM recap** over the aggregated verified findings (all five
+      lenses, grammar/structure included) with our numbers interpolated, cached per rollup; plus a
+      **structured-template fallback** from objective signals for the keyless / paid-off path. (Both
+      share the same aggregation input so they can't contradict the data.)
 - [ ] Lens drill-down + "browse all" demotion.
 - [ ] "Practice" CTA → the focus area's matched drill (CF-2).
 
@@ -69,5 +82,6 @@ short summary and **one thing to start on**.
 
 ## Open questions (for review)
 - Summary cadence: weekly default + a "today" practice strip (recommended) vs daily.
-- v1 summary: template (recommended, reliable/cheap) vs LLM-phrased.
+- ~~v1 summary: template vs LLM~~ → **DECIDED (with you): grounded LLM recap** — summarize verified
+  findings incl. grammar/structure; numbers interpolated by us; keyless template fallback; cached per rollup.
 - Surface exactly 1 focus vs up to 3 (recommend 1 hero + up to 2 secondary, collapsed).
