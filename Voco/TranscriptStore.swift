@@ -32,6 +32,11 @@ enum SyncPreferences {
 
 @Model
 final class TranscriptEntry {
+    // History is sorted by date and segmented by kind, so index both (DM-1).
+    // `#Index` is iOS 18+; the app floor is 17.6, so gate it.
+    @available(iOS 18, *)
+    #Index<TranscriptEntry>([\.date], [\.kindRaw])
+
     // CloudKit-backed SwiftData requires every attribute to have a default.
     /// Stable identity used to link Coach cards back to their source transcript.
     var id: UUID = UUID()
@@ -54,6 +59,73 @@ final class TranscriptEntry {
     /// run independently: the objective lane is always-on + keyless, the LLM lane
     /// is gated by key + toggle + budget. Defaulted for CloudKit.
     var objectiveAnalyzedAt: Date?
+    /// Compact pronunciation summary (JSON-encoded `PronunciationSignals`, ~1 KB)
+    /// kept *on the row* so corpus analytics / the History list read it without
+    /// faulting the heavy sidecar (DM-1). Refreshed whenever `pronunciationResult`
+    /// is set; nil when no result was captured. Stored as JSON so CloudKit can sync.
+    var pronunciationSummaryJSON: String?
+    /// Heavy per-note artifacts (word timings, full pronunciation result), split
+    /// into a lazily-faulted sidecar so fetching the row stays cheap (DM-1).
+    /// Cascade-deleted with the entry.
+    @Relationship(deleteRule: .cascade, inverse: \TranscriptAnalysis.entry)
+    var analysis: TranscriptAnalysis?
+
+    var kind: TranscriptKind { TranscriptKind(rawValue: kindRaw) ?? .note }
+
+    /// Decoded word timings, or nil when none were captured. Heavy → sidecar,
+    /// faulted only on access; create-on-write via `ensureAnalysis()`.
+    var wordTimings: [WordTiming]? {
+        get { analysis?.wordTimings }
+        set { ensureAnalysis().wordTimings = newValue }
+    }
+
+    /// Decoded per-note pronunciation result, or nil when none was captured. Heavy
+    /// → sidecar (faulted lazily); on set, also refresh the compact on-row summary.
+    var pronunciationResult: PronunciationResult? {
+        get { analysis?.pronunciationResult }
+        set {
+            ensureAnalysis().pronunciationResult = newValue
+            guard let newValue, !newValue.words.isEmpty,
+                  let data = try? JSONEncoder().encode(PronunciationSignals(result: newValue)) else {
+                pronunciationSummaryJSON = nil
+                return
+            }
+            pronunciationSummaryJSON = String(data: data, encoding: .utf8)
+        }
+    }
+
+    /// Compact pronunciation summary (CI-3), decoded from the on-row JSON. Cheap:
+    /// reads `pronunciationSummaryJSON` directly and never faults the sidecar (DM-1).
+    var pronunciationSignals: PronunciationSignals? {
+        guard let json = pronunciationSummaryJSON, let data = json.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(PronunciationSignals.self, from: data)
+    }
+
+    /// Return the heavy sidecar, creating and linking it on first write.
+    private func ensureAnalysis() -> TranscriptAnalysis {
+        if let analysis { return analysis }
+        let created = TranscriptAnalysis()
+        created.entry = self
+        analysis = created
+        return created
+    }
+
+    init(text: String, date: Date, kind: TranscriptKind, sourceAppName: String? = nil, audioFilename: String? = nil) {
+        self.text = text
+        self.date = date
+        self.kindRaw = kind.rawValue
+        self.sourceAppName = sourceAppName
+        self.audioFilename = audioFilename
+    }
+}
+
+/// Heavy per-note artifacts that the History list and corpus scans never need
+/// (DM-1). Split off `TranscriptEntry` into this sidecar so a to-one relationship
+/// faults it lazily — fetching the lean row doesn't load these bulky blobs.
+@Model
+final class TranscriptAnalysis {
+    // CloudKit-backed SwiftData requires every attribute to have a default.
+    var id: UUID = UUID()
     /// Word-level timings (JSON-encoded `[WordTiming]`) for audio↔text sync in the
     /// detail view. Populated for Parakeet notes; nil when the model didn't expose
     /// timings (older notes, Whisper/Qwen). Stored as JSON so CloudKit can sync it.
@@ -63,8 +135,8 @@ final class TranscriptEntry {
     /// nil otherwise (keyless-no-model state, or analysis not yet run). Stored as
     /// JSON, exactly like `wordTimingsJSON`, so CloudKit can sync it.
     var pronunciationJSON: String?
-
-    var kind: TranscriptKind { TranscriptKind(rawValue: kindRaw) ?? .note }
+    /// Inverse of `TranscriptEntry.analysis`. Defaulted for CloudKit.
+    var entry: TranscriptEntry?
 
     /// Decoded word timings, or nil when none were captured.
     var wordTimings: [WordTiming]? {
@@ -96,20 +168,7 @@ final class TranscriptEntry {
         }
     }
 
-    /// Compact pronunciation summary derived from the persisted result (CI-3),
-    /// or nil when no result was captured. Cheap to recompute on read.
-    var pronunciationSignals: PronunciationSignals? {
-        guard let result = pronunciationResult else { return nil }
-        return PronunciationSignals(result: result)
-    }
-
-    init(text: String, date: Date, kind: TranscriptKind, sourceAppName: String? = nil, audioFilename: String? = nil) {
-        self.text = text
-        self.date = date
-        self.kindRaw = kind.rawValue
-        self.sourceAppName = sourceAppName
-        self.audioFilename = audioFilename
-    }
+    init() {}
 }
 
 /// Lifecycle of a Coach card in the Review feed.
@@ -284,20 +343,20 @@ enum TranscriptStore {
     static func makeContainer() -> ModelContainer {
         if SyncPreferences.iCloudEnabled,
            let cloud = try? ModelContainer(
-               for: TranscriptEntry.self, CoachCardEntity.self,
+               for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
                configurations: ModelConfiguration(cloudKitDatabase: .automatic)
            ) {
             return cloud
         }
         if let local = try? ModelContainer(
-            for: TranscriptEntry.self, CoachCardEntity.self,
+            for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
             configurations: ModelConfiguration(cloudKitDatabase: .none)
         ) {
             return local
         }
         // In-memory last resort so the app still runs.
         return try! ModelContainer(
-            for: TranscriptEntry.self, CoachCardEntity.self,
+            for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
     }
