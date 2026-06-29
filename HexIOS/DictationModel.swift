@@ -93,6 +93,12 @@ final class DictationModel {
     /// once the recording sheet dismisses. Cleared by the consumer.
     var lastSavedNote: TranscriptEntry?
 
+    /// Capture hook (CI-7): invoked in the background after any transcript is saved,
+    /// so the always-on objective lane (and the gated LLM lane) run automatically
+    /// without a manual button. Wired by the app to `CoachService.autoAnalyzeOnCapture`.
+    /// Kept as a closure so `DictationModel` stays decoupled from `CoachService`.
+    var onTranscriptSaved: ((TranscriptEntry) async -> Void)?
+
     /// Persist a transcript, retaining its audio (moved into the App Group) so the
     /// Coach corpus has both text and audio.
     private func save(text: String, kind: TranscriptKind, audioURL: URL?, words: [HexCore.WordTiming]? = nil, surface: Bool = true) {
@@ -112,6 +118,12 @@ final class DictationModel {
         // (`surface: false`) appear in History silently rather than yanking the
         // user into a detail view on launch.
         if kind == .note, surface { lastSavedNote = entry }
+        // Automatic two-lane analysis (CI-7): fire-and-forget in the background so
+        // the save path stays snappy and coaching "just appears". Applies to both
+        // notes and Flow Session dictations — the whole corpus is coachable.
+        if let onTranscriptSaved {
+            Task { await onTranscriptSaved(entry) }
+        }
     }
     /// When the current note *span* started recording (reset on each resume). Used
     /// with `accumulatedDuration` to drive the cumulative recording timer.

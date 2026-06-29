@@ -19,9 +19,7 @@ struct TranscriptDetailView: View {
     /// transcript so the learner can find it in context.
     var highlightSpan: String? = nil
     @State private var audio = AudioPlayer()
-    @State private var showPronunciation = false
     @Environment(\.modelContext) private var modelContext
-    @Environment(CoachService.self) private var coach
 
     /// Coach cards whose example is this transcript — the backlink from a note to
     /// the issues the Coach found in it.
@@ -60,14 +58,11 @@ struct TranscriptDetailView: View {
                         .hexCard()
                 }
 
-                // Phoneme-grade pronunciation check (on-device forced alignment).
-                // Only shown when the model + dictionary assets are present.
-                if audioURL != nil, PronunciationAssets.ready {
-                    Button { showPronunciation = true } label: {
-                        Label("Check pronunciation", systemImage: "waveform")
-                    }
-                    .buttonStyle(HexGradientButtonStyle(compact: true))
-                }
+                // CI-7 / ADR-0004: the objective lane (GOP + fluency) now runs
+                // automatically at capture and persists per note, and the layered
+                // transcript above renders those results inline. There's no manual
+                // "Check pronunciation" / "Analyze" trigger anymore — coaching
+                // "just appears".
 
                 coachCard
             }
@@ -76,28 +71,6 @@ struct TranscriptDetailView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Transcript")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showPronunciation) {
-            if let audioURL {
-                PronunciationSheet(audioURL: audioURL, transcript: entry.text)
-            }
-        }
-        .toolbar {
-            if coach.isReady {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Task { await coach.analyzeEntry(entry) }
-                    } label: {
-                        if coach.isAnalyzing {
-                            ProgressView()
-                        } else {
-                            Label(entry.coachAnalyzedAt == nil ? "Analyze" : "Re-analyze",
-                                  systemImage: "arrow.clockwise")
-                        }
-                    }
-                    .disabled(coach.isAnalyzing)
-                }
-            }
-        }
         .task { if let url = audioURL { audio.load(url) } }
         .onDisappear { audio.stop() }
     }
@@ -291,120 +264,9 @@ nonisolated enum PronunciationAssets {
     }
 }
 
-/// Runs the on-device pronunciation analyzer for a note and shows per-word /
-/// per-phoneme GOP scores. Tap a word to see its phonemes.
-private struct PronunciationSheet: View {
-    let audioURL: URL
-    let transcript: String
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var result: PronunciationResult?
-    @State private var errorText: String?
-    @State private var selectedWord: WordScore?
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if let result {
-                    resultsView(result)
-                } else if let errorText {
-                    ContentUnavailableView("Couldn't analyze", systemImage: "waveform.slash", description: Text(errorText))
-                } else {
-                    VStack(spacing: 12) {
-                        ProgressView()
-                        Text("Analyzing pronunciation…").font(.subheadline).foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .navigationTitle("Pronunciation")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-        }
-        .task { await analyze() }
-    }
-
-    @ViewBuilder
-    private func resultsView(_ result: PronunciationResult) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Tap a word to see its sounds. Greener = closer to native.")
-                    .font(.footnote).foregroundStyle(.secondary)
-
-                FlowLayout(spacing: 8, lineSpacing: 10) {
-                    ForEach(Array(result.words.enumerated()), id: \.offset) { _, word in
-                        Button { selectedWord = word } label: {
-                            Text(word.word)
-                                .font(.title3.weight(.medium))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 8).padding(.vertical, 4)
-                                .background(color(for: word.gop), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                if let word = selectedWord {
-                    Divider()
-                    Text(word.word).font(.headline)
-                    ForEach(Array(word.phonemes.enumerated()), id: \.offset) { _, p in
-                        HStack(spacing: 10) {
-                            Text(p.symbol).font(.title3.monospaced())
-                                .frame(minWidth: 40, alignment: .leading)
-                                .foregroundStyle(color(for: p.gop))
-                            Text(String(format: "%.2f–%.2fs", p.start, p.end))
-                                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                            Spacer()
-                            Text(String(format: "GOP %.2f", p.gop))
-                                .font(.caption.monospacedDigit()).foregroundStyle(color(for: p.gop))
-                        }
-                    }
-                }
-            }
-            .padding()
-        }
-    }
-
-    /// GOP (≤0) → color. Thresholds are first-pass and tunable.
-    private func color(for gop: Double) -> Color {
-        if gop >= -0.3 { return .green }
-        if gop >= -1.0 { return .orange }
-        return .red
-    }
-
-    private enum Outcome: Sendable {
-        case success(PronunciationResult)
-        case failure(String)
-    }
-
-    private func analyze() async {
-        guard result == nil, errorText == nil else { return }
-        let url = audioURL
-        let text = transcript
-        let task = Task.detached(priority: .userInitiated) { () -> Outcome in
-            guard let modelURL = PronunciationAssets.model(),
-                  let vocabURL = PronunciationAssets.vocab(),
-                  let dictURL = PronunciationAssets.cmudict() else {
-                return .failure("Pronunciation model or dictionary missing.")
-            }
-            guard let analyzer = PronunciationAnalyzer(modelURL: modelURL, vocabURL: vocabURL, cmudictURL: dictURL) else {
-                HexLog.pronunciation.error("Analyzer init failed (model/vocab/dict load).")
-                return .failure("Couldn't load the pronunciation model.")
-            }
-            do {
-                let samples = try PhonemeRecognizer.loadSamples(url: url)
-                let result = try analyzer.analyze(samples: samples, transcript: text)
-                return .success(result)
-            } catch {
-                HexLog.pronunciation.error("analyze threw: \(error.localizedDescription, privacy: .public)")
-                return .failure(error.localizedDescription)
-            }
-        }
-        switch await task.value {
-        case .success(let r): result = r; selectedWord = r.words.first
-        case .failure(let message): errorText = message
-        }
-    }
-}
+// CI-7 / ADR-0004: the on-demand `PronunciationSheet` (a manual analyze trigger)
+// was removed. GOP now runs automatically at capture, is persisted per note, and
+// renders inline in `LayeredTranscriptView` — no button, no re-analysis.
 
 private struct PlayerBar: View {
     let audio: AudioPlayer

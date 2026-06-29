@@ -207,6 +207,10 @@ struct SettingsView: View {
                             .foregroundStyle(.green)
                             .labelStyle(.titleAndIcon)
                     }
+                    // CI-7 / ADR-0004: the paid lane runs automatically in the
+                    // background (batched, budget-capped). Off → spend only via the
+                    // manual "Review now" override in the Review tab.
+                    Toggle("Automatic review", isOn: $coachPreferences.autoLLM)
                     LabeledContent("This month", value: monthSpendText)
                     Picker("Monthly cap", selection: monthlyCapSelection) {
                         Text("Off").tag(Double?.none)
@@ -266,8 +270,10 @@ struct SettingsView: View {
             Text("The Coach reviews your real speech and suggests more natural phrasing. It’s off by default.")
         } else if !coachPreferences.hasAPIKey {
             Text("Add your own Gemini API key to turn it on. When the Coach is on, your dictations (text and audio) are sent to Google’s Gemini API using your key for analysis. Your key is stored in this device’s Keychain and never synced.")
+        } else if coachPreferences.autoLLM {
+            Text("Coach is on. New dictations are reviewed automatically in the background with your Gemini key (running cost shown above), always staying under your monthly cap. Pronunciation and fluency are analyzed free, on-device. Remove the key anytime to stop.")
         } else {
-            Text("Coach is on. Your dictations are analyzed with your Gemini key (running cost shown above). Capture stays on this device; remove the key anytime to stop.")
+            Text("Automatic review is off — pronunciation and fluency still run free on-device, but the AI lane only runs when you tap “Review now” in the Review tab. Spend always stays under your monthly cap.")
         }
     }
 

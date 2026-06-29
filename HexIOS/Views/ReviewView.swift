@@ -29,6 +29,21 @@ struct ReviewView: View {
     private var cards: [CoachCardEntity] { allCards.filter { $0.status == .new } }
     private var backlogCount: Int { transcripts.filter { $0.coachAnalyzedAt == nil }.count }
 
+    /// Whether to offer the manual "Review now" override (CI-7). The LLM lane runs
+    /// automatically now; this stays available for keyed users with a backlog so
+    /// they can force a run on demand (e.g. with the auto toggle off). Pure gate.
+    private var showsManualReview: Bool {
+        CoachAutomation.showsManualOverride(
+            CoachAutomation.LLMInputs(
+                isReady: preferences.isReady,
+                autoEnabled: preferences.autoLLM,
+                isIdle: !coach.isAnalyzing,
+                hasBacklog: backlogCount > 0,
+                underBudget: coach.budget.canAnalyze(spentThisMonth: coach.spentThisMonthUSD)
+            )
+        )
+    }
+
     private var gatingInputs: ReviewFeedGating.Inputs {
         ReviewFeedGating.Inputs(
             hasCards: !cards.isEmpty,
@@ -62,10 +77,11 @@ struct ReviewView: View {
                     NavigationLink { PhrasebookView() } label: { Image(systemName: "bookmark") }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    // The running state lives in the banner now; the toolbar only
-                    // offers the manual refresh when a keyed user has a backlog.
-                    // (Keyless objective analysis runs per-note; CI-7 owns automation.)
-                    if preferences.isReady, !coach.isAnalyzing, backlogCount > 0 {
+                    // The LLM lane runs automatically now (CI-7); the running state
+                    // lives in the banner. The toolbar keeps a manual "Review now"
+                    // override for keyed users with a backlog (works even with the
+                    // auto toggle off). Objective analysis is always-on at capture.
+                    if showsManualReview {
                         Button { Task { await coach.analyzeBacklog() } } label: {
                             Image(systemName: "arrow.clockwise")
                         }
@@ -74,9 +90,11 @@ struct ReviewView: View {
             }
             .sheet(isPresented: $showHowItWorks) { howItWorks }
             .task(id: preferences.isReady) {
-                if preferences.isReady, cards.isEmpty, backlogCount > 0 {
-                    await coach.analyzeBacklog()
-                }
+                // Auto-batch the LLM lane when it becomes ready (gated by the toggle
+                // + budget inside maybeAutoRunLLMBacklog). Not the primary trigger —
+                // capture + launch already drive it — but covers turning the key on
+                // while the Review tab is open.
+                await coach.maybeAutoRunLLMBacklog()
             }
         }
     }
@@ -159,19 +177,19 @@ struct ReviewView: View {
                          ? "\(backlogCount) new dictation\(backlogCount == 1 ? "" : "s") to review."
                          : "New coaching appears here as you dictate.")
                 } actions: {
-                    if preferences.isReady, backlogCount > 0 {
+                    // Manual override (CI-7): the LLM lane auto-runs, but a keyed
+                    // user can still force a run on their remaining backlog here.
+                    if showsManualReview {
                         Button { Task { await coach.analyzeBacklog() } } label: {
-                            if coach.isAnalyzing {
-                                HStack(spacing: 8) {
-                                    ProgressView().tint(.white)
-                                    Text("Reviewing…")
-                                }
-                            } else {
-                                Text("Review now")
-                            }
+                            Text("Review now")
                         }
                         .buttonStyle(HexGradientButtonStyle(compact: true))
-                        .disabled(coach.isAnalyzing)
+                    } else if coach.isAnalyzing {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("Reviewing…")
+                        }
+                        .foregroundStyle(.secondary)
                     }
                 }
             }

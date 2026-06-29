@@ -93,23 +93,92 @@ final class CoachService {
         return LearnerProfileStore(url: dir.appendingPathComponent("profile.json"))
     }
 
-    /// Whether coaching is opted in with a usable key — gates the re-analyze UI.
+    /// Whether coaching is opted in with a usable key — gates the LLM override UI.
     var isReady: Bool { preferences.isReady }
 
-    /// Re-run the Coach on a single transcript (the per-note "re-analyze" action):
-    /// drop the cards it previously produced, reset its analyzed flag, and analyze
-    /// it again. Honors the same key/budget guards as the backlog run.
-    func analyzeEntry(_ entry: TranscriptEntry) async {
-        // Objective lane (keyless, CI-2/CI-3): compute GOP + pronunciation patterns
-        // and deterministic fluency patterns, independent of the BYOK key/budget.
-        // Pronunciation is a no-op when the phoneme model is absent; fluency works
-        // unconditionally (keyless-first).
+    // MARK: - Automatic capture hook (CI-7 / ADR-0004)
+
+    /// The single entry point the capture/save path calls after a note is
+    /// transcribed (`DictationModel`). Runs the two lanes automatically:
+    ///
+    /// 1. **Objective lane** (free, local) — *always*, idempotently, in the
+    ///    background. GOP (when the model is present) + fluency, persisted with the
+    ///    note. This is what makes coaching "just appear" for free (ADR-0002/0004).
+    /// 2. **LLM lane** (paid, BYOK) — only when opted in with a key AND the auto
+    ///    toggle is on AND under budget; batched over the backlog, not per-note.
+    ///
+    /// Idempotent via `objectiveAnalyzedAt` so re-entry (re-save, launch sweep)
+    /// doesn't redo finished work. Never throws to the caller — capture must not
+    /// fail because coaching did.
+    func autoAnalyzeOnCapture(_ entry: TranscriptEntry) async {
+        await analyzeObjective(for: entry)
+        await maybeAutoRunLLMBacklog()
+    }
+
+    /// Run the free objective lane for one note if it hasn't run yet (CI-7).
+    /// Idempotent per `CoachAutomation.shouldRunObjective`: GOP (no-op without the
+    /// phoneme model) + fluency patterns + keyless objective cards, all keyless. On
+    /// success, stamps `objectiveAnalyzedAt` so it isn't redone. Safe to call from
+    /// the capture hook and a launch backfill sweep.
+    func analyzeObjective(for entry: TranscriptEntry) async {
+        let inputs = CoachAutomation.ObjectiveInputs(alreadyAnalyzed: entry.objectiveAnalyzedAt != nil)
+        guard CoachAutomation.shouldRunObjective(inputs) else { return }
+
+        // GOP + pronunciation patterns (no-op when the phoneme model is absent) and
+        // deterministic fluency patterns — independent of the BYOK key/budget.
         await analyzePronunciation(for: entry)
         recomputeFluencyPatterns()
-        // Keyless teaching (CI-4b): turn the objective patterns just merged into
-        // the profile into deterministic CoachCards. NO LLM, NO network, NO budget
-        // — runs even with no key so the Review feed is non-empty for free.
+        // Keyless teaching (CI-4b): turn the merged objective patterns into
+        // deterministic CoachCards. NO LLM, NO network, NO budget.
         regenerateObjectiveCards()
+
+        entry.objectiveAnalyzedAt = Date()
+        try? modelContext.save()
+    }
+
+    /// Backfill the objective lane across every note that predates always-on
+    /// capture (CI-7). Runs once at launch; bounded by `objectiveAnalyzedAt` so
+    /// already-analyzed notes are skipped and the sweep is cheap on later launches.
+    /// Keyless — no key/toggle/budget involved.
+    func backfillObjectiveBacklog() async {
+        let descriptor = FetchDescriptor<TranscriptEntry>(
+            predicate: #Predicate { $0.objectiveAnalyzedAt == nil },
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        )
+        guard let pending = try? modelContext.fetch(descriptor), !pending.isEmpty else { return }
+        for entry in pending {
+            await analyzeObjective(for: entry)
+        }
+    }
+
+    /// Automatically kick off a batched LLM-lane run when every gate holds
+    /// (`CoachAutomation.shouldAutoRunLLM`): opted-in with a key, the auto toggle
+    /// on, idle, real backlog, and under budget. The batched run itself
+    /// (`analyzeBacklog`) re-checks the cap mid-run, so automatic spend stays
+    /// bounded. No-op otherwise — including when the user turned auto off and only
+    /// wants the manual "Review now" override.
+    func maybeAutoRunLLMBacklog() async {
+        let inputs = CoachAutomation.LLMInputs(
+            isReady: preferences.isReady,
+            autoEnabled: preferences.autoLLM,
+            isIdle: !isAnalyzing,
+            hasBacklog: backlogCount() > 0,
+            underBudget: budget.canAnalyze(spentThisMonth: spentThisMonthUSD)
+        )
+        guard CoachAutomation.shouldAutoRunLLM(inputs) else { return }
+        await analyzeBacklog()
+    }
+
+    /// Re-run the LLM lane on a single transcript (the manual override for one
+    /// note): drop the LLM cards it previously produced, reset its analyzed flag,
+    /// and analyze it again. Honors the same key/budget guards as the backlog run.
+    /// Also refreshes the objective lane for the note. Automatic coaching flows
+    /// through `autoAnalyzeOnCapture`; this stays as a manual escape hatch.
+    func analyzeEntry(_ entry: TranscriptEntry) async {
+        // Objective lane (keyless, CI-2/CI-3): force a refresh for this note even if
+        // it ran before, so a manual re-analyze re-derives the objective signals too.
+        entry.objectiveAnalyzedAt = nil
+        await analyzeObjective(for: entry)
 
         guard preferences.isReady, !isAnalyzing else { return }
         guard let apiKey = CoachKeychain.read(CoachKeychain.geminiAPIKeyAccount), !apiKey.isEmpty else { return }
