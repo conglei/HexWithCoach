@@ -21,15 +21,24 @@ import WidgetKit
 struct HexWidgetsLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: FlowSessionAttributes.self) { context in
-            // Lock Screen / banner — one steady, quiet state.
+            // Lock Screen / banner — one steady, quiet state. The Voco logo + name
+            // make it obvious which app this banner is from (the Lock Screen gives
+            // no other attribution).
             HStack(spacing: 12) {
-                Image(systemName: "mic.fill")
-                    .font(.title3)
-                    .foregroundStyle(.tint)
-                Text("Ready to dictate")
-                    .font(.headline)
+                Image("VocoLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 28, height: 28)
+                    .accessibilityLabel("Voco")
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Voco")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text("Ready to dictate")
+                        .font(.headline)
+                }
                 Spacer()
-                endButton.buttonStyle(.bordered)
+                endButton
             }
             .padding()
             .activitySystemActionForegroundColor(.accentColor)
@@ -41,7 +50,7 @@ struct HexWidgetsLiveActivity: Widget {
                     Text("Ready to dictate").font(.caption).foregroundStyle(.secondary)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    endButton.buttonStyle(.bordered)
+                    endButton
                 }
             } compactLeading: {
                 islandGlyph(context)
@@ -54,11 +63,15 @@ struct HexWidgetsLiveActivity: Widget {
         }
     }
 
+    /// Small, unobtrusive End control — the banner is a passive "you can dictate"
+    /// indicator, so the button shouldn't dominate it.
     private var endButton: some View {
         Button(intent: EndFlowSessionIntent()) {
             Label("End", systemImage: "stop.fill")
         }
         .tint(.accentColor)
+        .buttonStyle(.bordered)
+        .controlSize(.small)
     }
 
     /// Mic when waiting, waveform while you're actually speaking — Dynamic Island only.
