@@ -8,7 +8,6 @@ private let cacheLogger = HexLog.caches
 
 class HexAppDelegate: NSObject, NSApplicationDelegate {
 	var invisibleWindow: InvisibleWindow?
-	var settingsWindow: NSWindow?
 	var mainWindow: NSWindow?
 	var statusItem: NSStatusItem!
 	private var launchedAtLogin = false
@@ -279,38 +278,15 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 	}
 
 	func presentSettingsView() {
-		if let settingsWindow = settingsWindow {
-			settingsWindow.makeKeyAndOrderFront(nil)
-			NSApp.activate(ignoringOtherApps: true)
-			return
-		}
-
-		// HIG-standard tabbed Settings window (MC-R11): a native preferences-style
-		// `TabView` of icon tabs, replacing the old nested-sidebar `AppView`.
-		let settingsView = SettingsWindowView(store: HexApp.appStore)
-		let settingsWindow = NSWindow(
-			contentRect: .init(x: 0, y: 0, width: 700, height: 640),
-			styleMask: [.titled, .closable, .miniaturizable, .resizable],
-			backing: .buffered,
-			defer: false
-		)
-		settingsWindow.title = "Settings"
-		settingsWindow.titleVisibility = .visible
-		settingsWindow.contentView = NSHostingView(rootView: settingsView)
-		settingsWindow.isReleasedWhenClosed = false
-		settingsWindow.minSize = .init(width: 620, height: 520)
-		settingsWindow.setFrameAutosaveName("Settings")
-		settingsWindow.center()
-		// NOTE: the SwiftUI `TabView` renders its own standard tab bar. Do NOT set
-		// `toolbarStyle = .preference` / `.fullSizeContentView` here — that style
-		// expects an NSToolbar hosting the tab items, which only the SwiftUI
-		// `Settings {}` scene installs. On a hand-hosted `NSHostingView` it leaves
-		// the window blank (no toolbar to render the tabs into). Getting the true
-		// toolbar-icon-tabs chrome means adopting the `Settings {}` scene — tracked
-		// as a follow-up; for now the TabView's top tabs render correctly.
-		settingsWindow.makeKeyAndOrderFront(nil)
+		// Settings lives in the SwiftUI `Settings {}` scene (HexApp), which hosts the
+		// tabbed `SettingsWindowView` with the native preferences toolbar chrome and
+		// owns ⌘,. Open it from this AppKit status-bar menu via the standard action
+		// (macOS 14+: `showSettingsWindow:`), so there's a single Settings surface.
 		NSApp.activate(ignoringOtherApps: true)
-		self.settingsWindow = settingsWindow
+		if !NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+			// Fallback for older systems.
+			NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+		}
 	}
 
 	@objc private func handleAppModeUpdate() {

@@ -14,8 +14,13 @@ struct HexApp: App {
 	@NSApplicationDelegateAdaptor(HexAppDelegate.self) var appDelegate
 
 	var body: some Scene {
-		// HexAppDelegate creates the menu-bar status item and popover directly.
-		// We expose only an empty Settings scene so SwiftUI has a Scene to drive.
-		Settings { EmptyView() }
+		// HexAppDelegate creates the menu-bar status item and the main window directly.
+		// The Settings scene hosts the real tabbed settings (MC-R11): this is what the
+		// standard Voco ▸ Settings… / ⌘, menu opens, and SwiftUI bridges the TabView's
+		// `.tabItem`s into the native preferences toolbar. The status-bar "Settings…"
+		// item routes here too via `showSettingsWindow:`.
+		Settings {
+			SettingsWindowView(store: HexApp.appStore)
+		}
 	}
 }
