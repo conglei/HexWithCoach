@@ -16,26 +16,8 @@ import os
 import SwiftData
 import WhisperKit
 
-/// What produced a transcript — the coaching corpus distinguishes guided in-app
-/// notes from natural cross-app dictation (Review/Coach design §13, RC-0).
-enum TranscriptKind: String, Codable, Equatable {
-    case dictation  // cross-app / keyboard Flow Session
-    case note       // in-app capture from the app
-
-    var label: String {
-        switch self {
-        case .dictation: "Dictation"
-        case .note: "Note"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .dictation: "keyboard"
-        case .note: "note.text"
-        }
-    }
-}
+// `TranscriptKind` now lives in the shared VocoEngine layer
+// (`VocoEngine/SyncModels.swift`) so both app targets see one definition (MC-R2).
 
 /// How long a Flow Session stays hot after the last activity (product spec: 5/15/60/never).
 enum SessionLength: Int, CaseIterable, Identifiable {

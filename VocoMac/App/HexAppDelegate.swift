@@ -1,5 +1,5 @@
-import Combine
 import ComposableArchitecture
+import SwiftData
 import VocoCore
 import SwiftUI
 
@@ -9,15 +9,14 @@ private let cacheLogger = HexLog.caches
 class HexAppDelegate: NSObject, NSApplicationDelegate {
 	var invisibleWindow: InvisibleWindow?
 	var settingsWindow: NSWindow?
+	var mainWindow: NSWindow?
 	var statusItem: NSStatusItem!
-	var coachPanel: NSPanel!
-	private var coachOutsideClickMonitor: Any?
 	private var launchedAtLogin = false
-	private var settingsObserver: AnyCancellable?
 
 	@Dependency(\.soundEffects) var soundEffect
 	@Dependency(\.recording) var recording
 	@Shared(.hexSettings) var hexSettings: HexSettings
+	@Shared(.transcriptionHistory) var transcriptionHistory: TranscriptionHistory
 
 	func applicationDidFinishLaunching(_: Notification) {
 		DiagnosticsLogging.bootstrapIfNeeded()
@@ -32,6 +31,18 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 			await soundEffect.preloadSounds()
 			await soundEffect.setEnabled(hexSettings.soundEffectsEnabled)
 		}
+		// Stand up the shared SwiftData store (MC-R3) and hydrate the TCA history
+		// projection from it, so History reads/writes flow through the synced store.
+		// This also stands up the Coach v2 driver (MC-R4) over the shared context.
+		MacTranscriptStore.shared.bootstrapAndHydrate(into: $transcriptionHistory)
+
+		// Coach v2 launch passes (MC-R4): backfill the keyless objective lane across
+		// any pre-existing notes, then (if opted in with a key + under budget) run an
+		// auto-batched LLM pass over the backlog. Best-effort; never blocks launch.
+		if let coach = MacTranscriptStore.shared.coach {
+			Task { @MainActor in await coach.runLaunchPasses() }
+		}
+
 		launchedAtLogin = wasLaunchedAtLogin()
 		appLogger.info("Application did finish launching")
 		appLogger.notice("launchedAtLogin = \(self.launchedAtLogin)")
@@ -44,12 +55,6 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 			self,
 			selector: #selector(handleAppModeUpdate),
 			name: .updateAppMode,
-			object: nil
-		)
-		NotificationCenter.default.addObserver(
-			self,
-			selector: #selector(handleCoachPresentPopover),
-			name: .coachShouldPresentPopover,
 			object: nil
 		)
 
@@ -67,7 +72,7 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 			return
 		}
 
-		presentSettingsView()
+		presentMainWindow()
 		NSApp.activate(ignoringOtherApps: true)
 	}
 
@@ -111,27 +116,11 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 			button.sendAction(on: [.leftMouseUp, .rightMouseUp])
 			refreshStatusIcon(on: button)
 		}
-
-		coachPanel = makeCoachPanel()
-
-		// Keep the menu-bar dot in sync with the coach toggle.
-		settingsObserver = $hexSettings.publisher
-			.map { $0.coach.enabled }
-			.removeDuplicates()
-			.sink { [weak self] _ in
-				Task { @MainActor in
-					guard let self, let button = self.statusItem.button else { return }
-					self.refreshStatusIcon(on: button)
-				}
-			}
 	}
 
 	private func refreshStatusIcon(on button: NSStatusBarButton) {
 		guard let base = NSImage(named: "VocoLogo") else { return }
-		let scaled = scaledMenuBarImage(base, target: 18)
-		button.image = hexSettings.coach.enabled
-			? imageWithDot(on: scaled)
-			: scaled
+		button.image = scaledMenuBarImage(base, target: 18)
 	}
 
 	private func scaledMenuBarImage(_ image: NSImage, target: CGFloat) -> NSImage {
@@ -143,25 +132,6 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 		return copy
 	}
 
-	private func imageWithDot(on base: NSImage) -> NSImage {
-		let size = base.size
-		let composite = NSImage(size: size)
-		composite.lockFocus()
-		base.draw(in: NSRect(origin: .zero, size: size))
-		let dotDiameter: CGFloat = 6
-		let dotRect = NSRect(
-			x: size.width - dotDiameter - 1,
-			y: size.height - dotDiameter - 1,
-			width: dotDiameter,
-			height: dotDiameter
-		)
-		NSColor.systemGreen.setFill()
-		NSBezierPath(ovalIn: dotRect).fill()
-		composite.unlockFocus()
-		composite.isTemplate = false
-		return composite
-	}
-
 	@objc private func statusItemClicked(_ sender: Any?) {
 		let event = NSApp.currentEvent
 		let isRightClick = event?.type == .rightMouseUp
@@ -170,99 +140,19 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 		if isRightClick {
 			showStatusMenu()
 		} else {
-			toggleCoachPopover()
-		}
-	}
-
-	func toggleCoachPopover() {
-		if coachPanel.isVisible {
-			hideCoachPanel()
-		} else {
-			showCoachPanel()
-		}
-	}
-
-	private func makeCoachPanel() -> NSPanel {
-		let panel = NSPanel(
-			contentRect: NSRect(x: 0, y: 0, width: 520, height: 600),
-			styleMask: [.borderless, .nonactivatingPanel],
-			backing: .buffered,
-			defer: false
-		)
-		panel.isReleasedWhenClosed = false
-		panel.level = .statusBar
-		panel.hidesOnDeactivate = false
-		panel.isFloatingPanel = true
-		panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
-		panel.hasShadow = true
-		panel.backgroundColor = .clear
-		panel.isOpaque = false
-
-		let effect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 520, height: 600))
-		effect.material = .popover
-		effect.state = .active
-		effect.blendingMode = .behindWindow
-		effect.wantsLayer = true
-		effect.layer?.cornerRadius = 12
-		effect.layer?.masksToBounds = true
-
-		let coachStore = HexApp.appStore.scope(state: \.coach, action: \.coach)
-		let hosting = NSHostingView(rootView: CoachPopoverView(store: coachStore))
-		hosting.translatesAutoresizingMaskIntoConstraints = false
-		effect.addSubview(hosting)
-		NSLayoutConstraint.activate([
-			hosting.topAnchor.constraint(equalTo: effect.topAnchor),
-			hosting.leadingAnchor.constraint(equalTo: effect.leadingAnchor),
-			hosting.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
-			hosting.bottomAnchor.constraint(equalTo: effect.bottomAnchor),
-		])
-
-		panel.contentView = effect
-		return panel
-	}
-
-	private func showCoachPanel() {
-		// Position top-right of whatever screen the cursor is currently on,
-		// just below the menu bar. Falls back to the main screen if needed.
-		let screen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
-			?? NSScreen.main
-		guard let visible = screen?.visibleFrame else { return }
-		let size = coachPanel.frame.size
-		let margin: CGFloat = 12
-		let origin = NSPoint(
-			x: visible.maxX - size.width - margin,
-			y: visible.maxY - size.height - margin
-		)
-		coachPanel.setFrameOrigin(origin)
-		coachPanel.orderFrontRegardless()
-
-		installOutsideClickMonitor()
-	}
-
-	private func hideCoachPanel() {
-		coachPanel.orderOut(nil)
-		removeOutsideClickMonitor()
-	}
-
-	private func installOutsideClickMonitor() {
-		removeOutsideClickMonitor()
-		coachOutsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
-			guard let self else { return }
-			Task { @MainActor in
-				self.hideCoachPanel()
-			}
-		}
-	}
-
-	private func removeOutsideClickMonitor() {
-		if let monitor = coachOutsideClickMonitor {
-			NSEvent.removeMonitor(monitor)
-			coachOutsideClickMonitor = nil
+			// Left-click opens the companion main window (MC-R0).
+			presentMainWindow()
 		}
 	}
 
 	private func showStatusMenu() {
 		let menu = NSMenu()
+
+		let openVoco = NSMenuItem(title: "Open Voco", action: #selector(menuOpenVoco(_:)), keyEquivalent: "")
+		openVoco.target = self
+		menu.addItem(openVoco)
+
+		menu.addItem(.separator())
 
 		let checkUpdates = NSMenuItem(title: "Check for Updates…", action: #selector(menuCheckForUpdates(_:)), keyEquivalent: "")
 		checkUpdates.target = self
@@ -271,21 +161,6 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 		let copyLast = NSMenuItem(title: "Copy Last Transcript", action: #selector(menuCopyLastTranscript(_:)), keyEquivalent: "")
 		copyLast.target = self
 		menu.addItem(copyLast)
-
-		menu.addItem(.separator())
-
-		let coachItem = NSMenuItem(
-			title: hexSettings.coach.enabled ? "Pronunciation Coach: On" : "Pronunciation Coach: Off",
-			action: #selector(menuToggleCoach(_:)),
-			keyEquivalent: ""
-		)
-		coachItem.target = self
-		coachItem.state = hexSettings.coach.enabled ? .on : .off
-		menu.addItem(coachItem)
-
-		let showCoach = NSMenuItem(title: "Show Coach…", action: #selector(menuShowCoach(_:)), keyEquivalent: "")
-		showCoach.target = self
-		menu.addItem(showCoach)
 
 		menu.addItem(.separator())
 
@@ -305,6 +180,10 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 		statusItem.menu = nil
 	}
 
+	@objc private func menuOpenVoco(_ sender: Any?) {
+		presentMainWindow()
+	}
+
 	@objc private func menuCheckForUpdates(_ sender: Any?) {
 		Task { @MainActor in
 			CheckForUpdatesViewModel.shared.checkForUpdates()
@@ -314,25 +193,6 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 	@objc private func menuCopyLastTranscript(_ sender: Any?) {
 		Task { @MainActor in
 			await HexApp.appStore.send(.pasteLastTranscript).finish()
-		}
-	}
-
-	@objc private func menuToggleCoach(_ sender: Any?) {
-		Task { @MainActor in
-			let newValue = !hexSettings.coach.enabled
-			await HexApp.appStore.send(.coach(.setEnabled(newValue))).finish()
-		}
-	}
-
-	@objc private func menuShowCoach(_ sender: Any?) {
-		Task { @MainActor in
-			toggleCoachPopover()
-		}
-	}
-
-	@objc func showCoachPopover(_ sender: Any?) {
-		Task { @MainActor in
-			toggleCoachPopover()
 		}
 	}
 
@@ -355,6 +215,66 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 			.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 		invisibleWindow = InvisibleWindow.fromView(transcriptionView)
 		invisibleWindow?.orderFrontRegardless()
+	}
+
+	/// Present the macOS companion window (MC-R0): a native, resizable main window
+	/// hosting the standalone SwiftUI learning experience, re-cut to the reconciled
+	/// Phase-3 IA (Coach · History · Settings + a recents pane). Mirrors
+	/// `presentSettingsView()` — an NSWindow whose content is an `NSHostingView`,
+	/// restoring its frame via an autosave name.
+	///
+	/// The shared SwiftData `ModelContainer` (owned by `MacTranscriptStore`, MC-R3) is
+	/// injected into the SwiftUI environment with `.modelContainer(_:)` so the fan-out
+	/// screens (MC-R5 / MC-R8) can `@Query` the synced store. Settings reuses the
+	/// existing TCA `AppView`.
+	func presentMainWindow() {
+		// Ensure the window can show + focus even when running as a menu-bar
+		// (LSUIElement / .accessory) app — mirror Settings' activation handling.
+		if !hexSettings.showDockIcon {
+			NSApp.setActivationPolicy(.regular)
+		}
+
+		if let mainWindow = mainWindow {
+			mainWindow.makeKeyAndOrderFront(nil)
+			NSApp.activate(ignoringOtherApps: true)
+			return
+		}
+
+		let settingsContent = AnyView(AppView(store: HexApp.appStore))
+		let rootView = MainWindowView(settingsContent: settingsContent)
+
+		// Inject the shared container when bootstrapped (always true at runtime;
+		// nil only in tests, where this window isn't presented). `MacTranscriptStore`
+		// is @MainActor; this delegate method runs on the main thread, so assume the
+		// isolation to read the container — mirrors the store bootstrap.
+		let container = MainActor.assumeIsolated { MacTranscriptStore.shared.modelContainer }
+		let hosted: NSView
+		if let container {
+			hosted = NSHostingView(rootView: rootView.modelContainer(container))
+		} else {
+			hosted = NSHostingView(rootView: rootView)
+		}
+
+		let window = NSWindow(
+			contentRect: .init(x: 0, y: 0, width: 1000, height: 700),
+			styleMask: [.titled, .fullSizeContentView, .closable, .miniaturizable, .resizable],
+			backing: .buffered,
+			defer: false
+		)
+		window.title = "Voco"
+		window.titleVisibility = .visible
+		window.contentView = hosted
+		window.isReleasedWhenClosed = false
+		window.minSize = .init(width: 760, height: 480)
+		window.setFrameAutosaveName("VocoMainWindow")
+		window.toolbarStyle = .unified
+		// center() only when the autosave name didn't restore a saved frame.
+		if !window.setFrameUsingName("VocoMainWindow") {
+			window.center()
+		}
+		window.makeKeyAndOrderFront(nil)
+		NSApp.activate(ignoringOtherApps: true)
+		self.mainWindow = window
 	}
 
 	func presentSettingsView() {
@@ -389,13 +309,6 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 		}
 	}
 
-	@objc private func handleCoachPresentPopover() {
-		Task { @MainActor in
-			guard !coachPanel.isVisible else { return }
-			showCoachPanel()
-		}
-	}
-
 	@MainActor
 	private func updateAppMode() {
 		appLogger.debug("showDockIcon = \(self.hexSettings.showDockIcon)")
@@ -407,7 +320,7 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 	}
 
 	func applicationShouldHandleReopen(_: NSApplication, hasVisibleWindows _: Bool) -> Bool {
-		presentSettingsView()
+		presentMainWindow()
 		return true
 	}
 
