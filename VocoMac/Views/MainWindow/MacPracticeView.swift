@@ -26,12 +26,14 @@
 //  OWN synced type (`PracticeItem` / `PracticeAttempt`) — deliberately separate
 //  from `TranscriptEntry`, so they NEVER surface in any History `@Query`.
 //
-//  No macOS shadowing engine yet (iOS `ShadowingView`/`ShadowingModel` are
-//  Voco-only): the practice session presents the target lines and logs a
-//  `PracticeAttempt`, advancing the never-punishing streak (`CoachStreakStore`,
-//  VocoCore). When a Mac TTS/ASR shadowing drill lands, it slots into
-//  `MacPracticeSessionView` without changing this surface. The streak header is
-//  shared with MC-R7 (Progress) — kept to a thin read of `CoachStreakStore`.
+//  The practice session is a closed shadowing loop (MC-R9): each line is heard via
+//  on-device TTS, the learner records a repeat, the shared `TranscriptionClient`
+//  transcribes it, and `ShadowingScorer` scores the match — driven by
+//  `MacShadowingModel`. The per-segment ASR scores are persisted into the
+//  `PracticeAttempt.perSegmentScores` array on the (synced) `PracticeItem`, with a
+//  GOP delta when the phoneme model is present (no-op on the companion app today).
+//  The never-punishing streak (`CoachStreakStore`, VocoCore) advances on completion.
+//  The streak header is shared with MC-R7 (Progress) — a thin read of `CoachStreakStore`.
 //
 
 import SwiftUI
@@ -415,14 +417,13 @@ struct MacPracticeSession: Identifiable {
     let item: PracticeItem
 }
 
-/// The practice session sheet. Presents the target lines and, on completion, logs a
-/// `PracticeAttempt` onto the (synced) `PracticeItem` and advances the streak.
-///
-/// There is no macOS shadowing engine yet (TTS/ASR/GOP live in the iOS
-/// `ShadowingModel`); this is the native session shell. When a Mac shadowing drill
-/// lands it replaces the line list here with the per-segment record/score loop and
-/// writes real `perSegmentScores` — the persistence + streak wiring already in
-/// place stays unchanged.
+/// The practice session sheet — the closed shadowing loop (MC-R9). It walks the
+/// item's segments one at a time: hear the line (TTS), record a repeat, transcribe
+/// it (shared `TranscriptionClient`), and score the match (`ShadowingScorer`). The
+/// per-segment ASR scores accumulate and, on completion, are persisted into a single
+/// `PracticeAttempt.perSegmentScores` on the (synced) `PracticeItem`, alongside a
+/// GOP delta when the phoneme model is present (no-op on the companion app today).
+/// The never-punishing streak advances once per session.
 private struct MacPracticeSessionView: View {
     let session: MacPracticeSession
 
@@ -430,49 +431,62 @@ private struct MacPracticeSessionView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var logged = false
 
+    /// Index of the line currently being shadowed.
+    @State private var current = 0
+    /// One ASR match score per finished segment (the `perSegmentScores` payload).
+    @State private var segmentScores: [Double] = []
+    /// The best (largest) GOP delta seen across the session's scored segments, kept
+    /// as the attempt's headline improvement. nil without the phoneme model.
+    @State private var bestGopDelta: Double?
+    /// The shadowing engine for the current line. Rebuilt per segment so each line
+    /// gets a clean idle→recording→scored cycle.
+    @State private var shadow: MacShadowingModel
+
     private var item: PracticeItem { session.item }
     private var segments: [String] {
         item.segments.isEmpty ? [item.sourceText] : item.segments
     }
+
+    init(session: MacPracticeSession) {
+        self.session = session
+        let segs = session.item.segments.isEmpty ? [session.item.sourceText] : session.item.segments
+        _shadow = State(initialValue: MacShadowingModel(target: segs.first ?? ""))
+    }
+
+    private var isLastSegment: Bool { current >= segments.count - 1 }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(segments.enumerated()), id: \.offset) { index, sentence in
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("\(index + 1)")
-                                .font(.callout.monospacedDigit().weight(.semibold))
-                                .foregroundStyle(.tint)
-                                .frame(minWidth: 22, alignment: .trailing)
-                            Text(sentence)
-                                .font(.body)
-                                .textSelection(.enabled)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.vertical, 10)
-                        if index < segments.count - 1 { Divider() }
-                    }
-                }
-                .padding(20)
+                MacShadowingSegmentView(model: shadow)
+                    .padding(20)
             }
             Divider()
             footer
         }
-        .frame(width: 540, height: 460)
+        .frame(width: 540, height: 520)
+        .alert(
+            "Couldn't record",
+            isPresented: Binding(
+                get: { shadow.errorMessage != nil },
+                set: { if !$0 { shadow.errorMessage = nil } }
+            ),
+            presenting: shadow.errorMessage
+        ) { _ in Button("OK", role: .cancel) {} } message: { Text($0) }
     }
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Practice").font(.headline)
-                Text("\(segments.count) line\(segments.count == 1 ? "" : "s") · say each one out loud")
+                Text("Line \(min(current + 1, segments.count)) of \(segments.count) · hear it, then say it back")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
             Button {
+                logAttempt()
                 dismiss()
             } label: {
                 Image(systemName: "xmark.circle.fill")
@@ -484,26 +498,85 @@ private struct MacPracticeSessionView: View {
         .padding(20)
     }
 
+    @ViewBuilder
     private var footer: some View {
         HStack {
-            Spacer()
-            Button("Done") {
-                logAttempt()
-                dismiss()
+            // Per-segment progress dots.
+            HStack(spacing: 5) {
+                ForEach(0..<segments.count, id: \.self) { i in
+                    Circle()
+                        .fill(dotStyle(for: i))
+                        .frame(width: 7, height: 7)
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .keyboardShortcut(.defaultAction)
+            Spacer()
+            if shadow.phase == .scored {
+                if isLastSegment {
+                    Button("Finish") {
+                        recordCurrentSegment()
+                        logAttempt()
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+                } else {
+                    Button("Next line") { advance() }
+                        .buttonStyle(.borderedProminent)
+                        .keyboardShortcut(.defaultAction)
+                }
+            } else {
+                // Allow skipping a line without recording it (never a forced gate).
+                Button(isLastSegment ? "Done" : "Skip") {
+                    if isLastSegment {
+                        logAttempt()
+                        dismiss()
+                    } else {
+                        advance(recordScore: false)
+                    }
+                }
+                .buttonStyle(.bordered)
+            }
         }
         .padding(20)
     }
 
-    /// Record a `PracticeAttempt` on the item and count today toward the streak.
-    /// Idempotent within a session. No `perSegmentScores` yet (no Mac scorer); the
-    /// attempt marks that the learner practiced, which is what advances the streak.
+    private func dotStyle(for index: Int) -> AnyShapeStyle {
+        if index < current { return AnyShapeStyle(.tint) }
+        if index == current { return AnyShapeStyle(.tint.opacity(0.5)) }
+        return AnyShapeStyle(Color.secondary.opacity(0.25))
+    }
+
+    /// Capture the current line's score into the running arrays.
+    private func recordCurrentSegment() {
+        segmentScores.append(shadow.score)
+        if let delta = shadow.gopDelta {
+            bestGopDelta = max(bestGopDelta ?? delta, delta)
+        }
+    }
+
+    /// Advance to the next line, optionally recording the current score, and reset
+    /// the engine for a clean cycle on the new target.
+    private func advance(recordScore: Bool = true) {
+        if recordScore {
+            recordCurrentSegment()
+        } else {
+            segmentScores.append(0)
+        }
+        current += 1
+        shadow = MacShadowingModel(target: segments[current])
+    }
+
+    /// Record a single `PracticeAttempt` on the item (with the accumulated
+    /// per-segment scores + GOP delta) and count today toward the never-punishing
+    /// streak. Idempotent within a session.
     private func logAttempt() {
         guard !logged else { return }
         logged = true
-        let attempt = PracticeAttempt(item: item)
+        let attempt = PracticeAttempt(
+            perSegmentScores: segmentScores,
+            gopDelta: bestGopDelta,
+            item: item
+        )
         modelContext.insert(attempt)
         try? modelContext.save()
 
