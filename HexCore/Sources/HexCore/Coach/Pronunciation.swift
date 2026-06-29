@@ -280,17 +280,55 @@ public final class PhonemeRecognizer {
         return matrix
     }
 
-    /// Read an audio file as 16 kHz mono float samples. Hex records notes at 16 kHz
-    /// mono PCM (the ASR format), so that's all we need; anything else throws.
+    /// Read an audio file as 16 kHz mono float samples (the ASR / phoneme-model format).
+    ///
+    /// In-app notes are recorded at 16 kHz mono PCM, but the keyboard's Flow Session
+    /// records `.caf` in the device-native format (commonly 48 kHz stereo). Rather than
+    /// reject those, anything that isn't already 16 kHz mono is resampled / down-mixed
+    /// here via `AVAudioConverter`, so pronunciation analysis works regardless of source.
     public static func loadSamples(url: URL) throws -> [Float] {
         let file = try AVAudioFile(forReading: url)
         let format = file.processingFormat
-        guard format.sampleRate == 16_000, format.channelCount == 1 else {
+
+        // Fast path: already 16 kHz mono — read straight through.
+        if format.sampleRate == 16_000, format.channelCount == 1 {
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(file.length)),
+                  (try? file.read(into: buffer)) != nil, let channel = buffer.floatChannelData else { return [] }
+            return Array(UnsafeBufferPointer(start: channel[0], count: Int(buffer.frameLength)))
+        }
+
+        // Otherwise convert to 16 kHz mono float32.
+        guard let target = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                         sampleRate: 16_000, channels: 1, interleaved: false),
+              let converter = AVAudioConverter(from: format, to: target) else {
             throw PronunciationError.unsupportedAudioFormat
         }
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(file.length)),
-              let _ = try? file.read(into: buffer), let channel = buffer.floatChannelData else { return [] }
-        return Array(UnsafeBufferPointer(start: channel[0], count: Int(buffer.frameLength)))
+
+        guard file.length > 0,
+              let source = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(file.length)) else {
+            return []
+        }
+        try file.read(into: source)
+
+        let ratio = target.sampleRate / format.sampleRate
+        let capacity = AVAudioFrameCount((Double(source.frameLength) * ratio).rounded(.up)) + 4096
+        guard let output = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { return [] }
+
+        var consumed = false
+        var conversionError: NSError?
+        let status = converter.convert(to: output, error: &conversionError) { _, outStatus in
+            if consumed {
+                outStatus.pointee = .endOfStream
+                return nil
+            }
+            consumed = true
+            outStatus.pointee = .haveData
+            return source
+        }
+        if status == .error { throw PronunciationError.unsupportedAudioFormat }
+
+        guard let channel = output.floatChannelData else { return [] }
+        return Array(UnsafeBufferPointer(start: channel[0], count: Int(output.frameLength)))
     }
 }
 
