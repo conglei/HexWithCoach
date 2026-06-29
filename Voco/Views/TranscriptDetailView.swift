@@ -20,6 +20,11 @@ struct TranscriptDetailView: View {
     var highlightSpan: String? = nil
     @State private var audio = AudioPlayer()
 
+    /// The real amplitude envelope of the retained audio (0…1 per bar), decoded
+    /// once off-main. Empty until it loads (or if decode fails) — the player bar
+    /// falls back to a neutral placeholder shape in the meantime.
+    @State private var waveformBars: [CGFloat] = []
+
     /// Two reading modes for a note. **Note** is the calm default: a plain
     /// transcript + audio with no per-word coloring and no coaching cards, so a
     /// note isn't a wall of color you have to decode. **Coaching** opts in to the
@@ -86,7 +91,7 @@ struct TranscriptDetailView: View {
 
                     // Audio playback stays in both modes.
                     if audioURL != nil {
-                        PlayerBar(audio: audio)
+                        PlayerBar(audio: audio, bars: waveformBars)
                             .hexCard()
                     }
 
@@ -100,7 +105,12 @@ struct TranscriptDetailView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Transcript")
         .navigationBarTitleDisplayMode(.inline)
-        .task { if let url = audioURL { audio.load(url) } }
+        .task {
+            if let url = audioURL {
+                audio.load(url)
+                await loadWaveform(url)
+            }
+        }
         .onAppear {
             // Open straight into Coaching when we arrived from a Coach card, but
             // only once — respect any later manual switch.
@@ -134,6 +144,17 @@ struct TranscriptDetailView: View {
             .font(.caption.weight(.bold)).tracking(1)
             .foregroundStyle(.secondary)
     }
+
+    /// Decode the retained audio into a normalized amplitude envelope off the main
+    /// thread, then hand it to the player bar. Reuses the ASR sample loader (which
+    /// also handles the keyboard's non-16kHz `.caf` clips). On failure we leave
+    /// `waveformBars` empty and the bar shows its placeholder shape.
+    private func loadWaveform(_ url: URL) async {
+        let bars = await Task.detached(priority: .utility) { () -> [CGFloat] in
+            guard let samples = try? PhonemeRecognizer.loadSamples(url: url) else { return [] }
+            return WaveformEnvelope.bars(from: samples, count: 40).map(CGFloat.init)
+        }.value
+        waveformBars = bars
 
     /// The transcript with the Coach-flagged span emphasized (when we arrived here
     /// from a card), so the learner can spot it in context. Plain otherwise.
@@ -454,6 +475,9 @@ nonisolated enum PronunciationAssets {
 
 private struct PlayerBar: View {
     let audio: AudioPlayer
+    /// The recording's real amplitude envelope (0…1 per bar); empty falls back to
+    /// a neutral placeholder while it decodes.
+    var bars: [CGFloat] = []
 
     var body: some View {
         HStack(spacing: 14) {
@@ -466,7 +490,7 @@ private struct PlayerBar: View {
             }
             .buttonStyle(.plain)
 
-            Waveform(progress: audio.progress) { fraction in audio.seek(toFraction: fraction) }
+            Waveform(progress: audio.progress, bars: bars) { fraction in audio.seek(toFraction: fraction) }
                 .frame(height: 40)
 
             Text(timeString)
@@ -481,27 +505,33 @@ private struct PlayerBar: View {
     }
 }
 
-/// A simple bar waveform with progress fill; tap/drag to scrub.
+/// A bar waveform with progress fill; tap/drag to scrub. Draws the recording's
+/// real amplitude envelope when available, falling back to a neutral placeholder
+/// shape while the audio decodes (or if decode fails).
 private struct Waveform: View {
     let progress: Double
+    /// Normalized amplitudes (0…1) — the real audio envelope. Empty → placeholder.
+    var bars: [CGFloat] = []
     let onSeek: (Double) -> Void
 
-    private let bars = 40
+    private var levels: [CGFloat] { bars.isEmpty ? Self.placeholder : bars }
 
     var body: some View {
         GeometryReader { geo in
+            let levels = levels
             HStack(spacing: 2) {
-                ForEach(0 ..< bars, id: \.self) { i in
+                ForEach(levels.indices, id: \.self) { i in
                     Capsule()
-                        .fill(Double(i) / Double(bars) <= progress
+                        .fill(Double(i) / Double(levels.count) <= progress
                             ? AnyShapeStyle(HexTheme.gradient)
                             : AnyShapeStyle(Color(.tertiaryLabel)))
                         .frame(maxWidth: .infinity)
-                        .frame(height: barHeight(i, max: geo.size.height))
+                        .frame(height: barHeight(levels[i], max: geo.size.height))
                 }
             }
             .frame(maxHeight: .infinity, alignment: .center)
             .contentShape(Rectangle())
+            .animation(.easeOut(duration: 0.25), value: bars)
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onEnded { value in
@@ -511,9 +541,17 @@ private struct Waveform: View {
         }
     }
 
-    // Deterministic pseudo-waveform so it doesn't reshuffle on each render.
-    private func barHeight(_ i: Int, max: CGFloat) -> CGFloat {
-        let v = (sin(Double(i) * 1.7) + sin(Double(i) * 0.5) + 2) / 4 // 0…1
-        return max * (0.25 + 0.75 * v)
+    /// Map a 0…1 amplitude to a bar height with a visible floor so quiet sections
+    /// still render a thin sliver rather than vanishing.
+    private func barHeight(_ level: CGFloat, max: CGFloat) -> CGFloat {
+        max * (0.18 + 0.82 * level)
+    }
+
+    // Neutral resting shape shown until the real envelope decodes. Deterministic
+    // so it doesn't reshuffle on each render.
+    private static let placeholder: [CGFloat] = (0 ..< 40).map { i in
+        let d = Double(i)
+        let v: Double = (sin(d * 1.7) + sin(d * 0.5) + 2) / 4
+        return CGFloat(v)
     }
 }

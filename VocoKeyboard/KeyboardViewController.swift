@@ -34,6 +34,14 @@ final class KeyboardViewController: KeyboardInputViewController {
     private var observerTask: Task<Void, Never>?
     private var isCapturing = false
 
+    /// Reads the live mic level the host streams during a capture so we can render
+    /// a real waveform; nil if the App Group is unreachable (no Full Access).
+    private let meter = KeyboardAudioMeter(appGroupIdentifier: HexAppGroup.identifier)
+    /// Polls `meter` ~20×/sec while capturing, shifting each level into a rolling
+    /// buffer the recording pill's waveform binds to.
+    private var meterTimer: Timer?
+    private var levelBuffer = [CGFloat](repeating: 0, count: 14)
+
     /// Drives the once-per-second `state.clock` tick so the "MM:SS left" pill and
     /// the session-expiry phase update live without a re-bounce.
     private var clockTimer: Timer?
@@ -107,6 +115,7 @@ final class KeyboardViewController: KeyboardInputViewController {
         clockTimer = nil
         insertConfirmationTask?.cancel()
         insertConfirmationTask = nil
+        stopMeterPolling()
     }
 
     /// One cheap timer drives the live countdown + expiry transition. No model,
@@ -152,8 +161,7 @@ final class KeyboardViewController: KeyboardInputViewController {
         } else {
             // Session is dead/stale — reset any stuck capturing state and bounce
             // to start a fresh one instead of posting into the void.
-            isCapturing = false
-            hexState.isCapturing = false
+            setCapturing(false)
             startSessionBounce()
         }
     }
@@ -161,14 +169,48 @@ final class KeyboardViewController: KeyboardInputViewController {
     private func toggleCapture() {
         if isCapturing {
             DarwinSignal.post(.captureStop)
-            isCapturing = false
+            setCapturing(false)
             hexState.statusText = "Transcribing…"
         } else {
             DarwinSignal.post(.captureStart)
-            isCapturing = true
+            setCapturing(true)
             hexState.statusText = "Listening… tap to stop"
         }
-        hexState.isCapturing = isCapturing
+    }
+
+    /// The one place capture state flips, so the live-waveform meter polling starts
+    /// and stops in lockstep with it.
+    private func setCapturing(_ on: Bool) {
+        isCapturing = on
+        hexState.isCapturing = on
+        if on { startMeterPolling() } else { stopMeterPolling() }
+    }
+
+    // MARK: - Live waveform
+
+    /// While capturing, sample the host's streamed mic level ~20×/sec into a rolling
+    /// buffer so the recording pill shows a real waveform.
+    private func startMeterPolling() {
+        meterTimer?.invalidate()
+        levelBuffer = [CGFloat](repeating: 0, count: levelBuffer.count)
+        let timer = Timer(timeInterval: 1.0 / 20.0, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.sampleMeter() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        meterTimer = timer
+    }
+
+    private func sampleMeter() {
+        let level = CGFloat(meter?.currentLevel() ?? 0)
+        levelBuffer.removeFirst()
+        levelBuffer.append(level)
+        hexState.levels = levelBuffer
+    }
+
+    private func stopMeterPolling() {
+        meterTimer?.invalidate()
+        meterTimer = nil
+        hexState.levels = []
     }
 
     private func startSessionBounce() {
@@ -224,8 +266,7 @@ final class KeyboardViewController: KeyboardInputViewController {
         hexState.sessionActive = active
         hexState.sessionExpiresAt = active ? session?.expiresAt : nil
         if !active {
-            isCapturing = false
-            hexState.isCapturing = false
+            setCapturing(false)
         }
     }
 
@@ -239,8 +280,7 @@ final class KeyboardViewController: KeyboardInputViewController {
         textDocumentProxy.insertText(result.text)
         lastInsertedID = result.id
         ipc.resultMailbox.clear()
-        isCapturing = false
-        hexState.isCapturing = false
+        setCapturing(false)
         hexState.errorMessage = nil
         hexState.statusText = hexState.sessionActive ? "Inserted — tap to dictate again." : "Inserted."
         flashInsertedConfirmation()

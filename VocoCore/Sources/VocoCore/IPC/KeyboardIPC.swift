@@ -125,6 +125,7 @@ public enum PendingAppAction {
 public enum IPCFile {
     public static let result = "dictation-result.json"
     public static let session = "dictation-session.json"
+    public static let meter = "dictation-meter.bin"
 }
 
 /// Convenience bundle of the two mailboxes for a given App Group container.
