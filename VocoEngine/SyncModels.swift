@@ -337,6 +337,17 @@ final class PracticeItem {
     /// Links back to the coach card / insight or phrasebook entry this item came
     /// from. nil when the target was pasted/typed (no source to link to).
     var sourceID: UUID?
+    /// The focus area / pattern this drill was launched to address (CF-3). Set when
+    /// a drill starts from a CF-1 focus area or a coach card so every recorded
+    /// `PracticeAttempt` is attributable to a `(lens, patternKey)` — that's what
+    /// closes the loop between "you practiced X" and "X's frequency dropped". nil for
+    /// pasted/typed targets with no source pattern. Additive `String?` (defaulted),
+    /// NOT a new `@Model`, so the canonical schema stays at six types (GUARD invariant).
+    var patternKey: String?
+    /// Backing store for the focus area's `lens` (CF-3), paired with `patternKey`.
+    /// Stored as a String for CloudKit; nil when the item carries no focus lens.
+    /// Decoded via `lens`.
+    var lensRaw: String?
     var createdAt: Date = Date()
 
     /// The learner's recorded attempts at this item. Cascade-deleted with the item
@@ -358,6 +369,13 @@ final class PracticeItem {
         set { kindRaw = newValue.rawValue }
     }
 
+    /// The focus area's lens (CF-3), decoded from `lensRaw`. nil when the item
+    /// carries no focus lens (pasted/typed targets) or the raw value is unknown.
+    var lens: Lens? {
+        get { lensRaw.flatMap(Lens.init(rawValue:)) }
+        set { lensRaw = newValue?.rawValue }
+    }
+
     init(
         id: UUID = UUID(),
         title: String? = nil,
@@ -366,6 +384,8 @@ final class PracticeItem {
         origin: Origin = .pasted,
         kind: PracticeKind = .shadow,
         sourceID: UUID? = nil,
+        patternKey: String? = nil,
+        lens: Lens? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -375,6 +395,8 @@ final class PracticeItem {
         self.originRaw = origin.rawValue
         self.kindRaw = kind.rawValue
         self.sourceID = sourceID
+        self.patternKey = patternKey
+        self.lensRaw = lens?.rawValue
         self.createdAt = createdAt
     }
 }

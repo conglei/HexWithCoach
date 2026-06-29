@@ -108,6 +108,12 @@ struct PracticeView: View {
             segments: SentenceSegmenter.segments(from: practiceTarget(for: card)),
             sourceID: card.id,
             kind: kind,
+            // CF-3: tag with the card's focus area so this attempt is attributable to
+            // its `(lens, patternKey)` and can close the loop with the pattern's
+            // frequency trend. The card's `key` is the same canonical pattern slug
+            // the observation log + profile use.
+            patternKey: card.key.isEmpty ? nil : card.key,
+            lens: card.lens,
             title: card.title
         )
         modelContext.insert(item)

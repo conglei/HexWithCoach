@@ -33,6 +33,14 @@ final class CoachFocusModel {
     /// The computed surface (skill map + prioritized focus + lead win). Empty until
     /// `reload` runs.
     private(set) var surface = CoachFocusSurface(skillMap: [], focuses: [], leadWin: nil)
+    /// CF-3 — the "today / this week you practiced" accumulation strip, computed from
+    /// the persisted `PracticeAttempt` rows. Empty until `reload` runs (and stays
+    /// `isEmpty` when nothing was practiced this week, so the strip hides).
+    private(set) var practice = PracticeSummary(repsToday: 0, repsThisWeek: 0, byLens: [])
+    /// CF-3 — the practice→frequency-drop signal for the hero focus, when one cleared
+    /// the evidence bar AND its trend genuinely improved after practice. nil otherwise
+    /// (the honesty guard: we never show a "it's working" claim on noise).
+    private(set) var heroTrend: FrequencyTrend?
     /// The cached weekly recap. nil until generated; regenerated only on `reload`
     /// (once per rollup), never per view.
     private(set) var summary: CoachWeeklySummary?
@@ -74,6 +82,21 @@ final class CoachFocusModel {
 
         let computed = CoachFocusEngine.surface(facts: facts, profile: profile, weekly: weekly, now: now)
         surface = computed
+
+        // CF-3 — accumulation + the practice→frequency-drop loop, both pure VocoCore.
+        let practiceFacts = loadPracticeFacts()
+        practice = PracticeLog.summary(facts: practiceFacts, now: now)
+        // Close the loop on the hero focus: only surface its trend when the honesty
+        // guard says practicing it genuinely reduced its frequency.
+        if let hero = computed.heroFocus {
+            let trend = FrequencyTrend.make(
+                lens: hero.lens, patternKey: hero.key,
+                observations: facts, practiceFacts: practiceFacts, now: now
+            )
+            heroTrend = trend.didImprove ? trend : nil
+        } else {
+            heroTrend = nil
+        }
 
         let input = CoachSummaryInput.make(surface: computed, weekly: weekly)
         isGeneratingSummary = true
@@ -124,6 +147,31 @@ final class CoachFocusModel {
                 }
                 return nil
             }
+        }
+    }
+
+    // MARK: - Practice attempt → fact mapping (CF-3)
+
+    /// Read every persisted `PracticeAttempt` and map it onto a pure
+    /// `PracticeAttemptFact`, carrying the parent `PracticeItem`'s CF-3 tags (lens +
+    /// patternKey) and CF-2 kind. The attempt's `score` is the mean of its
+    /// per-segment ASR-match scores (shadow) or the single word-swap judge score.
+    /// Attempts whose item was deleted (no parent) are skipped — there's nothing to
+    /// attribute them to.
+    private func loadPracticeFacts() -> [PracticeAttemptFact] {
+        guard let rows = try? modelContext.fetch(FetchDescriptor<PracticeAttempt>()) else { return [] }
+        return rows.compactMap { attempt -> PracticeAttemptFact? in
+            guard let item = attempt.item else { return nil }
+            let scores = attempt.perSegmentScores
+            let score = scores.isEmpty ? 0 : scores.reduce(0, +) / Double(scores.count)
+            return PracticeAttemptFact(
+                date: attempt.date,
+                kind: item.kind,
+                lens: item.lens,
+                patternKey: item.patternKey,
+                score: score,
+                gopDelta: attempt.gopDelta
+            )
         }
     }
 
