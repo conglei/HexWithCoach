@@ -401,29 +401,52 @@ enum AudioStore {
 }
 
 enum TranscriptStore {
+    /// The single, canonical list of every `@Model` type the app persists.
+    ///
+    /// GUARD invariant: every `ModelContainer(for:)` site — the three configs in
+    /// `makeContainer()`, the SwiftUI previews, and the test fixtures — must build
+    /// its schema from *this* list, never an inline literal. Forgetting to register
+    /// a model in one site (e.g. the OnboardingView preview once missed
+    /// `CoachCardEntity`) is a whole class of launch crashes / empty previews; a
+    /// container-registration invariant test (`SchemaRegistrationTests`) asserts
+    /// each container's schema contains exactly these entities, so adding a new
+    /// `@Model` without registering it here fails the test instead of shipping.
+    ///
+    /// When you add a new `@Model`, add it to this list — that is the only change
+    /// needed to register it everywhere.
+    static let allModelTypes: [any PersistentModel.Type] = [
+        TranscriptEntry.self,
+        TranscriptAnalysis.self,
+        CoachCardEntity.self,
+        CoachObservation.self,
+        PracticeItem.self,
+        PracticeAttempt.self,
+    ]
+
+    /// The canonical `Schema` built from `allModelTypes`. Use this anywhere a
+    /// `Schema` (rather than a variadic type list) is wanted.
+    static var schema: Schema { Schema(allModelTypes) }
+
     /// Build the model container. Prefers the CloudKit-synced store; falls back
     /// to a local-only store if CloudKit is unavailable (e.g. no iCloud account).
     @MainActor
     static func makeContainer() -> ModelContainer {
         if SyncPreferences.iCloudEnabled,
            let cloud = try? ModelContainer(
-               for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
-               CoachObservation.self, PracticeItem.self, PracticeAttempt.self,
+               for: schema,
                configurations: ModelConfiguration(cloudKitDatabase: .automatic)
            ) {
             return cloud
         }
         if let local = try? ModelContainer(
-            for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
-            CoachObservation.self, PracticeItem.self, PracticeAttempt.self,
+            for: schema,
             configurations: ModelConfiguration(cloudKitDatabase: .none)
         ) {
             return local
         }
         // In-memory last resort so the app still runs.
         return try! ModelContainer(
-            for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
-            CoachObservation.self, PracticeItem.self, PracticeAttempt.self,
+            for: schema,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
     }

@@ -18,8 +18,7 @@ import VocoCore
     /// and SIGTRAP. Both the context and its owning container are handed back.
     private func makeStore() -> (ModelContext, ModelContainer) {
         let container = try! ModelContainer(
-            for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
-            CoachObservation.self, PracticeItem.self, PracticeAttempt.self,
+            for: TranscriptStore.schema,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         return (ModelContext(container), container)
