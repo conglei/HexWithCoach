@@ -152,6 +152,12 @@ public final class PhonemeG2P {
         "R": "ɹ", "S": "s", "SH": "ʃ", "T": "t", "TH": "θ", "UH": "ʊ", "UW": "uː",
         "V": "v", "W": "w", "Y": "j", "Z": "z", "ZH": "ʒ",
     ]
+
+    /// Every IPA symbol the G2P can produce — the union of `arpaToIPA`'s values and the
+    /// `ə` schwa emitted for unstressed `AH0`. This is exactly the inventory the GOP
+    /// pipeline can attach to a `PhonemeScore` (expected `symbol` or `actualSymbol`),
+    /// so `PhonemeAnchor` coverage can be driven off it (see `PhonemeAnchorTests`).
+    public static let producibleSymbols: Set<String> = Set(arpaToIPA.values).union(["ə"])
 }
 
 #if canImport(CoreML) && canImport(AVFoundation)
