@@ -54,47 +54,65 @@ struct ReviewView: View {
 
     private var showsUpsell: Bool { ReviewFeedGating.showsKeyUpsell(gatingInputs) }
 
+    /// Standalone use keeps its own navigation chrome. When embedded under the
+    /// Coach tab (IA-1), `CoachView` owns the `NavigationStack` and the title, and
+    /// renders `feedContent` directly so the segmented control can live in the nav
+    /// bar without a nested stack or a doubled title.
     var body: some View {
         NavigationStack {
-            Group {
-                switch ReviewFeedGating.feedState(gatingInputs) {
-                case .feed:
-                    feed
-                case .caughtUp:
-                    VStack(spacing: 0) { progressHeader.padding(16); caughtUp }
-                case .onboarding:
-                    onboarding
-                }
-            }
-            .background(Color(.systemGroupedBackground))
-            .navigationTitle("Review")
-            .safeAreaInset(edge: .top) {
-                if coach.isAnalyzing { reviewingBanner }
-            }
-            .animation(.easeInOut(duration: 0.2), value: coach.isAnalyzing)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    NavigationLink { PhrasebookView() } label: { Image(systemName: "bookmark") }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    // The LLM lane runs automatically now (CI-7); the running state
-                    // lives in the banner. The toolbar keeps a manual "Review now"
-                    // override for keyed users with a backlog (works even with the
-                    // auto toggle off). Objective analysis is always-on at capture.
-                    if showsManualReview {
-                        Button { Task { await coach.analyzeBacklog() } } label: {
-                            Image(systemName: "arrow.clockwise")
-                        }
+            feedContent
+                .navigationTitle("Review")
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        NavigationLink { PhrasebookView() } label: { Image(systemName: "bookmark") }
                     }
+                    feedToolbar
                 }
+        }
+    }
+
+    /// The Review feed itself — gating switch + reviewing banner + how-it-works
+    /// sheet — without any `NavigationStack`/title/toolbar of its own. Embedded by
+    /// `CoachView`; wrapped by `body` for standalone use.
+    var feedContent: some View {
+        Group {
+            switch ReviewFeedGating.feedState(gatingInputs) {
+            case .feed:
+                feed
+            case .caughtUp:
+                VStack(spacing: 0) { progressHeader.padding(16); caughtUp }
+            case .onboarding:
+                onboarding
             }
-            .sheet(isPresented: $showHowItWorks) { howItWorks }
-            .task(id: preferences.isReady) {
-                // Auto-batch the LLM lane when it becomes ready (gated by the toggle
-                // + budget inside maybeAutoRunLLMBacklog). Not the primary trigger —
-                // capture + launch already drive it — but covers turning the key on
-                // while the Review tab is open.
-                await coach.maybeAutoRunLLMBacklog()
+        }
+        .background(Color(.systemGroupedBackground))
+        .safeAreaInset(edge: .top) {
+            if coach.isAnalyzing { reviewingBanner }
+        }
+        .animation(.easeInOut(duration: 0.2), value: coach.isAnalyzing)
+        .sheet(isPresented: $showHowItWorks) { howItWorks }
+        .task(id: preferences.isReady) {
+            // Auto-batch the LLM lane when it becomes ready (gated by the toggle
+            // + budget inside maybeAutoRunLLMBacklog). Not the primary trigger —
+            // capture + launch already drive it — but covers turning the key on
+            // while the Review tab is open.
+            await coach.maybeAutoRunLLMBacklog()
+        }
+    }
+
+    /// The manual "Review now" override toolbar item (CI-7), shared between the
+    /// standalone `body` and `CoachView`'s embedded toolbar.
+    @ToolbarContentBuilder
+    var feedToolbar: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            // The LLM lane runs automatically now (CI-7); the running state
+            // lives in the banner. The toolbar keeps a manual "Review now"
+            // override for keyed users with a backlog (works even with the
+            // auto toggle off). Objective analysis is always-on at capture.
+            if showsManualReview {
+                Button { Task { await coach.analyzeBacklog() } } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
             }
         }
     }

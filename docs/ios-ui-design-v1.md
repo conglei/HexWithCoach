@@ -34,6 +34,13 @@ Root is a **tab bar** with three tabs:
 
 Recording (note capture) and Onboarding are **presented modally / full-screen**, not tabs.
 
+**Delta (IA-1, Phase 3):** Coach v2 lands as a fourth tab, making the root **Home / History /
+Coach / Settings**. The former **Review** tab is folded into **Coach**, which hosts the
+feedback feed (cards, streak header, key/upsell) as its primary surface and adds a
+"Feedback | Practice" segmented control; Practice is a stub until PR-2. Phrasebook and the
+Progress digest stay reachable from inside Coach. Home stays capture-first as the front door
+(first-run activation nudge tracked separately as IA-2).
+
 ## 3. Two ways to make text (one history)
 
 1. **In-app notes** (Home mic): record → on-device transcribe → **save as a note inside
