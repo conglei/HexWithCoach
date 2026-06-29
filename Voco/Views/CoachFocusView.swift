@@ -66,17 +66,39 @@ struct CoachFocusView: View {
             case .wordSwap:
                 WordSwapView(
                     drill: WordSwapDrill(content: drill.content),
-                    onScored: { _ in },
+                    onScored: { persistAttempt(for: drill, score: $0.score) },
                     onComplete: { progress.recordReview() }
                 )
             case .shadow:
                 ShadowingView(
                     target: drill.content.target,
-                    onScored: { _ in },
+                    onScored: { persistAttempt(for: drill, score: $0.score) },
                     onComplete: { progress.recordReview() }
                 )
             }
         }
+    }
+
+    /// Persist one `PracticeAttempt` for a focus-launched drill, tagged (CF-3) with
+    /// the focus area's `lens` + `patternKey`. This is what closes the loop: the
+    /// attempt becomes attributable to the very pattern the focus targets, so the
+    /// practice→frequency-drop signal can later show that drilling it moved the needle.
+    /// The `PracticeItem` is created lazily with `.coachInsight` origin pointing back
+    /// at the focus's pattern.
+    private func persistAttempt(for drill: ActiveFocusDrill, score: Double) {
+        let item = PracticeStore.coachInsight(
+            drill.content.target,
+            segments: SentenceSegmenter.segments(from: drill.content.target),
+            sourceID: drill.patternID,
+            kind: drill.kind,
+            patternKey: drill.patternKey,
+            lens: drill.lens,
+            title: drill.content.title
+        )
+        modelContext.insert(item)
+        let attempt = PracticeAttempt(perSegmentScores: [score], gopDelta: nil, item: item)
+        modelContext.insert(attempt)
+        try? modelContext.save()
     }
 
     // MARK: - Content
@@ -86,6 +108,7 @@ struct CoachFocusView: View {
             LazyVStack(alignment: .leading, spacing: 20) {
                 if coach.isAnalyzing { reviewingBanner }
                 summarySection
+                practiceStrip
                 skillMapSection
                 focusSection
                 browseAllSection
@@ -125,6 +148,119 @@ struct CoachFocusView: View {
             }
         }
         .hexCard(padding: 18)
+    }
+
+    // MARK: - 1b. "Today / this week you practiced" strip (CF-3)
+
+    /// Visible accumulation: reps this week grouped by lens, each with the
+    /// growth-framed improvement delta. Frames practice as polish — "more natural",
+    /// "more on-target" — never "errors fixed". Hides entirely when nothing was
+    /// practiced this week, so it never shows a hollow zero.
+    @ViewBuilder
+    private var practiceStrip: some View {
+        if let summary = model?.practice, !summary.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionHeader("YOU PRACTICED")
+                VStack(alignment: .leading, spacing: 12) {
+                    // Headline: reps today + this week.
+                    HStack(spacing: 8) {
+                        Image(systemName: "figure.mind.and.body")
+                            .foregroundStyle(HexTheme.gradient)
+                        Text(practiceHeadline(summary))
+                            .font(.subheadline.weight(.semibold))
+                        Spacer()
+                    }
+                    // Per-lens rows: reps + the refinement delta.
+                    ForEach(summary.byLens) { row in
+                        Divider()
+                        practiceLensRow(row)
+                    }
+                }
+                .hexCard(padding: 16)
+            }
+        }
+    }
+
+    private func practiceHeadline(_ s: PracticeSummary) -> String {
+        let week = "\(s.repsThisWeek) rep\(s.repsThisWeek == 1 ? "" : "s") this week"
+        if s.repsToday > 0 {
+            return "\(s.repsToday) today · \(week)"
+        }
+        return week
+    }
+
+    private func practiceLensRow(_ row: LensPracticeReps) -> some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(lensDisplayName(row.lens)).font(.subheadline.weight(.medium))
+                Text("\(row.reps) rep\(row.reps == 1 ? "" : "s")")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            // Refinement delta — only shown when there's enough to compare and it's
+            // a genuine gain (growth-only; a dip never reads as punishment).
+            if let delta = row.scoreDelta, delta >= 0.02 {
+                Label("\(Int((delta * 100).rounded()))% more natural", systemImage: "arrow.up.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(HexTheme.gradientColors[0])
+            } else if let gop = row.gopDelta, gop > 0 {
+                Label("clearer", systemImage: "arrow.up.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(HexTheme.gradientColors[0])
+            } else {
+                Text("keeping it sharp")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - 1c. Practice → frequency-drop card (CF-3, the payoff)
+
+    /// The single most motivating thing a coaching app can show: proof the practice
+    /// worked. Only rendered when the honesty guard cleared (`model.heroTrend` is
+    /// non-nil), so it never declares victory on noise. Framed as dropping below an
+    /// earlier baseline — refinement, not "errors fixed".
+    @ViewBuilder
+    private func frequencyTrendCard(_ trend: FrequencyTrend) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundStyle(HexTheme.gradient)
+                Text("It's working")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+            }
+            Text("You practiced this \(trend.totalReps)× and it's now showing up about \(trend.recentOccurrences)× a day — down from \(trend.baselineOccurrences)× before you started.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            trendSparkline(trend)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(HexTheme.gradientSoft, in: RoundedRectangle(cornerRadius: HexTheme.cardRadius, style: .continuous))
+    }
+
+    /// A tiny inline bar chart of per-period occurrences, with practiced periods
+    /// marked — the "occurrences over time with practice overlaid" the issue asks for.
+    private func trendSparkline(_ trend: FrequencyTrend) -> some View {
+        let buckets = trend.buckets
+        let maxOcc = max(1, buckets.map(\.occurrences).max() ?? 1)
+        return HStack(alignment: .bottom, spacing: 3) {
+            ForEach(buckets) { bucket in
+                VStack(spacing: 2) {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(bucket.practiceReps > 0 ? AnyShapeStyle(HexTheme.gradient) : AnyShapeStyle(Color.secondary.opacity(0.4)))
+                        .frame(width: 6, height: max(3, CGFloat(bucket.occurrences) / CGFloat(maxOcc) * 36))
+                    // Tiny dot under periods where the user practiced.
+                    Circle()
+                        .fill(bucket.practiceReps > 0 ? AnyShapeStyle(HexTheme.gradient) : AnyShapeStyle(Color.clear))
+                        .frame(width: 3, height: 3)
+                }
+            }
+        }
+        .frame(height: 44, alignment: .bottom)
+        .accessibilityLabel("Occurrences over time; highlighted bars are days you practiced.")
     }
 
     // MARK: - 2. Skill map
@@ -186,6 +322,12 @@ struct CoachFocusView: View {
             VStack(alignment: .leading, spacing: 12) {
                 sectionHeader("FOCUS NEXT")
                 focusCard(hero, isHero: true)
+
+                // CF-3 payoff: when practicing this focus genuinely reduced its
+                // frequency (honesty guard passed), prove it right under the card.
+                if let trend = model?.heroTrend, trend.lens == hero.lens, trend.patternKey == hero.key {
+                    frequencyTrendCard(trend)
+                }
 
                 let secondary = Array(focuses.dropFirst())
                 if !secondary.isEmpty {
@@ -314,7 +456,10 @@ struct CoachFocusView: View {
             context: pattern?.rule,
             lens: focus.lens
         )
-        activeDrill = ActiveFocusDrill(kind: kind, content: content)
+        activeDrill = ActiveFocusDrill(
+            kind: kind, content: content,
+            lens: focus.lens, patternKey: focus.key, patternID: pattern?.id ?? UUID()
+        )
     }
 
     // MARK: - States
@@ -361,10 +506,17 @@ struct CoachFocusView: View {
 }
 
 /// Identifiable wrapper so a focus-launched drill can drive `.fullScreenCover(item:)`.
+/// Carries the focus area's `(lens, patternKey)` (CF-3) so the recorded attempt is
+/// attributable to the pattern it targets, closing the practice→frequency-drop loop.
 private struct ActiveFocusDrill: Identifiable {
     let id = UUID()
     let kind: PracticeKind
     let content: PracticeDrillContent
+    let lens: Lens
+    let patternKey: String
+    /// The profile pattern's id (the drill's `sourceID`), so the `PracticeItem` links
+    /// back to a stable source. A fresh UUID when no profile pattern backs the focus.
+    let patternID: UUID
 }
 
 // MARK: - Lens detail (drill-down)

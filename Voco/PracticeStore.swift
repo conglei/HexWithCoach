@@ -30,11 +30,20 @@ enum PracticeStore {
     /// Build a practice item sourced from a coach card / insight. `kind` defaults to
     /// `.shadow` to preserve every existing caller; CF-2's lens→drill wiring passes
     /// `.wordSwap` for lexis cards so the attempt persists tagged with its drill.
+    ///
+    /// CF-3: `patternKey` + `lens` tag the item with the focus area it was launched to
+    /// address, so the recorded attempt is attributable to a `(lens, patternKey)` and
+    /// can close the loop with that pattern's frequency trend. Both default to nil so
+    /// every existing caller is unchanged.
     static func coachInsight(
         _ text: String, segments: [String], sourceID: UUID,
-        kind: PracticeKind = .shadow, title: String? = nil
+        kind: PracticeKind = .shadow, patternKey: String? = nil, lens: Lens? = nil,
+        title: String? = nil
     ) -> PracticeItem {
-        PracticeItem(title: title, sourceText: text, segments: segments, origin: .coachInsight, kind: kind, sourceID: sourceID)
+        PracticeItem(
+            title: title, sourceText: text, segments: segments, origin: .coachInsight,
+            kind: kind, sourceID: sourceID, patternKey: patternKey, lens: lens
+        )
     }
 
     /// Build a practice item sourced from a phrasebook entry.
