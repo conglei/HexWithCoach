@@ -10,7 +10,7 @@ Hex is a macOS menu bar application for on‑device voice‑to‑text. It suppor
 
 ```bash
 # Build the app
-xcodebuild -scheme Hex -configuration Release
+xcodebuild -scheme VocoMac -configuration Release
 
 # Open in Xcode (recommended for development)
 open Hex.xcodeproj
@@ -21,25 +21,25 @@ open Hex.xcodeproj
 There are three test runners; pick by what the code under test belongs to.
 
 ```bash
-# 1. HexCore (SwiftPM) — pure, cross-platform logic. Fast, no simulator.
-cd HexCore && swift test
+# 1. VocoCore (SwiftPM) — pure, cross-platform logic. Fast, no simulator.
+cd VocoCore && swift test
 
-# 2. Hex (macOS app) target — HexTests/ bundle. Covers macOS app code AND the
-#    shared HexEngine/ folder (compiled into the Hex module; reach it with
-#    `@testable import Hex`).
-xcodebuild test -scheme Hex -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+# 2. VocoMac (macOS app) target — VocoMacTests/ bundle. Covers macOS app code AND
+#    the shared VocoEngine/ folder (compiled into the VocoMac module; reach it with
+#    `@testable import VocoMac`).
+xcodebuild test -scheme VocoMac -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
 
-# 3. HexIOS app target — HexIOSTests/ bundle. Covers iOS app code AND the shared
-#    HexEngine/ folder as compiled into the iOS module (`@testable import HexIOS`).
-xcodebuild test -scheme HexIOS -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO
+# 3. Voco (iOS) app target — VocoTests/ bundle. Covers iOS app code AND the shared
+#    VocoEngine/ folder as compiled into the iOS module (`@testable import Voco`).
+xcodebuild test -scheme Voco -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO
 ```
 
 **Where to put a test:**
-- Pure, platform-agnostic logic → **HexCore** (`HexCore/Tests/HexCoreTests`). Prefer this — `swift test` is fastest and runs everywhere. The Coach engine (LearnerProfile, FluencySignals, CoachPipeline, GeminiClient) lives here for exactly this reason; inject a stub `URLSession`/`CoachLLM` instead of hitting the network.
-- macOS-app-only or shared HexEngine behavior best exercised on macOS → **HexTests/**.
-- iOS-app-only behavior (DictationModel, CoachPreferences, keyboard IPC wiring) → **HexIOSTests/**.
+- Pure, platform-agnostic logic → **VocoCore** (`VocoCore/Tests/VocoCoreTests`). Prefer this — `swift test` is fastest and runs everywhere. The Coach engine (LearnerProfile, FluencySignals, CoachPipeline, GeminiClient) lives here for exactly this reason; inject a stub `URLSession`/`CoachLLM` instead of hitting the network.
+- macOS-app-only or shared VocoEngine behavior best exercised on macOS → **VocoMacTests/**.
+- iOS-app-only behavior (DictationModel, CoachPreferences, keyboard IPC wiring) → **VocoTests/**.
 
-**Important:** `swift test` only ever covers the HexCore package. Code in `HexEngine/`, `HexIOS/`, `Hex/`, and the extensions is **not** covered by `swift test` — it must be tested through the `HexTests` / `HexIOSTests` Xcode bundles. When adding a feature, add tests in the appropriate target; keep extracting pure logic into HexCore so it stays fast-testable.
+**Important:** `swift test` only ever covers the VocoCore package. Code in `VocoEngine/`, `Voco/`, `VocoMac/`, and the extensions is **not** covered by `swift test` — it must be tested through the `VocoMacTests` / `VocoTests` Xcode bundles. When adding a feature, add tests in the appropriate target; keep extracting pure logic into VocoCore so it stays fast-testable.
 
 ## Architecture
 
@@ -81,7 +81,7 @@ The app uses **The Composable Architecture (TCA)** for state management. Key arc
 
 5. **Permissions**: Requires audio input and automation entitlements (see `Hex.entitlements`)
 
-6. **Logging**: All diagnostics should use the unified logging helper `HexLog` (`HexCore/Sources/HexCore/Logging.swift`). Pick an existing category (e.g., `.transcription`, `.recording`, `.settings`) or add a new case so Console predicates stay consistent. Avoid `print` and prefer privacy annotations (`, privacy: .private`) for anything potentially sensitive like transcript text or file paths.
+6. **Logging**: All diagnostics should use the unified logging helper `HexLog` (`VocoCore/Sources/VocoCore/Logging.swift`). Pick an existing category (e.g., `.transcription`, `.recording`, `.settings`) or add a new case so Console predicates stay consistent. Avoid `print` and prefer privacy annotations (`, privacy: .private`) for anything potentially sensitive like transcript text or file paths.
 
 ## Models (2025‑11)
 
