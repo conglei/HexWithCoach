@@ -25,7 +25,6 @@ struct AppFeature {
 		var transcription: TranscriptionFeature.State = .init()
 		var settings: SettingsFeature.State = .init()
 		var history: HistoryFeature.State = .init()
-		var coach: CoachFeature.State = .init()
 		var activeTab: ActiveTab = .settings
 		@Shared(.hexSettings) var hexSettings: HexSettings
 		@Shared(.modelBootstrapState) var modelBootstrapState: ModelBootstrapState
@@ -42,7 +41,6 @@ struct AppFeature {
     case transcription(TranscriptionFeature.Action)
     case settings(SettingsFeature.Action)
     case history(HistoryFeature.Action)
-    case coach(CoachFeature.Action)
     case setActiveTab(ActiveTab)
     case task
     case pasteLastTranscript
@@ -75,10 +73,6 @@ struct AppFeature {
       HistoryFeature()
     }
 
-    Scope(state: \.coach, action: \.coach) {
-      CoachFeature()
-    }
-
     Reduce { state, action in
       switch action {
       case .binding:
@@ -89,8 +83,7 @@ struct AppFeature {
           startPasteLastTranscriptMonitoring(),
           startHotKeyCaptureMonitoring(),
           ensureSelectedModelReadiness(),
-          startPermissionMonitoring(),
-          .send(.coach(.task))
+          startPermissionMonitoring()
         )
         
       case .pasteLastTranscript:
@@ -157,8 +150,6 @@ struct AppFeature {
       case .history:
         return .none
 
-      case .coach:
-        return .none
 		case let .setActiveTab(tab):
 			state.activeTab = tab
 			return .none
@@ -348,7 +339,6 @@ struct AppView: View {
       case .settings:
         SettingsView(
           store: store.scope(state: \.settings, action: \.settings),
-          coachStore: store.scope(state: \.coach, action: \.coach),
           microphonePermission: store.microphonePermission,
           accessibilityPermission: store.accessibilityPermission,
           inputMonitoringPermission: store.inputMonitoringPermission

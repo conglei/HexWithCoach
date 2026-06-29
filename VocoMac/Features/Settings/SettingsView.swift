@@ -6,7 +6,6 @@ import SwiftUI
 struct SettingsView: View {
 	@ObserveInjection var inject
 	@Bindable var store: StoreOf<SettingsFeature>
-	@Bindable var coachStore: StoreOf<CoachFeature>
 	let microphonePermission: PermissionStatus
 	let accessibilityPermission: PermissionStatus
 	let inputMonitoringPermission: PermissionStatus
@@ -39,7 +38,7 @@ struct SettingsView: View {
 			SoundSectionView(store: store)
 			GeneralSectionView(store: store)
 			HistorySectionView(store: store)
-			CoachSettingsView(store: coachStore)
+			CoachV2SettingsView()
 		}
 		.formStyle(.grouped)
 		.task {

@@ -47,6 +47,12 @@ final class MacTranscriptStore {
 
     private var context: ModelContext? { container?.mainContext }
 
+    /// macOS Coach v2 state (MC-R4). Created at bootstrap alongside the container so
+    /// Settings can bind to it and the capture hook can drive the objective lane.
+    /// nil until `bootstrapAndHydrate` runs (e.g. unit tests never touch the coach).
+    private(set) var coachPreferences: MacCoachPreferences?
+    private(set) var coach: MacCoachService?
+
     /// The shared SwiftData container, once `bootstrapAndHydrate` has run. The
     /// companion window (MC-R0) injects this into its SwiftUI environment via
     /// `.modelContainer(_:)` so the History UI (MC-R8) can `@Query` the same store
@@ -71,6 +77,13 @@ final class MacTranscriptStore {
         self.container = container
         let context = container.mainContext
 
+        // Stand up the Coach v2 driver over the shared context (MC-R4). Preferences
+        // mirror the iOS opt-in / BYOK / autoLLM / budget state via the same App
+        // Group keys + Keychain account.
+        let prefs = MacCoachPreferences()
+        coachPreferences = prefs
+        coach = MacCoachService(modelContext: context, preferences: prefs)
+
         // Hydrate the in-memory projection from the persisted store so every
         // existing read site keeps working against `@Shared(.transcriptionHistory)`.
         let history = TranscriptionHistory(history: loadTranscripts(from: context))
@@ -87,6 +100,18 @@ final class MacTranscriptStore {
         guard let context else { return }
         upsert(transcript, kind: .dictation, into: context)
         try? context.save()
+
+        // Drive the Coach v2 objective lane at capture (MC-R4), then let it consider
+        // an auto-batched LLM run. Idempotent + best-effort — coaching must never
+        // block or fail a capture. Fire-and-forget so the save path returns promptly.
+        let id = transcript.id
+        if let coach {
+            Task { @MainActor in
+                let descriptor = FetchDescriptor<TranscriptEntry>(predicate: #Predicate { $0.id == id })
+                guard let entry = try? context.fetch(descriptor).first else { return }
+                await coach.autoAnalyzeOnCapture(entry)
+            }
+        }
     }
 
     /// Remove the entry with this id from the SwiftData store. No-op until
