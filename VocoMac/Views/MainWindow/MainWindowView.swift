@@ -70,13 +70,17 @@ struct MainWindowView: View {
 
                 Divider()
 
-                // Recents / quick-note pane — leaning into "macOS = all-day capture
-                // hub." Capture stays the always-on menu-bar hotkey; this is the
-                // glanceable recents surface.
-                MacRecentsView()
-                    .frame(height: 160)
+                // Recents footer — a compact, live "latest captures" surface that
+                // opens the matching transcript in History. Replaces the old empty
+                // placeholder that left the rail reading unfinished (MC-R13). Capture
+                // stays the always-on menu-bar hotkey.
+                MacRecentsView { entry in
+                    selection = .history
+                }
             }
-            .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
+            // Tighter rail (MC-R13): the two nav items + a compact recents footer no
+            // longer need a wide column with a big empty gap.
+            .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
             .navigationTitle("Voco")
         } detail: {
             detail(for: selection ?? .coach)
