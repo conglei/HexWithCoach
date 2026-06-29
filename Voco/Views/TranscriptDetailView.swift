@@ -155,6 +155,7 @@ struct TranscriptDetailView: View {
             return WaveformEnvelope.bars(from: samples, count: 40).map(CGFloat.init)
         }.value
         waveformBars = bars
+    }
 
     /// The transcript with the Coach-flagged span emphasized (when we arrived here
     /// from a card), so the learner can spot it in context. Plain otherwise.
