@@ -184,10 +184,10 @@ Design: [macos-companion-phase3-reconcile.md](../macos-companion-phase3-reconcil
 | [MC-R2](MC-R2-refound-shared-layer.md) | Re-found MC-1's shared layer on Phase-3 model | ✅ | MC-R1 | L | DONE |
 | [MC-R3](MC-R3-macos-store-lean-windowed.md) | macOS store on lean row + windowed fetch (re-do MC-3) | ◐ | MC-R2 | M | DONE |
 | [MC-R4](MC-R4-macos-coach-observation-log.md) | macOS Coach v2 on observation log (re-do MC-5 + MC-6) | ◐ | MC-R2, MC-R3 | L | DONE |
-| [MC-R5](MC-R5-macos-coach-hub.md) | macOS Coach hub — Review feed + activation (was MC-8) | ◐ | MC-R0, MC-R4 | L | TODO |
+| [MC-R5](MC-R5-macos-coach-hub.md) | macOS Coach hub — Review feed + activation (was MC-8) | ◐ | MC-R0, MC-R4 | L | IN-PROGRESS |
 | [MC-R6](MC-R6-macos-practice-surface.md) | macOS Practice surface (PR-2 on Mac) | ➕ | MC-R2, MC-R5 | M | TODO |
 | [MC-R7](MC-R7-macos-progress.md) | macOS Progress — observation projections (was MC-10) | ◐ | MC-R4, MC-R0 | M | TODO |
-| [MC-R8](MC-R8-macos-history.md) | macOS History — Notes\|Dictation + windowed (was MC-11) | ◐ | MC-R3, MC-R0 | S | TODO |
+| [MC-R8](MC-R8-macos-history.md) | macOS History — Notes\|Dictation + windowed (was MC-11) | ◐ | MC-R3, MC-R0 | S | IN-PROGRESS |
 | [MC-R9](MC-R9-macos-shadowing.md) | macOS Shadowing (was MC-12) | ◐ | MC-R5, MC-R6 | M | TODO |
 | [MC-R10](MC-R10-audio-sync-optin.md) | Opt-in audio sync (was MC-13) | ◐ | MC-R2, MC-R3 | M | TODO (device verify) |
 
