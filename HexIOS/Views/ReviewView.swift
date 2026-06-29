@@ -3,8 +3,13 @@
 //  HexIOS
 //
 //  The Review tab (RC-3) — the hero surface: a feed of "say it better" cards
-//  curated from your real speech, styled with HexTheme. Keyless, it shows the
-//  activation shell baited with the live captured-backlog count.
+//  curated from your real speech, styled with HexTheme.
+//
+//  Keyless-first (CI-5 / ADR-0002): the objective lane (pronunciation + fluency)
+//  authors real cards with zero LLM, so the feed is shown whether or not a BYOK
+//  key is present. A key is no longer a gate — it's a non-blocking upsell that
+//  unlocks the meaning lenses (grammar / word choice / clarity), the intonation
+//  lens, and richer LLM-authored teaching.
 //
 
 import HexCore
@@ -24,15 +29,26 @@ struct ReviewView: View {
     private var cards: [CoachCardEntity] { allCards.filter { $0.status == .new } }
     private var backlogCount: Int { transcripts.filter { $0.coachAnalyzedAt == nil }.count }
 
+    private var gatingInputs: ReviewFeedGating.Inputs {
+        ReviewFeedGating.Inputs(
+            hasCards: !cards.isEmpty,
+            hasKey: preferences.isReady,
+            hasNotes: !transcripts.isEmpty
+        )
+    }
+
+    private var showsUpsell: Bool { ReviewFeedGating.showsKeyUpsell(gatingInputs) }
+
     var body: some View {
         NavigationStack {
             Group {
-                if !preferences.isReady {
-                    activationShell
-                } else if cards.isEmpty {
-                    VStack(spacing: 0) { progressHeader.padding(16); caughtUp }
-                } else {
+                switch ReviewFeedGating.feedState(gatingInputs) {
+                case .feed:
                     feed
+                case .caughtUp:
+                    VStack(spacing: 0) { progressHeader.padding(16); caughtUp }
+                case .onboarding:
+                    onboarding
                 }
             }
             .background(Color(.systemGroupedBackground))
@@ -42,17 +58,16 @@ struct ReviewView: View {
             }
             .animation(.easeInOut(duration: 0.2), value: coach.isAnalyzing)
             .toolbar {
-                if preferences.isReady {
-                    ToolbarItem(placement: .topBarLeading) {
-                        NavigationLink { PhrasebookView() } label: { Image(systemName: "bookmark") }
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        // The running state lives in the banner now; the toolbar only
-                        // offers the manual refresh when idle with a backlog.
-                        if !coach.isAnalyzing, backlogCount > 0 {
-                            Button { Task { await coach.analyzeBacklog() } } label: {
-                                Image(systemName: "arrow.clockwise")
-                            }
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink { PhrasebookView() } label: { Image(systemName: "bookmark") }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    // The running state lives in the banner now; the toolbar only
+                    // offers the manual refresh when a keyed user has a backlog.
+                    // (Keyless objective analysis runs per-note; CI-7 owns automation.)
+                    if preferences.isReady, !coach.isAnalyzing, backlogCount > 0 {
+                        Button { Task { await coach.analyzeBacklog() } } label: {
+                            Image(systemName: "arrow.clockwise")
                         }
                     }
                 }
@@ -108,6 +123,9 @@ struct ReviewView: View {
         ScrollView {
             LazyVStack(spacing: 14) {
                 progressHeader
+                if showsUpsell {
+                    KeyUpsellBanner { selectedTab = .settings }
+                }
                 Text("TODAY")
                     .font(.caption.weight(.semibold)).tracking(1)
                     .foregroundStyle(.secondary)
@@ -129,27 +147,35 @@ struct ReviewView: View {
     // MARK: - States
 
     private var caughtUp: some View {
-        ContentUnavailableView {
-            Label("All caught up", systemImage: "checkmark.circle")
-        } description: {
-            Text(backlogCount > 0
-                 ? "\(backlogCount) new dictation\(backlogCount == 1 ? "" : "s") to review."
-                 : "New coaching appears here as you dictate.")
-        } actions: {
-            if backlogCount > 0 {
-                Button { Task { await coach.analyzeBacklog() } } label: {
-                    if coach.isAnalyzing {
-                        HStack(spacing: 8) {
-                            ProgressView().tint(.white)
-                            Text("Reviewing…")
+        ScrollView {
+            VStack(spacing: 16) {
+                if showsUpsell {
+                    KeyUpsellBanner { selectedTab = .settings }
+                }
+                ContentUnavailableView {
+                    Label("All caught up", systemImage: "checkmark.circle")
+                } description: {
+                    Text(backlogCount > 0
+                         ? "\(backlogCount) new dictation\(backlogCount == 1 ? "" : "s") to review."
+                         : "New coaching appears here as you dictate.")
+                } actions: {
+                    if preferences.isReady, backlogCount > 0 {
+                        Button { Task { await coach.analyzeBacklog() } } label: {
+                            if coach.isAnalyzing {
+                                HStack(spacing: 8) {
+                                    ProgressView().tint(.white)
+                                    Text("Reviewing…")
+                                }
+                            } else {
+                                Text("Review now")
+                            }
                         }
-                    } else {
-                        Text("Review now")
+                        .buttonStyle(HexGradientButtonStyle(compact: true))
+                        .disabled(coach.isAnalyzing)
                     }
                 }
-                .buttonStyle(HexGradientButtonStyle(compact: true))
-                .disabled(coach.isAnalyzing)
             }
+            .padding(.horizontal, 16)
         }
     }
 
@@ -169,7 +195,9 @@ struct ReviewView: View {
         .transition(.move(edge: .top).combined(with: .opacity))
     }
 
-    private var activationShell: some View {
+    /// First-run state: nothing dictated yet. NOT the old "connect a key" wall —
+    /// coaching is free and on-device; you just need to speak first.
+    private var onboarding: some View {
         VStack(spacing: 20) {
             Spacer()
 
@@ -179,21 +207,13 @@ struct ReviewView: View {
                 .frame(width: 72, height: 72)
                 .background(HexTheme.gradientSoft, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
 
-            VStack(spacing: 4) {
-                Text("\(backlogCount)").font(.system(size: 52, weight: .bold))
-                Text("moments captured this week")
-                    .font(.callout).foregroundStyle(.secondary)
-            }
-
             VStack(spacing: 14) {
                 VStack(spacing: 6) {
-                    Text("See how to say it better").font(.headline)
-                    Text("Connect an AI key and Hex turns this week's real speech into a few natural-sounding upgrades.")
+                    Text("Your coaching starts here").font(.headline)
+                    Text("Dictate with Hex and your pronunciation and fluency get coached automatically — free, on-device. Your cards show up here.")
                         .font(.subheadline).foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
-                Button { selectedTab = .settings } label: { Text("Connect a key") }
-                    .buttonStyle(HexGradientButtonStyle())
                 Button("How coaching works") { showHowItWorks = true }
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(HexTheme.gradientColors[0])
@@ -202,7 +222,12 @@ struct ReviewView: View {
             .padding(.horizontal, 8)
             .padding(.top, 8)
 
-            Label("Captured on-device · nothing analyzed until you connect", systemImage: "lock.fill")
+            if showsUpsell {
+                KeyUpsellBanner { selectedTab = .settings }
+                    .padding(.horizontal, 8)
+            }
+
+            Label("Pronunciation & fluency analyzed on-device · the cloud is opt-in", systemImage: "lock.fill")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -217,7 +242,7 @@ struct ReviewView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Hex listens to the English you already speak all day — across your apps — and turns the most learnable moments into a few real, natural-sounding upgrades.")
-                    Text("Capture stays on this device. Analysis only happens when you connect your own AI key, and you can go incognito or stop anytime.")
+                    Text("Pronunciation and fluency coaching run entirely on this device, for free. Add your own AI key to also unlock grammar, word-choice, clarity, and intonation feedback — the cloud is always opt-in, and you can go incognito or stop anytime.")
                     Text("Each card shows what you said, a more natural way to say it, and why. Tap “Say it better” to hear it and practice.")
                 }
                 .font(.callout)
