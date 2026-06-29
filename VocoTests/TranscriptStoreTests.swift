@@ -21,7 +21,7 @@ import VocoCore
 
     private func makeContext() -> ModelContext {
         let container = try! ModelContainer(
-            for: TranscriptEntry.self, CoachCardEntity.self,
+            for: TranscriptEntry.self, TranscriptAnalysis.self, CoachCardEntity.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         return ModelContext(container)
@@ -185,30 +185,73 @@ import VocoCore
         ])
     }
 
-    @Test func pronunciationResultRoundTripsThroughJSONField() {
+    @Test func pronunciationResultCreatesSidecarAndRoundTrips() {
+        let ctx = makeContext()
         let e = TranscriptEntry(text: "think", date: Date(), kind: .note)
+        ctx.insert(e)
         #expect(e.pronunciationResult == nil)   // none captured yet
+        #expect(e.analysis == nil)              // no sidecar until written (DM-1)
 
         e.pronunciationResult = sampleResult()
-        #expect(e.pronunciationJSON != nil)     // persisted as JSON, like wordTimings
+        #expect(e.analysis != nil)              // heavy blob now lives in the sidecar
+        #expect(e.analysis?.pronunciationJSON != nil)
         #expect(e.pronunciationResult == sampleResult())
     }
 
-    @Test func emptyPronunciationResultClearsTheField() {
+    @Test func emptyPronunciationResultClearsTheSidecarField() {
         let e = TranscriptEntry(text: "x", date: Date(), kind: .note)
         e.pronunciationResult = sampleResult()
         e.pronunciationResult = PronunciationResult(words: [])
-        #expect(e.pronunciationJSON == nil)
+        #expect(e.analysis?.pronunciationJSON == nil)
         #expect(e.pronunciationResult == nil)
+        #expect(e.pronunciationSignals == nil)   // on-row summary cleared too
     }
 
-    @Test func pronunciationSignalsDeriveFromPersistedResult() {
+    @Test func pronunciationResultPopulatesOnRowSummary() {
         let e = TranscriptEntry(text: "think", date: Date(), kind: .note)
         #expect(e.pronunciationSignals == nil)
+        #expect(e.pronunciationSummaryJSON == nil)
 
         e.pronunciationResult = sampleResult()
+        #expect(e.pronunciationSummaryJSON != nil)   // compact summary on the row
         let signals = e.pronunciationSignals
         #expect(signals != nil)
         #expect(signals?.worstWords.first?.worstPhoneme == "θ")
+    }
+
+    // MARK: Word timings sidecar (DM-1)
+
+    @Test func wordTimingsRoundTripThroughSidecar() {
+        let ctx = makeContext()
+        let e = TranscriptEntry(text: "hello world", date: Date(), kind: .note)
+        ctx.insert(e)
+        #expect(e.wordTimings == nil)
+        #expect(e.analysis == nil)
+
+        let timings = [
+            WordTiming(word: "hello", start: 0.0, end: 0.4),
+            WordTiming(word: "world", start: 0.4, end: 0.9),
+        ]
+        e.wordTimings = timings
+        #expect(e.analysis != nil)               // create-on-write sidecar
+        #expect(e.wordTimings == timings)
+    }
+
+    // MARK: Cascade delete (DM-1)
+
+    @Test func deletingEntryCascadesToSidecar() throws {
+        let ctx = makeContext()
+        let e = TranscriptEntry(text: "think", date: Date(), kind: .note)
+        ctx.insert(e)
+        e.pronunciationResult = sampleResult()
+        try ctx.save()
+
+        #expect(try ctx.fetch(FetchDescriptor<TranscriptAnalysis>()).count == 1)
+
+        ctx.delete(e)
+        try ctx.save()
+
+        #expect(try ctx.fetch(FetchDescriptor<TranscriptEntry>()).isEmpty)
+        #expect(try ctx.fetch(FetchDescriptor<TranscriptAnalysis>()).isEmpty)   // cascade removed it
     }
 }
