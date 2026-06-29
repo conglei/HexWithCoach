@@ -37,6 +37,9 @@ final class KeyboardState {
     var sessionActive: Bool = false
     /// Currently capturing an utterance (mic is hot in the host app).
     var isCapturing: Bool = false
+    /// Rolling live mic levels (0…1) streamed from the host while capturing, newest
+    /// last. Drives the real waveform on the recording pill; empty when idle.
+    var levels: [CGFloat] = []
     /// When the active Flow Session expires (drives the "MM:SS left" countdown).
     var sessionExpiresAt: Date? = nil
     /// Brief confirmation flag after a successful insert (the "inserting" state).

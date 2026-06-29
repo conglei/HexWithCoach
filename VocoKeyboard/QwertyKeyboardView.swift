@@ -63,7 +63,7 @@ struct HexToolbar: View {
             fill: KeyStyle.recordRed,
             enabled: true,
             leading: { AnyView(
-                WaveformView(isActive: true, tint: .white, barWidth: 2.5, maxHeight: 18)
+                WaveformView(isActive: true, tint: .white, barWidth: 2.5, maxHeight: 18, levels: state.levels)
                     .fixedSize()
             ) },
             action: actions.onMic

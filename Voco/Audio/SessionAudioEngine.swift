@@ -28,6 +28,9 @@ final class SessionAudioEngine: @unchecked Sendable {
     private let engine = AVAudioEngine()
     private let lock = NSLock()
     private var captureFile: AVAudioFile?
+    /// Latest normalized input level (0…1), updated every tap buffer. Guarded by
+    /// `lock`; read via `currentLevel` to stream the keyboard's live waveform.
+    private var lastLevel: Float = 0
     private var observerTokens: [NSObjectProtocol] = []
     /// Intent flag: true between start() and stop(). Distinct from the engine's
     /// real `isRunning` so recovery handlers only fire for a session we *want*
@@ -38,6 +41,13 @@ final class SessionAudioEngine: @unchecked Sendable {
     /// The engine's *actual* run state (not just our intent). Callers use this to
     /// detect a session iOS killed out from under us.
     var isRunning: Bool { engine.isRunning }
+
+    /// The most recent normalized mic level (0…1) seen by the tap. The host streams
+    /// this to the keyboard so it can draw a real waveform during a Flow Session.
+    var currentLevel: Float {
+        lock.lock(); defer { lock.unlock() }
+        return lastLevel
+    }
 
     /// Configure the audio session + start the engine. Must be called while the
     /// app is in the foreground; it then continues in the background.
@@ -108,8 +118,10 @@ final class SessionAudioEngine: @unchecked Sendable {
         let format = input.outputFormat(forBus: 0)
         input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
             guard let self else { return }
+            let level = Self.normalizedLevel(buffer)
             self.lock.lock()
             let file = self.captureFile
+            self.lastLevel = level
             self.lock.unlock()
             try? file?.write(from: buffer)
         }
@@ -117,6 +129,24 @@ final class SessionAudioEngine: @unchecked Sendable {
         engine.prepare()
         try engine.start()
         log.info("Session audio engine started")
+    }
+
+    /// RMS energy of a buffer mapped to 0…1 on the same −50 dB floor as
+    /// `AudioRecorder.level()`, so the keyboard waveform matches the in-app one.
+    private static func normalizedLevel(_ buffer: AVAudioPCMBuffer) -> Float {
+        guard let channel = buffer.floatChannelData else { return 0 }
+        let count = Int(buffer.frameLength)
+        guard count > 0 else { return 0 }
+        let samples = channel[0]
+        var sumSquares: Float = 0
+        for i in 0 ..< count {
+            let s = samples[i]
+            sumSquares += s * s
+        }
+        let rms = (sumSquares / Float(count)).squareRoot()
+        let db = 20 * log10(max(rms, 1e-7))
+        let floorDb: Float = -50
+        return max(0, min(1, (max(floorDb, min(0, db)) - floorDb) / -floorDb))
     }
 
     private func restart(reason: String) {
