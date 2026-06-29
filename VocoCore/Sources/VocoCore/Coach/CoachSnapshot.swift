@@ -167,6 +167,15 @@ public struct CoachSnapshotLog: Codable, Sendable, Equatable {
         snapshots.insert(snapshot, at: idx)
     }
 
+    /// Drop the snapshot for a note (HS-3 cascade delete). Returns whether anything
+    /// was removed, so callers can skip a redundant write when nothing changed.
+    @discardableResult
+    public mutating func remove(noteID: UUID) -> Bool {
+        let before = snapshots.count
+        snapshots.removeAll { $0.noteID == noteID }
+        return snapshots.count != before
+    }
+
     /// Snapshots captured on/after `date` (the "this week"/"this month" slice).
     public func since(_ date: Date) -> [CoachSnapshot] {
         snapshots.filter { $0.date >= date }
@@ -245,6 +254,14 @@ public struct CoachSnapshotStore: Sendable {
     public func record(_ snapshot: CoachSnapshot) throws {
         var log = load()
         log.upsert(snapshot)
+        try save(log)
+    }
+
+    /// Load, drop the snapshot for `noteID`, and persist — the deletion counterpart
+    /// to `record` (HS-3 cascade). No-op write avoided when the note had no snapshot.
+    public func remove(noteID: UUID) throws {
+        var log = load()
+        guard log.remove(noteID: noteID) else { return }
         try save(log)
     }
 }

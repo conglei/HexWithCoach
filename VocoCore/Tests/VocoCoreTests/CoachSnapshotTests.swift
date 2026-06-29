@@ -153,4 +153,44 @@ struct CoachSnapshotTests {
         #expect(reloaded.count == 1)
         #expect(reloaded.snapshots.first?.fillersPerMinute == 3)
     }
+
+    // MARK: - Remove (HS-3 cascade delete)
+
+    @Test func logRemoveDropsOnlyThatNote() {
+        let keep = UUID()
+        let drop = UUID()
+        var log = CoachSnapshotLog([
+            Self.snap(keep, on: Self.date(2026, 4, 1)),
+            Self.snap(drop, on: Self.date(2026, 4, 8)),
+        ])
+
+        #expect(log.remove(noteID: drop) == true)
+        #expect(log.count == 1)
+        #expect(log.snapshots.first?.noteID == keep)
+        // Removing a note that isn't present reports no change.
+        #expect(log.remove(noteID: UUID()) == false)
+        #expect(log.count == 1)
+    }
+
+    @Test func storeRemovePersistsAndIsNoOpWhenAbsent() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CoachSnapshotTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = CoachSnapshotStore(url: dir.appendingPathComponent("snapshots.json"))
+
+        let keep = UUID()
+        let drop = UUID()
+        try store.record(Self.snap(keep, on: Self.date(2026, 4, 1)))
+        try store.record(Self.snap(drop, on: Self.date(2026, 4, 8)))
+
+        try store.remove(noteID: drop)
+        var reloaded = store.load()
+        #expect(reloaded.count == 1)
+        #expect(reloaded.snapshots.first?.noteID == keep)
+
+        // Removing an absent note must not throw or corrupt the log.
+        try store.remove(noteID: UUID())
+        reloaded = store.load()
+        #expect(reloaded.count == 1)
+    }
 }
