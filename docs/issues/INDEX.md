@@ -131,8 +131,18 @@ Redesign of the "Say it better" result screen — word-level pronunciation feedb
 ASR-vs-GOP verdict, hear-your-own + retry. (RC-4/PR-3 only stubbed the drill functionally.)
 | ID | Title | Depends on | Size | Status |
 |----|-------|-----------|------|--------|
-| [SR-1](SR-1-phoneme-guide.md) | Phoneme guide: plain-English anchors + tips | — | S | TODO |
-| [SR-2](SR-2-shadowing-result-redesign.md) | Shadowing result: word-level pronunciation feedback | SR-1 | L | TODO |
+| [SR-1](SR-1-phoneme-guide.md) | Phoneme guide: plain-English anchors + tips | — | S | DONE (#103) |
+| [SR-2](SR-2-shadowing-result-redesign.md) | Shadowing result: word-level pronunciation feedback | SR-1 | L | DONE (#106) |
+
+### Coach surface (CF series) — DRAFT, pending review
+Reframe the Coach feed from an overwhelming per-note inbox into a professional coaching surface:
+a summary + prioritized focus (not a list of 20–30), typed practice matched to each lens, and a
+visible progress/accumulation loop. Design: this session.
+| ID | Title | Depends on | Size | Status |
+|----|-------|-----------|------|--------|
+| [CF-1](CF-1-coach-summary-and-focus.md) | Coach summary & focus ("what to work on now") | DM-2, LearnerProfile | L | DRAFT |
+| [CF-2](CF-2-typed-practice-framework.md) | Typed practice framework (drills matched to the lens) | PR-1, SR-2 | L | DRAFT |
+| [CF-3](CF-3-progress-accumulation-loop.md) | Progress & accumulation loop | CF-1, CF-2, DM-2 | L | DRAFT |
 
 ### Future / not yet scoped
 - **PR-4** — Practice Share Extension ("Share → Voco: Practice") — depends PR-3.
