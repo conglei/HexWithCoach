@@ -18,6 +18,7 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 	@Dependency(\.soundEffects) var soundEffect
 	@Dependency(\.recording) var recording
 	@Shared(.hexSettings) var hexSettings: HexSettings
+	@Shared(.transcriptionHistory) var transcriptionHistory: TranscriptionHistory
 
 	func applicationDidFinishLaunching(_: Notification) {
 		DiagnosticsLogging.bootstrapIfNeeded()
@@ -32,6 +33,10 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 			await soundEffect.preloadSounds()
 			await soundEffect.setEnabled(hexSettings.soundEffectsEnabled)
 		}
+		// Stand up the shared SwiftData store (MC-R3) and hydrate the TCA history
+		// projection from it, so History reads/writes flow through the synced store.
+		MacTranscriptStore.shared.bootstrapAndHydrate(into: $transcriptionHistory)
+
 		launchedAtLogin = wasLaunchedAtLogin()
 		appLogger.info("Application did finish launching")
 		appLogger.notice("launchedAtLogin = \(self.launchedAtLogin)")

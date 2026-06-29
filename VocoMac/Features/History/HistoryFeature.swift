@@ -194,7 +194,15 @@ struct HistoryFeature {
 					history.history.remove(at: index)
 				}
 
-				return deleteAudioEffect(for: [transcript])
+				// Mirror the delete into the shared SwiftData store (MC-R3). The
+				// cascade rule on `analysis` removes the faulted sidecar too. The
+				// store is `@MainActor`-isolated, so hop onto it from the effect.
+				return .merge(
+					deleteAudioEffect(for: [transcript]),
+					.run { _ in
+						await MacTranscriptStore.shared.delete(id: id)
+					}
+				)
 
 			case .deleteAllTranscripts:
 				return .send(.confirmDeleteAll)
@@ -207,7 +215,13 @@ struct HistoryFeature {
 					history.history.removeAll()
 				}
 
-				return deleteAudioEffect(for: transcripts)
+				// Mirror "Delete All" into the shared SwiftData store (MC-R3).
+				return .merge(
+					deleteAudioEffect(for: transcripts),
+					.run { _ in
+						await MacTranscriptStore.shared.deleteAll()
+					}
+				)
 				
 			case .navigateToSettings:
 				// This will be handled by the parent reducer
