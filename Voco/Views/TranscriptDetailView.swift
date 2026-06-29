@@ -169,8 +169,10 @@ struct TranscriptDetailView: View {
 // MARK: - Pronunciation summary card
 
 /// "Sounds to work on": the note's weakest sounds as expected → you-said rows.
+/// Each row is tappable → a `SoundDetailSheet` with how-to-articulate + practice.
 private struct PronunciationSummaryCard: View {
     let lessons: [PronunciationLesson]
+    @State private var selected: PronunciationLesson?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -181,41 +183,23 @@ private struct PronunciationSummaryCard: View {
             .font(.caption.weight(.bold)).tracking(1)
             .foregroundStyle(HexTheme.gradientColors[1])
 
-            ForEach(lessons) { LessonRow(lesson: $0) }
+            ForEach(lessons) { lesson in
+                Button { selected = lesson } label: {
+                    HStack(spacing: 8) {
+                        SoundLessonRow(lesson: lesson)
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .hexCard()
-    }
-}
-
-private struct LessonRow: View {
-    let lesson: PronunciationLesson
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            HStack(spacing: 6) {
-                Text("/\(lesson.expected)/")
-                    .font(.system(.title3, design: .monospaced).weight(.bold))
-                    .foregroundStyle(.red)
-                if let actual = lesson.actual {
-                    Image(systemName: "arrow.right").font(.caption).foregroundStyle(.secondary)
-                    Text("/\(actual)/")
-                        .font(.system(.title3, design: .monospaced).weight(.bold))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(lesson.actual != nil ? "you said /\(lesson.actual!)/ instead" : "came out unclear")
-                    .font(.subheadline.weight(.medium))
-                if !lesson.exampleWords.isEmpty {
-                    Text("in " + lesson.exampleWords.map { "“\($0)”" }.joined(separator: ", "))
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            Text("\(lesson.count)×").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-        }
+        .sheet(item: $selected) { SoundDetailSheet(lesson: $0) }
     }
 }
 

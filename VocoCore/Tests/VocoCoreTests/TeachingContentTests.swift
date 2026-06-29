@@ -74,6 +74,17 @@ final class TeachingContentTests: XCTestCase {
         XCTAssertNil(content.phoneme("zzz-not-a-phoneme"))
     }
 
+    func testPhonemeGuideEntryForLookup() throws {
+        // The pure lookup on the guide itself matches the indexed container lookup.
+        let th = try XCTUnwrap(content.phonemeGuide.entry(for: "θ"))
+        XCTAssertEqual(th, content.phoneme("θ"))
+        XCTAssertEqual(th.ipa, "θ")
+    }
+
+    func testPhonemeGuideEntryMissReturnsNil() {
+        XCTAssertNil(content.phonemeGuide.entry(for: "zzz-not-a-phoneme"))
+    }
+
     // MARK: - Fluency tips
 
     func testFluencyTipsCoverEveryDimension() throws {

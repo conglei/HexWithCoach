@@ -141,8 +141,15 @@ struct ShadowingView: View {
                     .font(.footnote).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
+            // "Your pronunciation": the attempt's per-phoneme GOP against the target
+            // phrase — green = clear, red = work on. Shown from the first attempt on
+            // (when the model is available). Without the model this stays nil and the
+            // result is exactly today's ASR pass/fail.
+            if let attempt = model.attemptScores {
+                yourPronunciation(attempt)
+            }
             if let comparison = model.gopComparison, !comparison.isEmpty {
-                gopDeltas(comparison)
+                progressSection(comparison)
             }
             if model.isSuccess {
                 Button("Done") { onComplete(); dismiss() }
@@ -160,15 +167,43 @@ struct ShadowingView: View {
         .hexCard(padding: 20)
     }
 
-    // MARK: - CI-11 closed-loop GOP deltas
+    // MARK: - "Your pronunciation" breakdown
 
-    /// Per-phoneme progress since the previous attempt — the closed loop. Only shown
-    /// when the on-device pronunciation model produced a comparison; otherwise the
-    /// result is exactly today's ASR pass/fail.
+    /// The attempt's own weak sounds — "your pronunciation vs. the correct one".
+    /// Each weak sound is shown as expected→actual with a red GOP tint (the shared
+    /// `SoundLessonRow`). When nothing came out weak, a positive all-clear state.
     @ViewBuilder
-    private func gopDeltas(_ comparison: ShadowingGOP.Comparison) -> some View {
+    private func yourPronunciation(_ attempt: VocoCore.PronunciationResult) -> some View {
+        let lessons = PronunciationSummary.lessons(from: attempt)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("YOUR PRONUNCIATION")
+                .font(.caption2.weight(.bold)).tracking(1)
+                .foregroundStyle(.secondary)
+
+            if lessons.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                    Text("Every sound came through clearly")
+                        .font(.footnote.weight(.medium))
+                    Spacer(minLength: 0)
+                }
+            } else {
+                ForEach(lessons) { SoundLessonRow(lesson: $0, showCount: false) }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 4)
+    }
+
+    // MARK: - CI-11 closed-loop progress (2nd attempt onward)
+
+    /// Per-phoneme progress since the previous attempt — "know my progress". Only
+    /// shown when the model produced a comparison (i.e. there was a prior attempt);
+    /// the first attempt shows the breakdown above without this section.
+    @ViewBuilder
+    private func progressSection(_ comparison: ShadowingGOP.Comparison) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("SOUND-BY-SOUND vs. last try")
+            Text("PROGRESS vs. last try")
                 .font(.caption2.weight(.bold)).tracking(1)
                 .foregroundStyle(.secondary)
 
@@ -177,7 +212,15 @@ struct ShadowingView: View {
                 deltaRow(
                     icon: "arrow.up.right.circle.fill",
                     tint: .green,
-                    text: "Cleaner: " + improved.map { "/\($0.symbol)/" }.joined(separator: " ")
+                    text: improved.map { "/\($0.symbol)/" }.joined(separator: " ") + " improved ↑"
+                )
+            }
+            let stillWeak = comparison.stillWeak
+            if !stillWeak.isEmpty {
+                deltaRow(
+                    icon: "circle.dashed",
+                    tint: .red,
+                    text: stillWeak.map { "/\($0.symbol)/" }.joined(separator: " ") + " still needs work"
                 )
             }
             let regressed = comparison.regressed
@@ -188,7 +231,7 @@ struct ShadowingView: View {
                     text: "Watch: " + regressed.map { "/\($0.symbol)/" }.joined(separator: " ")
                 )
             }
-            if improved.isEmpty, regressed.isEmpty {
+            if improved.isEmpty, stillWeak.isEmpty, regressed.isEmpty {
                 deltaRow(icon: "equal.circle.fill", tint: .secondary, text: "About the same as last time")
             }
 
