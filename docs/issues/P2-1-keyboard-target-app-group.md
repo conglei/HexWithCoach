@@ -21,5 +21,5 @@ A keyboard extension target that shares storage with the host app via an App Gro
 - [ ] Both processes read/write the same App Group container (verified with a test file).
 
 ## Files
-- `Hex.xcodeproj/project.pbxproj`, new `HexKeyboard/`, entitlements for both targets,
+- `Voco.xcodeproj/project.pbxproj`, new `HexKeyboard/`, entitlements for both targets,
   `HexCore/Sources/HexCore/StoragePaths.swift`

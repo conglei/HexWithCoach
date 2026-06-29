@@ -30,7 +30,7 @@ public struct PronunciationModelSource: Sendable, Equatable {
     // Fill in the real URL and the archive's true SHA-256 before shipping the
     // download to users. Everything else in this file is real and tested.
     public static let `default` = PronunciationModelSource(
-        url: URL(string: "https://hex-updates.s3.amazonaws.com/models/pronunciation/PhonemeCTC-fp16-v1.zip")!,
+        url: URL(string: "https://voco-updates.s3.amazonaws.com/models/pronunciation/PhonemeCTC-fp16-v1.zip")!,
         // Placeholder digest — must match the hosted archive once it exists.
         sha256: "0000000000000000000000000000000000000000000000000000000000000000",
         approximateBytes: 603 * 1024 * 1024

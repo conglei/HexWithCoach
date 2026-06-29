@@ -21,4 +21,4 @@ A buildable, empty-but-wired iOS app target that links the multiplatform HexCore
 - [ ] `HexiOS` builds and launches on simulator + device.
 
 ## Files
-- `Hex.xcodeproj/project.pbxproj`, new `HexiOS/` sources + `Info.plist`
+- `Voco.xcodeproj/project.pbxproj`, new `HexiOS/` sources + `Info.plist`

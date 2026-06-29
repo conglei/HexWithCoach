@@ -4,7 +4,7 @@ These are the Xcode steps only you can do (creating targets writes correct
 project files; signing/entitlements need your Apple ID). After each Part, tell
 Claude and it will drop in the Swift code and build/verify.
 
-Open `Hex.xcodeproj` in Xcode. Use **File ▸ New ▸ Target…** (adds to the existing
+Open `Voco.xcodeproj` in Xcode. Use **File ▸ New ▸ Target…** (adds to the existing
 project — do NOT create a new project).
 
 Conventions used by the code already written:

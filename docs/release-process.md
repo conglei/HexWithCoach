@@ -33,7 +33,7 @@ git push origin v0.2.12
 **Effect Config system:**
 ```typescript
 // Reads from environment variables
-BUCKET=hex-updates              // Default
+BUCKET=voco-updates             // Default
 VERSION=v0.2.12                  // From git tag
 APPLE_ID=your@email.com         // CI only
 APPLE_ID_PASSWORD=xxxx-xxxx     // CI only
@@ -85,25 +85,25 @@ AWS_SECRET_ACCESS_KEY
 ## Artifacts
 
 Each release creates:
-- `Hex-{version}.dmg` - Signed, notarized DMG
-- `Hex-{version}.zip` - For Homebrew cask
-- `hex-latest.dmg` - Always points to latest
+- `Voco-{version}.dmg` - Signed, notarized DMG
+- `Voco-{version}.zip` - For Homebrew cask
+- `voco-latest.dmg` - Always points to latest
 - `appcast.xml` - Sparkle update feed
 
 ## Homebrew Cask
 
-After first release, update `hex.rb`:
+After first release, update `voco.rb`:
 
 ```bash
 # Get SHA256
-curl -L https://github.com/kitlangton/Hex/releases/download/v0.2.12/Hex-v0.2.12.zip -o Hex.zip
-shasum -a 256 Hex.zip
+curl -L https://voco-updates.s3.amazonaws.com/Voco-0.2.12.dmg -o Voco.dmg
+shasum -a 256 Voco.dmg
 
-# Update hex.rb with version and SHA
+# Update voco.rb with version and SHA
 ```
 
 Submit to:
-- **Personal tap**: `homebrew-hex` (easier)
+- **Personal tap**: `homebrew-voco` (easier)
 - **Official cask**: PR to `homebrew/homebrew-cask`
 
 ## Critical Constraints
@@ -144,7 +144,7 @@ If you accidentally create a release with a duplicate CFBundleVersion:
 - Verify appcast.xml lists versions in descending CFBundleVersion order
 - Check that CFBundleVersion values are unique and strictly increasing
 - Ensure no duplicate build numbers exist in updates/
-- Test feed URL: https://hex-updates.s3.amazonaws.com/appcast.xml
+- Test feed URL: https://voco-updates.s3.amazonaws.com/appcast.xml
 
 ## Files
 
