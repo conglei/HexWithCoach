@@ -1,17 +1,17 @@
 {
   "fill" : {
     "linear-gradient" : [
-      "srgb:0.00000,0.00000,0.00000,1.00000",
-      "srgb:0.00000,0.00000,0.00000,1.00000"
+      "display-p3:0.95557,0.94165,0.84375,1.00000",
+      "display-p3:0.97858,0.97015,0.94122,1.00000"
     ],
     "orientation" : {
       "start" : {
         "x" : 0.5,
-        "y" : 0
+        "y" : 1
       },
       "stop" : {
         "x" : 0.5,
-        "y" : 0.7
+        "y" : 0.3
       }
     }
   },
@@ -21,20 +21,28 @@
         {
           "blend-mode-specializations" : [
             {
-              "appearance" : "tinted",
-              "value" : "normal"
+              "value" : "overlay"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "soft-light"
             }
           ],
           "fill-specializations" : [
             {
-              "appearance" : "tinted",
-              "value" : {
-                "solid" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
-              }
+              "appearance" : "dark",
+              "value" : "none"
             }
           ],
-          "image-name" : "voco-logo-transparent.png",
-          "name" : "voco-logo-transparent"
+          "image-name" : "voco-new-logo.png",
+          "name" : "voco-new-logo",
+          "position" : {
+            "scale" : 1.8,
+            "translation-in-points" : [
+              0.8999999999999773,
+              71.38391381121642
+            ]
+          }
         }
       ],
       "shadow" : {
