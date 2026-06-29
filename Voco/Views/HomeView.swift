@@ -12,11 +12,24 @@ import UIKit
 
 struct HomeView: View {
     let model: DictationModel
+    let coachPreferences: CoachPreferences
     @Binding var selectedTab: AppTab
     let onShowAllHistory: () -> Void
     @Query(sort: \TranscriptEntry.date, order: .reverse) private var entries: [TranscriptEntry]
     @State private var incognito = CapturePreferences.incognito
     @State private var path = NavigationPath()
+
+    /// First-run nudge dismissal (IA-2). Persisted so the capture-first front
+    /// door points a new user at Coach exactly once. Stored in the shared App
+    /// Group alongside the other onboarding flags.
+    @AppStorage("hex.coach.nudgeDismissed", store: OnboardingState.store)
+    private var coachNudgeDismissed = false
+
+    /// Show the Home → Coach nudge only before coaching is activated, once the
+    /// user has actually captured something to coach, and until it's dismissed.
+    private var showsCoachNudge: Bool {
+        !coachPreferences.isReady && !coachNudgeDismissed && !entries.isEmpty
+    }
 
     // Pull-down-to-dictate.
     @State private var pull: CGFloat = 0
@@ -40,6 +53,7 @@ struct HomeView: View {
                         VStack(alignment: .leading, spacing: 0) {
                             header.padding(.top, 8)
                             statusView
+                            if showsCoachNudge { coachNudge.padding(.top, 16) }
                             Spacer(minLength: 24)
                             hero
                             Spacer(minLength: 0).frame(height: 32)
@@ -209,6 +223,56 @@ struct HomeView: View {
         case .failed: return ("Model unavailable", false)
         case .ready: return nil
         }
+    }
+
+    // MARK: - Coach nudge (IA-2)
+
+    /// A dismissible first-run callout that points capture-first users at the
+    /// Coach tab. Tapping the body switches tabs; the x persists a dismissal so
+    /// it never nags. Only shown pre-activation (see `showsCoachNudge`).
+    private var coachNudge: some View {
+        HStack(spacing: 12) {
+            Button {
+                selectedTab = .coach
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "sparkles")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(HexTheme.gradient, in: .circle)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("See how to say things better")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Text("Coach your real speech")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                coachNudgeDismissed = true
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28, height: 28)
+                    .background(Color(.tertiarySystemFill), in: .circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
+        }
+        .padding(12)
+        .background(HexTheme.gradientSoft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Hero

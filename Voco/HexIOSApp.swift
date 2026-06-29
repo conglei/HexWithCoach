@@ -16,7 +16,10 @@ struct HexIOSApp: App {
     @State private var model: DictationModel
     @State private var coachPreferences: CoachPreferences
     @State private var coach: CoachService
-    @State private var selectedTab: AppTab = .coach
+    // Capture-first front door (IA-2): the app opens into Home so a new user
+    // can dictate immediately. Coaching is opt-in / likely paid, so it's a
+    // baited second tab plus a first-run nudge rather than the landing screen.
+    @State private var selectedTab: AppTab = .home
     @Environment(\.scenePhase) private var scenePhase
 
     @MainActor
