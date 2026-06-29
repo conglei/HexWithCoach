@@ -141,7 +141,11 @@ final class CoachService {
         let audioClip = audio(for: entry.audioFilename)
         let input = CoachTranscriptInput(
             id: entry.id, text: entry.text, durationSec: durationSec, audio: audioClip,
-            wordTimings: entry.wordTimings
+            wordTimings: entry.wordTimings,
+            // Feed the objective GOP findings to the LLM as grounding (CI-6): the
+            // model teaches around them, the objective lane owns detecting them.
+            // Already computed above by analyzePronunciation when the model is present.
+            pronunciationSignals: entry.pronunciationSignals
         )
         do {
             let analysis = try await pipeline.analyze(input, profile: &profile, at: now)
@@ -206,12 +210,15 @@ final class CoachService {
                 continue
             }
 
-            // Send the audio too (multimodal lens) so the model can actually hear
-            // pronunciation/prosody, not just read the transcript.
+            // Send the audio too (multimodal lens) so the model can hear intonation
+            // & stress (CI-6), not just read the transcript. The objective GOP +
+            // fluency findings ride along as grounding — the LLM teaches around them
+            // rather than re-detecting pronunciation/timing.
             let audioClip = audio(for: entry.audioFilename)
             let input = CoachTranscriptInput(
                 id: entry.id, text: entry.text, durationSec: durationSec, audio: audioClip,
-                wordTimings: entry.wordTimings
+                wordTimings: entry.wordTimings,
+                pronunciationSignals: entry.pronunciationSignals
             )
             do {
                 let analysis = try await pipeline.analyze(input, profile: &profile, at: now)
