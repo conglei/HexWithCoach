@@ -127,7 +127,7 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 	}
 
 	private func refreshStatusIcon(on button: NSStatusBarButton) {
-		guard let base = NSImage(named: "HexIcon") else { return }
+		guard let base = NSImage(named: "VocoLogo") else { return }
 		let scaled = scaledMenuBarImage(base, target: 18)
 		button.image = hexSettings.coach.enabled
 			? imageWithDot(on: scaled)
