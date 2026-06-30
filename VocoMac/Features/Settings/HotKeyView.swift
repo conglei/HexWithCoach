@@ -51,8 +51,8 @@ struct HotKeyView: View {
     }
     .background(
       RoundedRectangle(cornerRadius: 6)
-        .fill(Color.blue.opacity(isActive ? 0.1 : 0))
-        .stroke(Color.blue.opacity(isActive ? 0.2 : 0), lineWidth: 1)
+        .fill(Color.accentColor.opacity(isActive ? 0.1 : 0))
+        .stroke(Color.accentColor.opacity(isActive ? 0.2 : 0), lineWidth: 1)
     )
 
     .animation(.bouncy(duration: 0.3), value: key)

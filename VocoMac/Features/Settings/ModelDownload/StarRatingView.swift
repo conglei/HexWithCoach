@@ -16,7 +16,7 @@ struct StarRatingView: View {
 			ForEach(0 ..< max, id: \.self) { i in
 				Image(systemName: i < filled ? "circle.fill" : "circle")
 					.font(.system(size: 7))
-					.foregroundColor(i < filled ? .blue : .gray.opacity(0.5))
+					.foregroundColor(i < filled ? Color.accentColor : .gray.opacity(0.5))
 			}
 		}
 		.enableInjection()
