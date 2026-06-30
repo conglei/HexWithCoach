@@ -138,3 +138,20 @@ on the new base** (◐), or **builds new** (➕).
 The divergence was avoidable: this epic ran 21 commits without re-syncing to `origin/main` (I tracked a
 stale local `main` ref). Going forward, **re-fetch `origin/main` before each wave** and rebase early
 when upstream is hot. The "wait for DM-2/PR-1 then re-found" plan bakes this re-sync in.
+
+## 9. Status & next steps (2026-06-29) — reconcile DONE
+
+The reconcile is complete and shipping. Full per-task state + the next-order list live in the
+[issue index](issues/INDEX.md) ("Shipping status" + "Suggested next order"). Summary:
+
+- **Merged to `main` (#113):** companion foundation — re-founded shared Phase-3 model, macOS store,
+  Coach v2 engine, window, surfaces (MC-R1…MC-R10 code present at the #113 snapshot `be6c10d`).
+- **Open in #119 (re-synced on `main`, mergeable):** the post-#113 UI polish — native ⌘, Settings
+  window (MC-R11), History master-detail + Note|Coaching lens (MC-R12), the design-critique revision
+  (MC-R13), the new app icon, History-top-level/Dictation default, and the `mac` sideload target.
+- **Remaining:** MC-R10 opt-in audio sync · device-verify the live CloudKit Mac↔iOS sync (MC-2) ·
+  retire the legacy `@Shared` JSON store (single-store consolidation) · engine lens-classification fix
+  (stress mis-tagged as Fluency) · pronunciation-model hosting (sideload-only today).
+
+Recommended order: **merge #119 → device-verify sync → data-consolidation cleanup → MC-R10 →
+engine lens fix / model hosting.**
