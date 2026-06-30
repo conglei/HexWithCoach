@@ -1,8 +1,8 @@
 {
   "fill" : {
     "linear-gradient" : [
-      "display-p3:0.95557,0.94165,0.84375,1.00000",
-      "display-p3:0.97858,0.97015,0.94122,1.00000"
+      "display-p3:0.92474,0.43991,0.17937,1.00000",
+      "display-p3:0.92480,0.43994,0.17944,1.00000"
     ],
     "orientation" : {
       "start" : {
@@ -34,6 +34,7 @@
               "value" : "none"
             }
           ],
+          "hidden" : true,
           "image-name" : "voco-new-logo.png",
           "name" : "voco-new-logo",
           "position" : {
@@ -43,6 +44,25 @@
               71.38391381121642
             ]
           }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "blend-mode" : "darken",
+          "fill" : "automatic",
+          "glass" : true,
+          "image-name" : "voco-new-new.png",
+          "name" : "voco-new-new"
         }
       ],
       "shadow" : {
