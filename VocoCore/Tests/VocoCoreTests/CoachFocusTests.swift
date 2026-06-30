@@ -111,12 +111,16 @@ struct CoachFocusTests {
     // MARK: - Skill map
 
     @Test
-    func skillMapHasAllFiveLensesInOrderWithLevels() {
+    func skillMapHasAllFiveLensesInOrderWithGroundedTrends() {
         let surface = CoachFocusEngine.surface(facts: [], profile: seededProfile(), now: now)
         #expect(surface.skillMap.map(\.lens) == Lens.allCases)
-        #expect(surface.skillMap.first { $0.lens == .prosody }?.level == 70)
-        // Prosody has a mastered pattern → improving trend.
+        // CF-fix: the map shows a grounded trend, not a numeric level.
+        // Prosody has a mastered pattern (and no active) → improving.
         #expect(surface.skillMap.first { $0.lens == .prosody }?.trend == .improving)
+        // Grammar has an ACTIVE drop-articles pattern → needs work, NOT high/steady.
+        #expect(surface.skillMap.first { $0.lens == .grammar }?.trend == .needsWork)
+        // Discourse's only pattern is improving (no active) → improving.
+        #expect(surface.skillMap.first { $0.lens == .discourse }?.trend == .improving)
     }
 
     @Test
@@ -134,67 +138,73 @@ struct CoachFocusTests {
         #expect(surface.heroFocus?.practiceKind == .wordSwap)
     }
 
-    // MARK: - Template summary
-
-    private func sampleInput() -> CoachSummaryInput {
-        let surface = CoachFocusEngine.surface(facts: seededFacts(), profile: seededProfile(), now: now)
-        return CoachSummaryInput(
-            totalSpokenSec: 2 * 3600 + 600, noteCount: 12,
-            skillMap: surface.skillMap, focuses: surface.focuses, leadWin: surface.leadWin,
-            fillersPerMinuteDelta: -0.8, fillersPerMinute: 3.2)
-    }
+    // MARK: - Deterministic stats block (numbers computed by us, never the LLM)
 
     @Test
-    func templateSummaryMentionsTimeWinAndFocus() {
-        let text = CoachSummaryTemplate.render(sampleInput())
-        #expect(text.contains("12 notes"))
-        #expect(text.lowercased().contains("hour"))
-        #expect(text.lowercased().contains("mastered"))
-        // The hero focus is lexis → the recap should talk about word choice.
-        #expect(text.lowercased().contains("word choice"))
-        // Evidence interpolated by us.
-        #expect(text.contains("9×"))
-    }
-
-    @Test
-    func templateSummaryNeverEmptyForNewUser() {
-        let empty = CoachSummaryInput(totalSpokenSec: 0, noteCount: 0, skillMap: [], focuses: [])
-        let text = CoachSummaryTemplate.render(empty)
-        #expect(!text.isEmpty)
-    }
-
-    @Test
-    func summaryInputComputesFillerDeltaFromWeekly() {
-        let surface = CoachFocusEngine.surface(facts: seededFacts(), profile: seededProfile(), now: now)
+    func statsComputeMinutesNotesAndFillerDeltaFromWeekly() {
         let weekly = [
             CoachWeeklyRollup(weekStart: now.addingTimeInterval(-14 * 24 * 3600), noteCount: 5,
                               totalDurationSec: 1800, meanFillersPerMinute: 4.5, meanWordsPerMinute: 120, meanLongPauseRate: 0.1, meanGOP: nil),
             CoachWeeklyRollup(weekStart: now.addingTimeInterval(-7 * 24 * 3600), noteCount: 7,
                               totalDurationSec: 2400, meanFillersPerMinute: 3.0, meanWordsPerMinute: 130, meanLongPauseRate: 0.08, meanGOP: nil),
         ]
-        let input = CoachSummaryInput.make(surface: surface, weekly: weekly)
-        // delta = latest - prior = 3.0 - 4.5 = -1.5 (improvement).
-        #expect(input.fillersPerMinuteDelta == -1.5)
-        #expect(input.totalSpokenSec == 2400)
-        #expect(input.noteCount == 7)
+        let stats = CoachStats.make(weekly: weekly)
+        #expect(stats.minutesSpoken == 40)              // 2400 / 60
+        #expect(stats.noteCount == 7)
+        #expect(stats.fillersPerMinute == 3.0)
+        #expect(stats.fillersPerMinuteDelta == -1.5)    // 3.0 - 4.5 (improvement)
     }
 
-    // MARK: - Grounded prompt (no model math)
+    // MARK: - Number-free recap input + template
+
+    private func sampleRecapInput() -> CoachRecapInput {
+        let surface = CoachFocusEngine.surface(facts: seededFacts(), profile: seededProfile(), now: now)
+        return CoachRecapInput.make(surface: surface)
+    }
 
     @Test
-    func groundedPromptCarriesEveryNumberSoModelNeverComputes() {
-        let prompt = CoachSummaryPrompt.userPrompt(sampleInput())
-        // The data block must already contain the counts the model would otherwise
-        // have to compute.
-        #expect(prompt.contains("notes_this_week: 12"))
-        #expect(prompt.contains("times_this_week=9"))
-        #expect(prompt.contains("down 0.8"))
-        // And the system rules forbid inventing/computing.
-        #expect(CoachSummaryPrompt.system.contains("Do NOT do arithmetic"))
-        #expect(CoachSummaryPrompt.system.contains("Do NOT invent"))
+    func recapInputIsNumberFree() {
+        let input = sampleRecapInput()
+        // No field on the input can carry a count/level/duration — the type literally
+        // has no numeric fields. Assert the findings exist and carry only phrasing.
+        #expect(!input.findings.isEmpty)
+        // The hero is lexis (word choice) per the ranking calibration.
+        #expect(input.findings.first?.lens == .lexis)
+        // Lens trends are grounded words, not numbers.
+        #expect(input.lensTrends.first { $0.lens == .grammar }?.trend == .needsWork)
     }
 
-    // MARK: - Grounded generator falls back
+    @Test
+    func templateRecapTalksAboutFocusWithoutNumbers() {
+        let text = CoachRecapTemplate.render(sampleRecapInput())
+        #expect(text.lowercased().contains("word choice"))
+        // The deterministic recap is itself number-free.
+        #expect(text.rangeOfCharacter(from: .decimalDigits) == nil)
+    }
+
+    @Test
+    func templateRecapEmptyFindingsIsHonestNeverFabricated() {
+        let empty = CoachRecapInput(lensTrends: [], findings: [], leadWinPhrase: nil)
+        let text = CoachRecapTemplate.render(empty)
+        #expect(text == CoachRecapTemplate.emptyLine)
+        // The honest line the issue requires; never invented perfection.
+        #expect(text.lowercased().contains("nothing stands out"))
+        #expect(!text.lowercased().contains("flawless"))
+        #expect(!text.lowercased().contains("level"))
+    }
+
+    @Test
+    func recapPromptCarriesNoNumbersAndForbidsThem() {
+        let prompt = CoachRecapPrompt.userPrompt(sampleRecapInput())
+        // The number-free data block must NOT contain any digit.
+        #expect(prompt.rangeOfCharacter(from: .decimalDigits) == nil)
+        // The system rules forbid numbers + invention + perfection.
+        #expect(CoachRecapPrompt.system.contains("Do NOT state ANY number"))
+        #expect(CoachRecapPrompt.system.contains("Do NOT invent"))
+        #expect(CoachRecapPrompt.system.contains("Never claim perfection"))
+    }
+
+    // MARK: - Grounded generator: empty path, validator gate, fallback
 
     private struct FailingLLM: CoachLLM {
         func generateJSON(systemPrompt: String, userPrompt: String, audio: CoachAudio?, tier: CoachModelTier) async throws -> String {
@@ -210,10 +220,29 @@ struct CoachFocusTests {
         }
     }
 
+    /// A finding-bearing input so the generator actually calls the LLM.
+    private func validatableInput() -> CoachRecapInput {
+        CoachRecapInput(
+            lensTrends: [(.lexis, .needsWork), (.grammar, .needsWork)],
+            findings: [CoachRecapInput.Finding(lens: .lexis, phrase: "overuses “basically”", trend: .needsWork, example: "basically just")],
+            leadWinPhrase: nil)
+    }
+
+    @Test
+    func emptyFindingsNeverCallsLLMAndReturnsHonestTemplate() async {
+        // Even WITH an LLM available, empty findings must not call it — that was the
+        // fabrication point ("flawless / level 10").
+        let gen = CoachWeeklySummaryGenerator(llm: EchoLLM(response: "You are flawless, level 10."))
+        let empty = CoachRecapInput(lensTrends: [], findings: [], leadWinPhrase: nil)
+        let result = await gen.generate(empty)
+        #expect(result.source == .template)
+        #expect(result.text == CoachRecapTemplate.emptyLine)
+    }
+
     @Test
     func keylessGeneratorUsesTemplate() async {
         let gen = CoachWeeklySummaryGenerator(llm: nil)
-        let result = await gen.generate(sampleInput())
+        let result = await gen.generate(validatableInput())
         #expect(result.source == .template)
         #expect(!result.text.isEmpty)
     }
@@ -221,24 +250,35 @@ struct CoachFocusTests {
     @Test
     func llmErrorFallsBackToTemplate() async {
         let gen = CoachWeeklySummaryGenerator(llm: FailingLLM())
-        let result = await gen.generate(sampleInput())
+        let result = await gen.generate(validatableInput())
         #expect(result.source == .template)
     }
 
     @Test
-    func llmProseIsUsedWhenReturned() async {
-        let gen = CoachWeeklySummaryGenerator(llm: EchoLLM(response: "You're refining from a high base."))
-        let result = await gen.generate(sampleInput())
+    func validGroundedProseIsUsed() async {
+        let gen = CoachWeeklySummaryGenerator(
+            llm: EchoLLM(response: "Your word choice is the place to refine next, and it's worth a little attention."))
+        let result = await gen.generate(validatableInput())
         #expect(result.source == .llm)
-        #expect(result.text == "You're refining from a high base.")
+    }
+
+    @Test
+    func fabricatedLevelTenRecapIsRejectedAndFallsBack() async {
+        // The exact failure the issue calls out: the model returns "flawless level 10".
+        // The validator must catch the leaked number → template fallback.
+        let gen = CoachWeeklySummaryGenerator(
+            llm: EchoLLM(response: "You're flawless — level 10 across the board."))
+        let result = await gen.generate(validatableInput())
+        #expect(result.source == .template)
     }
 
     @Test
     func llmJSONWrappedProseIsExtracted() async {
-        let gen = CoachWeeklySummaryGenerator(llm: EchoLLM(response: "{\"summary\": \"Tighten your sentences.\"}"))
-        let result = await gen.generate(sampleInput())
+        let gen = CoachWeeklySummaryGenerator(
+            llm: EchoLLM(response: "{\"summary\": \"Tighten your word choice and you'll sound sharper.\"}"))
+        let result = await gen.generate(validatableInput())
         #expect(result.source == .llm)
-        #expect(result.text == "Tighten your sentences.")
+        #expect(result.text == "Tighten your word choice and you'll sound sharper.")
     }
 
     // MARK: - CoachPaths (single source of truth for the Coach directory)

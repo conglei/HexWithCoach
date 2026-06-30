@@ -41,8 +41,12 @@ final class CoachFocusModel {
     /// the evidence bar AND its trend genuinely improved after practice. nil otherwise
     /// (the honesty guard: we never show a "it's working" claim on noise).
     private(set) var heroTrend: FrequencyTrend?
-    /// The cached weekly recap. nil until generated; regenerated only on `reload`
-    /// (once per rollup), never per view.
+    /// The deterministic stats block (minutes spoken / notes / fillers per minute) —
+    /// computed entirely by us, never by the LLM. Rendered as labeled metrics.
+    private(set) var stats = CoachStats(minutesSpoken: 0, noteCount: 0)
+    /// The qualitative weekly recap (number-free). nil until generated; persisted
+    /// per-week so it's stable across tab visits and only regenerates when the week
+    /// rolls over or the grounded inputs change.
     private(set) var summary: CoachWeeklySummary?
     /// Whether the recap is being (re)generated — lets the UI show a placeholder.
     private(set) var isGeneratingSummary = false
@@ -66,6 +70,11 @@ final class CoachFocusModel {
 
     private var snapshotStore: CoachSnapshotStore {
         CoachSnapshotStore(url: CoachPaths.snapshotsURL())
+    }
+
+    /// The per-week recap cache (CF-fix), beside profile/snapshots in the Coach dir.
+    private var summaryCache: CoachSummaryCacheStore {
+        CoachSummaryCacheStore(url: CoachPaths.weeklySummaryURL())
     }
 
     // MARK: - Reload
@@ -98,12 +107,30 @@ final class CoachFocusModel {
             heroTrend = nil
         }
 
-        let input = CoachSummaryInput.make(surface: computed, weekly: weekly)
+        // CF-fix — split the card into a deterministic stats block (numbers computed
+        // by us) and a number-free qualitative recap.
+        stats = CoachStats.make(weekly: weekly)
+
+        // The recap is built from NUMBER-FREE findings only, then cached per ISO week
+        // keyed by a stable hash of that input. Reuse the persisted recap when the
+        // week + inputs are unchanged — so a normal tab glance triggers NO LLM call
+        // and the wording never drifts. Regenerate only on a week rollover or an
+        // input change.
+        let recapInput = CoachRecapInput.make(surface: computed)
+        let key = CoachSummaryCacheKey.make(input: recapInput, now: now)
+        if let cached = summaryCache.fresh(for: key) {
+            summary = cached
+            isGeneratingSummary = false
+            return
+        }
+
         isGeneratingSummary = true
         let generator = CoachWeeklySummaryGenerator(llm: makeLLM())
-        let result = await generator.generate(input)
+        let result = await generator.generate(recapInput)
         summary = result
         isGeneratingSummary = false
+        // Persist so the next visit (same week, same inputs) reuses it verbatim.
+        try? summaryCache.save(CoachSummaryCacheEntry(key: key, summary: result, generatedAt: now))
     }
 
     /// The pattern the hero focus came from, for the lens-detail drill-down (its
