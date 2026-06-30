@@ -134,21 +134,28 @@ ASR-vs-GOP verdict, hear-your-own + retry. (RC-4/PR-3 only stubbed the drill fun
 | [SR-1](SR-1-phoneme-guide.md) | Phoneme guide: plain-English anchors + tips | — | S | DONE (#103) |
 | [SR-2](SR-2-shadowing-result-redesign.md) | Shadowing result: word-level pronunciation feedback | SR-1 | L | DONE (#106) |
 
-### Coach surface (CF series) — DRAFT, pending review
-Reframe the Coach feed from an overwhelming per-note inbox into a professional coaching surface:
-a summary + prioritized focus (not a list of 20–30), typed practice matched to each lens, and a
-visible progress/accumulation loop. Design: this session.
+### Coach surface (CF series)
+Reframe the Coach feed from an overwhelming per-note inbox into a professional coaching surface for
+the **already-comfortable speaker**: a grounded summary + prioritized focus (not a list of 20–30),
+typed practice matched to each lens, and a visible progress/accumulation loop. Design: this session.
 | ID | Title | Depends on | Size | Status |
 |----|-------|-----------|------|--------|
-| [CF-1](CF-1-coach-summary-and-focus.md) | Coach summary & focus ("what to work on now") | DM-2, LearnerProfile | L | DRAFT |
-| [CF-2](CF-2-typed-practice-framework.md) | Typed practice framework (drills matched to the lens) | PR-1, SR-2 | L | DRAFT |
-| [CF-3](CF-3-progress-accumulation-loop.md) | Progress & accumulation loop | CF-1, CF-2, DM-2 | L | DRAFT |
+| [CF-1](CF-1-coach-summary-and-focus.md) | Coach summary & focus ("what to work on now") | DM-2, LearnerProfile | L | DONE (#114) |
+| [CF-2](CF-2-typed-practice-framework.md) | Typed practice framework (drills matched to the lens) | PR-1, SR-2 | L | DONE (#112) |
+| [CF-3](CF-3-progress-accumulation-loop.md) | Progress & accumulation loop | CF-1, CF-2, DM-2 | L | DONE (#115) |
+
+### Tooling / prevention (verification harness)
+| ID | Title | Status |
+|----|-------|--------|
+| SEED | DEBUG-only sample-data harness (`VOCO_SEED=1`) — enables seeded runtime/screenshot QA | DONE (#110) |
+| GUARD | Canonical `allModelTypes` + container-registration invariant test (fixes the unregistered-model bug class) | DONE (#109) |
 
 ### Future / not yet scoped
 - **PR-4** — Practice Share Extension ("Share → Voco: Practice") — depends PR-3.
 - **HS-4** — Dictation auto-expiry (prune dictations older than N days; keep notes) — depends DM-1.
-- **CT-1** — Per-word pronunciation trends UI (query `CoachObservation`) — depends DM-2.
-- **CT-2** — Pattern frequency/regression + evidence-trail UI — depends DM-2.
+- ~~**CT-1 / CT-2** — per-word/pattern trends~~ → folded into CF-3 (`FrequencyTrend` over the observation log).
+- **Test strategy doc** — `docs/engineering/test-strategy.md` (lessons-learned + Definition-of-Done for UI: seed + screenshot) — deferred.
+- **Review→Practice deep-link** — open a Review card's target inside the Practice tab (PR-2 leftover).
 
 **Suggested order:** DM-1 → DM-2 (foundation), alongside HS-1; then HS-2, HS-3, IA-1; then
 PR-1 → PR-2 → PR-3; CT-* after DM-2.

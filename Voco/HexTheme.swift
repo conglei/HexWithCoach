@@ -2,20 +2,26 @@
 //  HexTheme.swift
 //  HexIOS
 //
-//  Shared visual language for the app refresh: a blue→purple brand gradient, a
-//  white rounded-card surface, and a gradient primary button. Used everywhere so
-//  the screens feel like one polished product.
+//  Shared visual language for the app refresh: a burnt-orange brand accent, a
+//  white rounded-card surface, and a solid accent primary button. Used everywhere
+//  so the screens feel like one polished product.
 //
 
 import SwiftUI
 
 enum HexTheme {
-    /// Brand gradient — vivid blue (top-leading) to violet (bottom-trailing).
+    /// Primary brand accent — burnt orange (#ea580c).
+    static let accent = Color(red: 0.918, green: 0.345, blue: 0.047)
+
+    /// Brand accent stops. Both are the same orange hue (a subtle deepen→brighten);
+    /// `gradientColors[0]` is the primary accent used as a solid color at call sites,
+    /// `gradientColors[1]` is a slightly brighter orange used for accents/shadows.
     static let gradientColors = [
-        Color(red: 0.24, green: 0.45, blue: 0.96),
-        Color(red: 0.58, green: 0.36, blue: 0.97),
+        accent,
+        Color(red: 0.976, green: 0.451, blue: 0.086),
     ]
 
+    /// Brand "gradient" — now a subtle same-hue orange (top-leading deeper → bottom-trailing brighter).
     static let gradient = LinearGradient(
         colors: gradientColors, startPoint: .topLeading, endPoint: .bottomTrailing
     )

@@ -19,6 +19,56 @@ public enum HexAppGroup {
     public static let identifier = "group.co.stonefrontier.voco"
 }
 
+/// The single source of truth for where the file-backed Coach stores live (the
+/// `LearnerProfile`, the `CoachSnapshot` log, etc.). EVERY caller — the live
+/// writers/readers (`CoachService`, `CoachProgress`), the seed (`DebugSeed`), and
+/// the CF-1 Focus surface (`CoachFocusModel`, `LensDetailView`) — must resolve the
+/// directory through here so they can never drift out of agreement.
+///
+/// The subtle bug this prevents: the App Group container is `nil` on the
+/// no-entitlement path (simulator / unit tests), so callers fall back to the temp
+/// dir. If some callers append `"Coach"` only on the container branch
+/// (`container?.appendingPathComponent("Coach") ?? temp` → `temp/`) while others
+/// append it unconditionally (`(container ?? temp).appendingPathComponent("Coach")`
+/// → `temp/Coach/`), a writer and a reader silently target DIFFERENT directories
+/// and the reader sees an empty store. Centralizing — like GUARD did for the
+/// SwiftData schema — makes the convention impossible to break per-call-site.
+///
+/// On a real, entitled device the container is non-nil and the result is
+/// `<container>/Coach` exactly as before; only the nil/fallback branch is unified
+/// (now also `<temp>/Coach`), so production behavior is unchanged.
+public enum CoachPaths {
+    /// The Coach directory: `(appGroupContainer ?? temporaryDirectory)/Coach`.
+    /// `Coach` is appended on BOTH branches so the path is identical for every
+    /// caller regardless of whether the App Group container is available.
+    public static func directory(
+        appGroupIdentifier: String = HexAppGroup.identifier,
+        fileManager: FileManager = .default
+    ) -> URL {
+        let base = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)
+            ?? fileManager.temporaryDirectory
+        return base.appendingPathComponent("Coach", isDirectory: true)
+    }
+
+    /// The learner profile JSON (`<Coach>/profile.json`).
+    public static func profileURL(
+        appGroupIdentifier: String = HexAppGroup.identifier,
+        fileManager: FileManager = .default
+    ) -> URL {
+        directory(appGroupIdentifier: appGroupIdentifier, fileManager: fileManager)
+            .appendingPathComponent("profile.json")
+    }
+
+    /// The growth-history snapshot log JSON (`<Coach>/snapshots.json`).
+    public static func snapshotsURL(
+        appGroupIdentifier: String = HexAppGroup.identifier,
+        fileManager: FileManager = .default
+    ) -> URL {
+        directory(appGroupIdentifier: appGroupIdentifier, fileManager: fileManager)
+            .appendingPathComponent("snapshots.json")
+    }
+}
+
 /// A transcription result handed from the host app to the keyboard.
 public struct DictationResult: Codable, Equatable, Sendable, Identifiable {
     /// Stable id so the keyboard can ignore a result it has already inserted.

@@ -242,12 +242,36 @@ enum DebugSeed {
             ],
             noteFor: { entries[$0 % entries.count] }, daysAgoFor: { ($0 * 1) % 12 },
             severity: 3, daysAgoRef: daysAgo)
-        // 2) filler "overuse-basically" — 9 lexis rows.
-        seedObservationCluster(
-            context: context, lens: .lexis, key: "overuse-basically", count: 9,
-            spans: ["basically just", "basically the same", "I basically think"],
-            noteFor: { entries[($0 + 2) % entries.count] }, daysAgoFor: { ($0 * 1) % 10 },
-            severity: 2, daysAgoRef: daysAgo)
+        // 2) filler "overuse-basically" — lexis rows shaped as a genuine
+        //    practice→frequency-drop (CF-3): heavy BEFORE the first practice rep
+        //    (day 14), sparse AFTER. ~3/active-day before, ~1/active-day after, so the
+        //    honesty guard clears and the "it's working" card fires for the seed.
+        let basicallySpans = ["basically just", "basically the same", "I basically think"]
+        // Before practice: days 30…16, 3 occurrences per active day (the baseline).
+        var bIdx = 0
+        for day in stride(from: 30, through: 16, by: -2) {
+            for _ in 0..<3 {
+                let n = entries[(bIdx + 2) % entries.count]
+                let obs = CoachObservation(
+                    noteID: n.id, date: daysAgo(day, hour: 14),
+                    lensRaw: Lens.lexis.rawValue, originRaw: CoachObservation.Origin.llm.rawValue,
+                    patternKey: "overuse-basically", word: nil, gop: nil,
+                    severity: 2, span: basicallySpans[bIdx % basicallySpans.count])
+                context.insert(obs)
+                bIdx += 1
+            }
+        }
+        // After practice: days 10…0, 1 occurrence per active day (the drop).
+        for day in stride(from: 10, through: 0, by: -2) {
+            let n = entries[(bIdx + 2) % entries.count]
+            let obs = CoachObservation(
+                noteID: n.id, date: daysAgo(day, hour: 14),
+                lensRaw: Lens.lexis.rawValue, originRaw: CoachObservation.Origin.llm.rawValue,
+                patternKey: "overuse-basically", word: nil, gop: nil,
+                severity: 2, span: basicallySpans[bIdx % basicallySpans.count])
+            context.insert(obs)
+            bIdx += 1
+        }
         // 3) per-word /θ/ pronunciation issue — 8 objective GOP rows for "thorough".
         for i in 0..<8 {
             let n = entries[(i + 3) % entries.count]
@@ -272,13 +296,16 @@ enum DebugSeed {
         }
 
         // MARK: Practice (PracticeItem + PracticeAttempt)
+        // CF-3: tag the item with its focus area (lens + patternKey) so the recorded
+        // attempts are attributable to the `th-thorough` pattern — closing the loop.
         let practice1 = PracticeStore.coachInsight(
             "We need a thorough review of the architecture before the next release.",
             segments: [
                 "We need a thorough review of the architecture",
                 "before the next release.",
             ],
-            sourceID: note(10).id, title: "The /\u{03B8}/ in \u{201C}thorough\u{201D}")
+            sourceID: note(10).id, patternKey: "th-thorough", lens: .pronunciation,
+            title: "The /\u{03B8}/ in \u{201C}thorough\u{201D}")
         practice1.createdAt = daysAgo(2, hour: 9)
         context.insert(practice1)
         let attempt1a = PracticeAttempt(
@@ -288,17 +315,26 @@ enum DebugSeed {
         context.insert(attempt1a)
         context.insert(attempt1b)
 
-        // CF-2: a word-swap (lexis) practice item, tagged `.wordSwap`, so the
-        // kind-aware progress surfaces (CF-3) and browsing show a non-shadow drill.
+        // CF-2/CF-3: a word-swap (lexis) practice item, tagged `.wordSwap` AND tagged
+        // with the `overuse-basically` focus area, so the kind-aware accumulation
+        // strip shows a non-shadow drill and the practice→frequency-drop loop can
+        // attribute reps to the lexis pattern below.
         let practice2 = PracticeStore.coachInsight(
             "I overuse basically in meetings",
             segments: ["I overuse basically in meetings"],
-            sourceID: note(5).id, kind: .wordSwap, title: "A crisper word than \u{201C}basically\u{201D}")
+            sourceID: note(5).id, kind: .wordSwap,
+            patternKey: "overuse-basically", lens: .lexis,
+            title: "A crisper word than \u{201C}basically\u{201D}")
         practice2.createdAt = daysAgo(0, hour: 19)
         context.insert(practice2)
-        let attempt2 = PracticeAttempt(
-            date: daysAgo(0, hour: 19), perSegmentScores: [0.82], gopDelta: nil, item: practice2)
-        context.insert(attempt2)
+        // Several reps over the last two weeks so the accumulation strip reads as a
+        // real habit and the frequency-drop signal has enough practice evidence.
+        let practice2Attempts: [(Int, Double)] = [(14, 0.61), (12, 0.66), (8, 0.74), (4, 0.81), (0, 0.86)]
+        for (d, score) in practice2Attempts {
+            let a = PracticeAttempt(
+                date: daysAgo(d, hour: 19), perSegmentScores: [score], gopDelta: nil, item: practice2)
+            context.insert(a)
+        }
 
         do {
             try context.save()
@@ -372,21 +408,16 @@ enum DebugSeed {
 
     // MARK: - File-backed stores
 
-    /// Locate the App Group `Coach` directory the live stores read from. Falls back
-    /// to a temp dir (still functional) when the App Group is unavailable.
-    private static var coachDirectory: URL {
-        let base = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: HexAppGroup.identifier)
-            ?? FileManager.default.temporaryDirectory
-        return base.appendingPathComponent("Coach", isDirectory: true)
-    }
-
+    /// The seeded profile/snapshot files MUST land where the live readers look, so
+    /// resolve through the single source of truth (`CoachPaths`) — never an inline
+    /// copy of the path logic, which is exactly how the drift this guards against
+    /// crept in.
     private static var profileStore: LearnerProfileStore {
-        LearnerProfileStore(url: coachDirectory.appendingPathComponent("profile.json"))
+        LearnerProfileStore(url: CoachPaths.profileURL())
     }
 
     private static var snapshotStore: CoachSnapshotStore {
-        CoachSnapshotStore(url: coachDirectory.appendingPathComponent("snapshots.json"))
+        CoachSnapshotStore(url: CoachPaths.snapshotsURL())
     }
 
     /// Seed a LearnerProfile with per-lens levels and a set of RecurringPatterns

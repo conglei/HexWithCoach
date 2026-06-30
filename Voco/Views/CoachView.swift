@@ -25,10 +25,12 @@ struct CoachView: View {
     let preferences: CoachPreferences
     @Binding var selectedTab: AppTab
 
-    /// Which half of the Coach hub is showing. Feedback is the default so the
-    /// Coach tab opens onto the existing Review feed with no behavior change.
+    /// Which half of the Coach hub is showing. Focus is the default so the Coach
+    /// tab opens onto the de-overwhelmed summary + skill-map + one-focus surface
+    /// (CF-1) rather than the old flat per-note feed (which now lives under
+    /// "browse all findings" in depth).
     private enum Surface: String, CaseIterable, Identifiable {
-        case feedback = "Feedback"
+        case focus = "Focus"
         case practice = "Practice"
         var id: Self { self }
     }
@@ -40,21 +42,20 @@ struct CoachView: View {
         // reachable without driving the segmented control. No effect in release.
         if ProcessInfo.processInfo.arguments.contains("-VOCOCoachPractice") { return .practice }
         #endif
-        return .feedback
+        return .focus
     }()
 
     var body: some View {
         NavigationStack {
             Group {
                 switch surface {
-                case .feedback:
-                    // Reuse the Review feed verbatim (cards, streak header,
-                    // upsell, detail navigation, and the manual-review toolbar).
-                    // `embedded: true` drops Review's own NavigationStack/title
-                    // so it lives under our nav bar — but it's a *real installed
-                    // view*, so its `@Query`/`@State` bind to the environment's
-                    // modelContext and the feed actually shows its cards (FX-1).
-                    ReviewView(coach: coach, preferences: preferences, selectedTab: $selectedTab, embedded: true)
+                case .focus:
+                    // CF-1: the de-overwhelmed surface — weekly summary + five-lens
+                    // skill map + ONE prioritized focus, with the old flat feed
+                    // demoted to "browse all findings" in depth. A *real installed
+                    // view*, so its `@Query`/`@Environment(\.modelContext)` bind
+                    // (FX-1) and the data actually loads.
+                    CoachFocusView(coach: coach, preferences: preferences, selectedTab: $selectedTab)
                 case .practice:
                     PracticeView()
                 }

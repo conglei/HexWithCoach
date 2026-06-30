@@ -86,21 +86,16 @@ final class CoachService {
     }
 
     private var profileStore: LearnerProfileStore {
-        let dir = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: HexAppGroup.identifier)?
-            .appendingPathComponent("Coach", isDirectory: true)
-            ?? FileManager.default.temporaryDirectory
-        return LearnerProfileStore(url: dir.appendingPathComponent("profile.json"))
+        // Resolve through the single source of truth (`CoachPaths`) so the writer
+        // here and every reader (CoachProgress, CoachFocusModel, the seed) agree on
+        // the path even on the no-entitlement / nil-container branch.
+        LearnerProfileStore(url: CoachPaths.profileURL())
     }
 
     /// The append-only growth-history log (CI-13): one objective snapshot per
     /// analyzed note, the durable source the Review → progress trends read from.
     private var snapshotStore: CoachSnapshotStore {
-        let dir = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: HexAppGroup.identifier)?
-            .appendingPathComponent("Coach", isDirectory: true)
-            ?? FileManager.default.temporaryDirectory
-        return CoachSnapshotStore(url: dir.appendingPathComponent("snapshots.json"))
+        CoachSnapshotStore(url: CoachPaths.snapshotsURL())
     }
 
     /// Whether coaching is opted in with a usable key — gates the LLM override UI.
