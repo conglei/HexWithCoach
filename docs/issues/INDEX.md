@@ -217,8 +217,26 @@ Design: [macos-companion-phase3-reconcile.md](../macos-companion-phase3-reconcil
 | [MC-R10](MC-R10-audio-sync-optin.md) | Opt-in audio sync (was MC-13) | ◐ | MC-R2, MC-R3 | M | TODO (device verify) |
 | MC-R11 | macOS Settings → native ⌘, window w/ toolbar tabs (+ iCloud toggle, pron-model row) | ➕ | MC-R0 | M | DONE |
 | MC-R12 | macOS History → Mail-style master-detail + Note\|Coaching lens; fix floating toolbar | ➕ | MC-R8 | M | DONE |
+| MC-R13 | macOS History/Coaching design-critique revision (drop raw GOP; transcript→context, cards→hero; disambiguate destructive actions; declutter list; live Recents) | ➕ | MC-R12 | M | DONE |
 
 - **MC-RM1 — Re-founded substrate:** MC-R1, MC-R2 (one shared synced model on the Phase-3 schema).
 - **MC-RM2 — macOS engine + store:** MC-R3, MC-R4 (lean store + Coach v2 on the observation log).
 - **MC-RM3 — Surfaces:** MC-R0, MC-R5, MC-R6, MC-R7, MC-R8 (Coach hub / Practice / Progress / History).
 - **MC-RM4 — Loop + audio:** MC-R9, MC-R10.
+
+### Shipping status (2026-06-29)
+- **Merged to `main` via [#113]:** the companion **foundation** — re-founded shared Phase-3 model, macOS store, Coach v2 engine, window, and surfaces (MC-R1…MC-R10's code that existed at the #113 merge point, i.e. through the Coach hub / Practice / Progress / History / Shadowing). NOTE: #113 merged an early branch snapshot (`be6c10d`).
+- **Open in [#119] (re-synced on `main`, mergeable):** the post-#113 UI polish — **MC-R11** (native ⌘, Settings window + blank-scene fix), **MC-R12** (History master-detail + Note\|Coaching lens), **MC-R13** (design-critique revision), the **new app icon**, History-top-level/Dictation default, and the `mac` target in `sideload_pronunciation.sh`.
+- **Not started / open:**
+  - **MC-R10** — opt-in audio sync (CKAsset on the sidecar). Device-gated.
+  - **Device verification (MC-2)** — live CloudKit Mac↔iOS sync round-trip (needs two devices + iCloud).
+  - **Data-consolidation cleanup** — retire the legacy macOS `@Shared(.transcriptionHistory)` JSON store so the synced SwiftData store is the single source of truth (repoint Copy-Last + remaining TCA readers).
+  - **Engine fix (not UI)** — a stress/pronunciation tip is mis-tagged as the **Fluency** lens; fix the lens classification in the VocoCore coach pipeline.
+  - **Pronunciation model hosting** — the phoneme model is sideload-only; decide hosting (S3/HF) for download-on-demand on both platforms (`PronunciationModelSource.default` is a placeholder).
+
+### Suggested next order
+1. Merge **#119** (lands all the UI polish on `main`).
+2. **Device-verify** the synced foundation (MC-2) on real Mac + iOS — gates everything sync-dependent.
+3. **Data-consolidation cleanup** (retire the legacy JSON store) — small, removes a real footgun.
+4. **MC-R10** opt-in audio sync (after sync is device-verified).
+5. Engine **lens-classification** fix; **model hosting** decision when ready to ship pronunciation broadly.
