@@ -295,7 +295,7 @@ struct TranscriptView: View {
 						Image(systemName: isPlaying ? "stop.fill" : "play.fill")
 					}
 					.buttonStyle(.plain)
-					.foregroundStyle(isPlaying ? .blue : .secondary)
+					.foregroundStyle(isPlaying ? Color.accentColor : .secondary)
 					.help(isPlaying ? "Stop playback" : "Play audio")
 
 					Button(action: onDelete) {

@@ -26,15 +26,17 @@ struct TranscriptionIndicatorView: View {
   var liveTranscript: String = ""
   var livePreviewDisplayMode: LivePreviewDisplayMode = .cursor
 
-  let transcribeBaseColor: Color = .blue
+  /// Brand accent — burnt orange (#ea580c). NSColor form for blending below.
+  private let accentNSColor = NSColor(srgbRed: 0.918, green: 0.345, blue: 0.047, alpha: 1)
+  let transcribeBaseColor: Color = .accentColor
   private var backgroundColor: Color {
     switch status {
     case .hidden: return Color.clear
     case .optionKeyPressed: return Color.black
     case .recording:
       return mixedColor(mixedNSColor(.red, with: .black, by: 0.5), with: .red, by: meter.averagePower * 3)
-    case .transcribing: return mixedColor(.blue, with: .black, by: 0.5)
-    case .prewarming: return mixedColor(.blue, with: .black, by: 0.5)
+    case .transcribing: return mixedColor(accentNSColor, with: .black, by: 0.5)
+    case .prewarming: return mixedColor(accentNSColor, with: .black, by: 0.5)
     }
   }
 
@@ -43,8 +45,8 @@ struct TranscriptionIndicatorView: View {
     case .hidden: return Color.clear
     case .optionKeyPressed: return Color.black
     case .recording: return mixedColor(.red, with: .white, by: 0.1).opacity(0.6)
-    case .transcribing: return mixedColor(.blue, with: .white, by: 0.1).opacity(0.6)
-    case .prewarming: return mixedColor(.blue, with: .white, by: 0.1).opacity(0.6)
+    case .transcribing: return mixedColor(accentNSColor, with: .white, by: 0.1).opacity(0.6)
+    case .prewarming: return mixedColor(accentNSColor, with: .white, by: 0.1).opacity(0.6)
     }
   }
 
