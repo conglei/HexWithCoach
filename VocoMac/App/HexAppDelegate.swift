@@ -8,7 +8,6 @@ private let cacheLogger = HexLog.caches
 
 class HexAppDelegate: NSObject, NSApplicationDelegate {
 	var invisibleWindow: InvisibleWindow?
-	var settingsWindow: NSWindow?
 	var mainWindow: NSWindow?
 	var statusItem: NSStatusItem!
 	private var launchedAtLogin = false
@@ -219,14 +218,16 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 
 	/// Present the macOS companion window (MC-R0): a native, resizable main window
 	/// hosting the standalone SwiftUI learning experience, re-cut to the reconciled
-	/// Phase-3 IA (Coach · History · Settings + a recents pane). Mirrors
-	/// `presentSettingsView()` — an NSWindow whose content is an `NSHostingView`,
-	/// restoring its frame via an autosave name.
+	/// Phase-3 IA (Coach · History + a recents pane). Mirrors `presentSettingsView()`
+	/// — an NSWindow whose content is an `NSHostingView`, restoring its frame via an
+	/// autosave name.
+	///
+	/// Settings is no longer a section here (MC-R11): it lives in its own dedicated
+	/// tabbed window opened via the status menu / ⌘, (`presentSettingsView()`).
 	///
 	/// The shared SwiftData `ModelContainer` (owned by `MacTranscriptStore`, MC-R3) is
 	/// injected into the SwiftUI environment with `.modelContainer(_:)` so the fan-out
-	/// screens (MC-R5 / MC-R8) can `@Query` the synced store. Settings reuses the
-	/// existing TCA `AppView`.
+	/// screens (MC-R5 / MC-R8) can `@Query` the synced store.
 	func presentMainWindow() {
 		// Ensure the window can show + focus even when running as a menu-bar
 		// (LSUIElement / .accessory) app — mirror Settings' activation handling.
@@ -240,8 +241,7 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 			return
 		}
 
-		let settingsContent = AnyView(AppView(store: HexApp.appStore))
-		let rootView = MainWindowView(settingsContent: settingsContent)
+		let rootView = MainWindowView()
 
 		// Inject the shared container when bootstrapped (always true at runtime;
 		// nil only in tests, where this window isn't presented). `MacTranscriptStore`
@@ -278,29 +278,15 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 	}
 
 	func presentSettingsView() {
-		if let settingsWindow = settingsWindow {
-			settingsWindow.makeKeyAndOrderFront(nil)
-			NSApp.activate(ignoringOtherApps: true)
-			return
-		}
-
-		let settingsView = AppView(store: HexApp.appStore)
-		let settingsWindow = NSWindow(
-			contentRect: .init(x: 0, y: 0, width: 700, height: 700),
-			styleMask: [.titled, .fullSizeContentView, .closable, .miniaturizable, .resizable],
-			backing: .buffered,
-			defer: false
-		)
-		settingsWindow.titleVisibility = .visible
-		settingsWindow.contentView = NSHostingView(rootView: settingsView)
-		settingsWindow.isReleasedWhenClosed = false
-		settingsWindow.minSize = .init(width: 620, height: 560)
-		settingsWindow.setFrameAutosaveName("Settings")
-		settingsWindow.center()
-		settingsWindow.toolbarStyle = NSWindow.ToolbarStyle.unified
-		settingsWindow.makeKeyAndOrderFront(nil)
+		// Settings lives in the SwiftUI `Settings {}` scene (HexApp), which hosts the
+		// tabbed `SettingsWindowView` with the native preferences toolbar chrome and
+		// owns ⌘,. Open it from this AppKit status-bar menu via the standard action
+		// (macOS 14+: `showSettingsWindow:`), so there's a single Settings surface.
 		NSApp.activate(ignoringOtherApps: true)
-		self.settingsWindow = settingsWindow
+		if !NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+			// Fallback for older systems.
+			NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+		}
 	}
 
 	@objc private func handleAppModeUpdate() {

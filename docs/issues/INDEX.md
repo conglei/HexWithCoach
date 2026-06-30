@@ -215,6 +215,8 @@ Design: [macos-companion-phase3-reconcile.md](../macos-companion-phase3-reconcil
 | [MC-R8](MC-R8-macos-history.md) | macOS History — Notes\|Dictation + windowed (was MC-11) | ◐ | MC-R3, MC-R0 | S | DONE |
 | [MC-R9](MC-R9-macos-shadowing.md) | macOS Shadowing (was MC-12) | ◐ | MC-R5, MC-R6 | M | DONE |
 | [MC-R10](MC-R10-audio-sync-optin.md) | Opt-in audio sync (was MC-13) | ◐ | MC-R2, MC-R3 | M | TODO (device verify) |
+| MC-R11 | macOS Settings → native ⌘, window w/ toolbar tabs (+ iCloud toggle, pron-model row) | ➕ | MC-R0 | M | DONE |
+| MC-R12 | macOS History → Mail-style master-detail + Note\|Coaching lens; fix floating toolbar | ➕ | MC-R8 | M | DONE |
 
 - **MC-RM1 — Re-founded substrate:** MC-R1, MC-R2 (one shared synced model on the Phase-3 schema).
 - **MC-RM2 — macOS engine + store:** MC-R3, MC-R4 (lean store + Coach v2 on the observation log).
