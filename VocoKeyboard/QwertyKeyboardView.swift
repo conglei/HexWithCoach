@@ -195,12 +195,12 @@ private struct ToolbarTextButton: View {
 private let toolbarHeight: CGFloat = 42
 
 private enum KeyStyle {
-    /// Voco brand gradient — matches the app's primary buttons (HexTheme): vivid
-    /// blue (top-leading) → violet (bottom-trailing). Defined locally because the
-    /// keyboard extension can't import the app target's HexTheme.
+    /// Voco brand gradient — matches the app's primary buttons (HexTheme): a subtle
+    /// same-hue burnt orange (#ea580c, top-leading) → brighter orange (bottom-trailing).
+    /// Defined locally because the keyboard extension can't import the app target's HexTheme.
     static let brand = [
-        Color(red: 0.24, green: 0.45, blue: 0.96),
-        Color(red: 0.58, green: 0.36, blue: 0.97),
+        Color(red: 0.918, green: 0.345, blue: 0.047),
+        Color(red: 0.976, green: 0.451, blue: 0.086),
     ]
     static let brandGradient = LinearGradient(
         colors: brand, startPoint: .topLeading, endPoint: .bottomTrailing

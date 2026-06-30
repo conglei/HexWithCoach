@@ -14,9 +14,9 @@ import SwiftUI
 struct WaveformView: View {
     /// When false the bars rest at a calm baseline (no animation churn).
     var isActive: Bool
-    /// Bar color. Defaults to the accent; pass `.white` on a colored pill so the
-    /// bars don't clash with the fill.
-    var tint: Color = .accentColor
+    /// Bar color. Defaults to the brand orange accent (#ea580c); pass `.white` on a
+    /// colored pill so the bars don't clash with the fill.
+    var tint: Color = Color(red: 0.918, green: 0.345, blue: 0.047)
     /// Bar width/height scale. The toolbar uses a compact variant.
     var barWidth: CGFloat = 4
     var maxHeight: CGFloat = 34

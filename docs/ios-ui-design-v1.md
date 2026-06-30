@@ -98,7 +98,7 @@ The keyboard must render and read clearly in every state:
 
 ## 6. Locked decisions & deferrals
 
-- **Visual identity:** monochrome + single iOS-blue accent for V1. More color later.
+- **Visual identity:** monochrome + single burnt-orange accent (`#ea580c`) for V1. More color later.
 - **Live transcription preview (#237): deferred.** V1 is record → stop → transcribe →
   insert/save. Keep the recording UI simple; design the streaming preview later.
 - **History is unified** (notes + insertions) with a source tag. No split tabs in V1.
