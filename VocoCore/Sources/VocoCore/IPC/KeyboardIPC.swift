@@ -67,6 +67,17 @@ public enum CoachPaths {
         directory(appGroupIdentifier: appGroupIdentifier, fileManager: fileManager)
             .appendingPathComponent("snapshots.json")
     }
+
+    /// The per-week weekly-recap cache JSON (`<Coach>/weekly-summary.json`). CF-fix:
+    /// persists the recap keyed by ISO week + input hash so it stays stable across
+    /// tab visits and only regenerates when the week rolls over or inputs change.
+    public static func weeklySummaryURL(
+        appGroupIdentifier: String = HexAppGroup.identifier,
+        fileManager: FileManager = .default
+    ) -> URL {
+        directory(appGroupIdentifier: appGroupIdentifier, fileManager: fileManager)
+            .appendingPathComponent("weekly-summary.json")
+    }
 }
 
 /// A transcription result handed from the host app to the keyboard.

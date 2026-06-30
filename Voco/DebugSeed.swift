@@ -470,6 +470,16 @@ enum DebugSeed {
                 examples: [example(7, "um, the middle section")]),
         ]
 
+        // CF-fix: the skill map now shows an evidence-grounded TREND, not a numeric
+        // level — and the trend is derived from each lens's pattern status, so the
+        // seed is self-consistent by construction:
+        //   grammar  → "needs work"  (drop-articles is .active, recency today)
+        //   lexis    → "needs work"  (overuse-basically is .active)
+        //   pronunc. → "needs work"  (th-thorough is .active)
+        //   discourse→ "improving"   (tighten-clause is .improving)
+        //   prosody  → "improving"   (fillers-um-uh is .mastered — a win)
+        // The `levels` below are kept only for the older Progress surface; the Coach
+        // "This week" skill map no longer reads them, so they can't mislead the demo.
         var profile = LearnerProfile(
             inferredL1: "Mandarin",
             interferencePatterns: ["article omission", "final-consonant softening"],

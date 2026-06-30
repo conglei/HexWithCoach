@@ -55,7 +55,11 @@ struct CoachFocusView: View {
         .task(id: coach.isAnalyzing) {
             // Build the model lazily (needs the environment's context) and reload
             // whenever an analysis run flips to idle, so a fresh capture's coaching
-            // shows up. The summary is generated + cached inside reload.
+            // shows up. CF-fix: `reload` recomputes the (pure, cheap) surface + stats
+            // every time, but the qualitative recap is read from the per-week
+            // persistent cache — so a normal tab glance triggers NO LLM call and the
+            // wording stays stable. The recap regenerates only when the week rolls
+            // over or the grounded inputs change.
             if model == nil {
                 model = CoachFocusModel(modelContext: modelContext, preferences: preferences)
             }
@@ -120,27 +124,30 @@ struct CoachFocusView: View {
     // MARK: - 1. Weekly summary
 
     private var summarySection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
                     .foregroundStyle(HexTheme.gradient)
                 Text("This week")
                     .font(.headline)
                 Spacer()
-                if let summary = model?.summary, summary.source == .template {
-                    // Honest about the path: a keyless recap is a leaner template.
-                    Text("Recap")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
             }
+
+            // PART 1 — the deterministic stats block. Every number here is computed
+            // by us; the LLM never produces or restates one.
+            if let stats = model?.stats, stats.hasData {
+                statsBlock(stats)
+            }
+
+            // PART 2 — the qualitative, number-free LLM coaching recap (cached per
+            // week). Visually separated from the stats so the two parts never blur.
+            Divider()
             if let summary = model?.summary {
                 Text(summary.text)
                     .font(.callout)
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                // Placeholder while the (cached-after-first) recap generates.
                 Text("Putting together your weekly recap…")
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -148,6 +155,41 @@ struct CoachFocusView: View {
             }
         }
         .hexCard(padding: 18)
+    }
+
+    /// The deterministic metrics row — minutes spoken, notes logged, fillers/min.
+    /// Honest, computed numbers; kept entirely separate from the recap prose.
+    private func statsBlock(_ stats: CoachStats) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            statMetric(value: "\(stats.minutesSpoken)", unit: stats.minutesSpoken == 1 ? "minute" : "minutes", label: "spoken")
+            statDivider
+            statMetric(value: "\(stats.noteCount)", unit: stats.noteCount == 1 ? "note" : "notes", label: "logged")
+            if let fpm = stats.fillersPerMinute {
+                statDivider
+                statMetric(value: String(format: "%.1f", fpm), unit: "/min", label: "fillers")
+            }
+        }
+    }
+
+    private func statMetric(value: String, unit: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value)
+                    .font(.title2.weight(.semibold)).monospacedDigit()
+                    .foregroundStyle(HexTheme.gradient)
+                Text(unit)
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Text(label)
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var statDivider: some View {
+        Rectangle()
+            .fill(Color.secondary.opacity(0.2))
+            .frame(width: 1, height: 32)
     }
 
     // MARK: - 1b. "Today / this week you practiced" strip (CF-3)
@@ -283,33 +325,37 @@ struct CoachFocusView: View {
     }
 
     private func skillRow(_ skill: LensSkill) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text(lensDisplayName(skill.lens)).font(.subheadline.weight(.medium))
-                trendArrow(skill.trend)
-                Spacer()
-                Text("\(skill.level)").font(.subheadline).foregroundStyle(.secondary).monospacedDigit()
-                Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
-            }
-            ProgressView(value: Double(skill.level), total: 100)
-                .tint(HexTheme.gradientColors[0])
+        // CF-fix: the ungrounded numeric "level" is gone. The row shows the lens name
+        // and an honest, evidence-grounded TREND ("needs work" when a pattern is
+        // actively recurring; "improving" on a win; else "steady").
+        HStack(spacing: 8) {
+            Text(lensDisplayName(skill.lens)).font(.subheadline.weight(.medium))
+            Spacer()
+            trendBadge(skill.trend)
+            Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
         }
         .contentShape(Rectangle())
     }
 
+    /// A trend arrow + word for a lens (or focus). Grounded in real pattern signal.
+    private func trendBadge(_ trend: CoachLensTrend) -> some View {
+        Label(trend.label, systemImage: trend.systemImage)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(trendColor(trend))
+    }
+
     @ViewBuilder
-    private func trendArrow(_ trend: ProgressSummary.Trend) -> some View {
+    private func trendArrow(_ trend: CoachLensTrend) -> some View {
+        Image(systemName: trend.systemImage)
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(trendColor(trend))
+    }
+
+    private func trendColor(_ trend: CoachLensTrend) -> Color {
         switch trend {
-        case .improving:
-            Image(systemName: "arrow.up.right")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(HexTheme.gradientColors[0])
-        case .steady:
-            Image(systemName: "arrow.right")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.secondary)
-        case .new:
-            EmptyView()
+        case .improving: HexTheme.gradientColors[0]
+        case .steady: .secondary
+        case .needsWork: HexTheme.gradientColors[0]
         }
     }
 

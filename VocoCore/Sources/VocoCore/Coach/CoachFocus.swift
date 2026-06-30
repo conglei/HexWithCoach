@@ -81,8 +81,8 @@ public struct FocusArea: Sendable, Equatable, Identifiable {
     /// A representative verbatim example span, for the evidence line. nil for
     /// objective rows with no span.
     public var exampleSpan: String?
-    /// The lens's growth-framed trend (from the skill map).
-    public var trend: ProgressSummary.Trend
+    /// The lens's growth-framed, evidence-grounded trend (from the skill map).
+    public var trend: CoachLensTrend
     /// The composed priority score. Higher = surface sooner. Deterministic.
     public var priority: Double
 
@@ -96,7 +96,7 @@ public struct FocusArea: Sendable, Equatable, Identifiable {
         frequency: Int,
         severity: Int,
         exampleSpan: String?,
-        trend: ProgressSummary.Trend,
+        trend: CoachLensTrend,
         priority: Double
     ) {
         self.lens = lens
@@ -117,22 +117,25 @@ public struct FocusArea: Sendable, Equatable, Identifiable {
 
 // MARK: - Skill map entry
 
-/// One lens in the five-lens skill map: its growth-framed level and trend. Tappable
-/// in the UI → lens detail. A thin re-shape of `ProgressSummary.LensProgress` so the
-/// Focus surface has a single, stable model to render.
+/// One lens in the five-lens skill map. CF-fix: the ungrounded numeric `level` is
+/// gone from what the UI and the LLM see — it contradicted the data (DebugSeed put
+/// grammar high while an article-drop pattern was actively recurring). What's left
+/// is an honest, evidence-grounded `trend` (improving / steady / needs work) derived
+/// from the lens's pattern status, plus the active-pattern count that drives it.
+/// Tappable in the UI → lens detail.
 public struct LensSkill: Sendable, Equatable, Identifiable {
     public var lens: Lens
-    public var level: Int
-    public var trend: ProgressSummary.Trend
-    /// Count of patterns still actively recurring in this lens (drives a subtle
-    /// "N to work on" hint without dumping the list).
+    /// The growth-framed, evidence-grounded trend for this lens (CF-fix). Replaces
+    /// the numeric level both on screen and in the LLM grounding block.
+    public var trend: CoachLensTrend
+    /// Count of patterns still actively recurring in this lens (drives the trend and
+    /// a subtle "N to work on" hint without dumping the list).
     public var activeCount: Int
 
     public var id: Lens { lens }
 
-    public init(lens: Lens, level: Int, trend: ProgressSummary.Trend, activeCount: Int) {
+    public init(lens: Lens, trend: CoachLensTrend, activeCount: Int) {
         self.lens = lens
-        self.level = level
         self.trend = trend
         self.activeCount = activeCount
     }
@@ -260,8 +263,13 @@ public enum CoachFocusEngine {
         policy: FocusRankingPolicy = .default
     ) -> CoachFocusSurface {
         let progress = ProgressSummary.make(profile: profile, streak: StreakState())
+        // CF-fix: skill-map trends are grounded in the lens's real pattern status
+        // (an active pattern → "needs work"), not the ungrounded numeric level.
         let skillMap = progress.lenses.map { lens in
-            LensSkill(lens: lens.lens, level: lens.level, trend: lens.trend, activeCount: lens.active)
+            LensSkill(
+                lens: lens.lens,
+                trend: CoachLensTrend.make(lens: lens.lens, patterns: profile.patterns),
+                activeCount: lens.active)
         }
 
         let focuses = rank(facts: facts, profile: profile, progress: progress, now: now, policy: policy)
@@ -314,10 +322,12 @@ public enum CoachFocusEngine {
         let scored: [FocusArea] = byKey.values.compactMap { agg in
             guard agg.freq >= policy.minFrequency else { return nil }
 
-            let trend = progress.progress(for: agg.lens)?.trend ?? .steady
+            // Ranking still uses the profile's pattern-mix trend for the scoring
+            // nudge; the FocusArea exposes the grounded `CoachLensTrend` for display.
+            let rankTrend = progress.progress(for: agg.lens)?.trend ?? .steady
             let priority = priorityScore(
                 frequency: agg.freq, severity: agg.sev, lens: agg.lens,
-                latest: agg.latest, trend: trend, now: now, policy: policy
+                latest: agg.latest, trend: rankTrend, now: now, policy: policy
             )
             guard priority >= policy.minPriority else { return nil }
 
@@ -331,7 +341,8 @@ public enum CoachFocusEngine {
             return FocusArea(
                 lens: agg.lens, key: agg.key, title: title, rule: rule,
                 frequency: agg.freq, severity: agg.sev, exampleSpan: span,
-                trend: trend, priority: priority
+                trend: CoachLensTrend.make(lens: agg.lens, patterns: profile.patterns),
+                priority: priority
             )
         }
 
